@@ -33,11 +33,13 @@ final class SpeechService: SpeechServicing {
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
 
-    /// Confirmed text from earlier utterances. On-device recognition finalizes a
-    /// segment on each pause (isFinal ends the task); we keep the finalized text
-    /// here and start a fresh segment, so the live `transcript` is this plus the
-    /// current segment — pauses never erase earlier content.
+    /// Text banked from earlier utterances. On-device recognition often restarts
+    /// the transcription on a pause — delivering a fresh, shorter string *without*
+    /// `isFinal` — which would erase earlier words. We detect that reset and bank
+    /// the last utterance here, so the live `transcript` is banked + current.
     private var confirmedText: String = ""
+    /// The current utterance's latest text, used to detect a recognizer reset.
+    private var lastSegment: String = ""
     /// True once the user asked to stop, so a final result tears down instead of
     /// starting another segment.
     private var isStopping: Bool = false
@@ -56,6 +58,7 @@ final class SpeechService: SpeechServicing {
         }
         transcript = ""
         confirmedText = ""
+        lastSegment = ""
         isStopping = false
 
         let session = AVAudioSession.sharedInstance()
@@ -93,11 +96,20 @@ final class SpeechService: SpeechServicing {
             // and the segment restart must run on the main actor.
             DispatchQueue.main.async {
                 if let result {
-                    self.transcript = self.merge(self.confirmedText, result.bestTranscription.formattedString)
+                    let segment = result.bestTranscription.formattedString
+                    // If the recognizer restarted the utterance (a pause), bank the
+                    // previous one before it's overwritten.
+                    if self.isReset(from: self.lastSegment, to: segment) {
+                        self.confirmedText = self.merge(self.confirmedText, self.lastSegment)
+                    }
+                    self.lastSegment = segment
+                    self.transcript = self.merge(self.confirmedText, self.lastSegment)
                 }
                 if result?.isFinal ?? false || error != nil {
-                    // Segment ended (pause, or a recoverable error). Keep its text.
-                    self.confirmedText = self.transcript
+                    // Segment ended (pause finalized, or a recoverable error): bank it.
+                    self.confirmedText = self.merge(self.confirmedText, self.lastSegment)
+                    self.lastSegment = ""
+                    self.transcript = self.confirmedText
                     self.task = nil
                     self.request = nil
                     if self.isStopping {
@@ -120,6 +132,16 @@ final class SpeechService: SpeechServicing {
         // The in-flight task delivers its final result and then finishCleanup runs;
         // if there's no task, clean up now.
         if task == nil { finishCleanup() }
+    }
+
+    /// Heuristic: the recognizer restarted the utterance if the new text no
+    /// longer begins with the start of the previous one (a fresh utterance after
+    /// a pause), rather than extending/revising it.
+    private func isReset(from old: String, to new: String) -> Bool {
+        let o = old.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard o.count >= 3 else { return false }
+        let key = String(o.prefix(8)).lowercased()
+        return !new.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix(key)
     }
 
     /// Joins confirmed text and the current segment with a single space.

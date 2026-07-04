@@ -47,12 +47,10 @@ struct CaptureView: View {
                             .allowsHitTesting(false)
                     }
                 }
-
-            if viewModel.speech.isRecording {
-                Text(viewModel.speech.transcript)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+                // Stream the live transcript straight into the text field.
+                .onChange(of: viewModel.speech.transcript) { _, newValue in
+                    if viewModel.speech.isRecording { viewModel.typedText = newValue }
+                }
 
             micButton
 
