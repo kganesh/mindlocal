@@ -6,43 +6,35 @@ protocol SpeechServicing: AnyObject {
     var transcript: String { get }
     var isRecording: Bool { get }
     func requestAuthorization() async -> Bool
-    func startRecording() throws
+    func startRecording() async throws
     func stopRecording()
 }
 
 enum SpeechError: Error {
     case notAuthorized
     case recognizerUnavailable
+    case localeNotSupported
 }
 
-/// On-device speech-to-text. Uses SFSpeechRecognizer with
-/// `requiresOnDeviceRecognition = true` so capture works offline (spec §2).
-///
-/// NOTE for implementer: iOS 26 introduced the newer SpeechAnalyzer /
-/// SpeechTranscriber API with better long-form accuracy. Verify it in current
-/// docs (https://developer.apple.com/documentation/speech) and prefer it if
-/// stable; this SFSpeechRecognizer implementation is the known-good fallback
-/// and the protocol boundary makes swapping trivial.
+/// On-device speech-to-text using the iOS 26 SpeechAnalyzer / SpeechTranscriber
+/// API (spec §2, §7). Unlike SFSpeechRecognizer, this reports *volatile* (live)
+/// vs *finalized* results and never rewrites finalized text, so pauses never
+/// erase earlier content. The live `transcript` is finalized text + the current
+/// volatile chunk.
 @Observable
 final class SpeechService: SpeechServicing {
     private(set) var transcript: String = ""
     private(set) var isRecording: Bool = false
 
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let audioEngine = AVAudioEngine()
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var task: SFSpeechRecognitionTask?
+    private var analyzer: SpeechAnalyzer?
+    private var transcriber: SpeechTranscriber?
+    private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
+    private var resultsTask: Task<Void, Never>?
+    private var analyzerFormat: AVAudioFormat?
 
-    /// Text banked from earlier utterances. On-device recognition often restarts
-    /// the transcription on a pause — delivering a fresh, shorter string *without*
-    /// `isFinal` — which would erase earlier words. We detect that reset and bank
-    /// the last utterance here, so the live `transcript` is banked + current.
-    private var confirmedText: String = ""
-    /// The current utterance's latest text, used to detect a recognizer reset.
-    private var lastSegment: String = ""
-    /// True once the user asked to stop, so a final result tears down instead of
-    /// starting another segment.
-    private var isStopping: Bool = false
+    /// Accumulated finalized text (never rewritten by later results).
+    private var finalizedText: String = ""
 
     func requestAuthorization() async -> Bool {
         let speechOK = await withCheckedContinuation { cont in
@@ -52,112 +44,132 @@ final class SpeechService: SpeechServicing {
         return speechOK && micOK
     }
 
-    func startRecording() throws {
-        guard let recognizer, recognizer.isAvailable else {
-            throw SpeechError.recognizerUnavailable
-        }
+    func startRecording() async throws {
         transcript = ""
-        confirmedText = ""
-        lastSegment = ""
-        isStopping = false
+        finalizedText = ""
 
+        let locale = Locale(identifier: "en-US")
+        let transcriber = SpeechTranscriber(
+            locale: locale,
+            transcriptionOptions: [],
+            reportingOptions: [.volatileResults],
+            attributeOptions: []
+        )
+        self.transcriber = transcriber
+
+        try await ensureModel(for: transcriber, locale: locale)
+
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        self.analyzer = analyzer
+        analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
+
+        // Consume transcription results (runs on the main actor via the enclosing
+        // isolation, so @Observable updates are safe).
+        resultsTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await result in transcriber.results {
+                    let chunk = String(result.text.characters)
+                    if result.isFinal {
+                        self.finalizedText = self.append(self.finalizedText, chunk)
+                        self.transcript = self.finalizedText
+                    } else {
+                        self.transcript = self.append(self.finalizedText, chunk)
+                    }
+                }
+            } catch {
+                // Stream ended with an error; keep what we have.
+            }
+        }
+
+        // Audio session + engine → feed converted buffers into the analyzer.
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.record, mode: .measurement, options: .duckOthers)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
 
+        let (inputSequence, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
+        self.inputContinuation = continuation
+
         let inputNode = audioEngine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            self?.request?.append(buffer)
-        }
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        let outFormat = analyzerFormat
+        let converter = outFormat.map { AVAudioConverter(from: inputFormat, to: $0) } ?? nil
 
-        startSegment()          // create request + task before audio flows
-        audioEngine.prepare()
-        try audioEngine.start()
-        isRecording = true
-    }
-
-    /// Begins recognition for the next utterance, reusing the running audio
-    /// engine/tap so recording is continuous across pauses.
-    private func startSegment() {
-        guard let recognizer, !isStopping else { return }
-
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        // Prefer on-device (privacy + offline, spec §7). The simulator has no
-        // on-device speech model, so fall back to server recognition there so the
-        // capture flow is testable; real hardware always stays on-device.
-        request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
-        request.shouldReportPartialResults = true
-        self.request = request
-
-        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            guard let self else { return }
-            // Recognition callbacks arrive on a background queue; @Observable state
-            // and the segment restart must run on the main actor.
-            DispatchQueue.main.async {
-                if let result {
-                    let segment = result.bestTranscription.formattedString
-                    // If the recognizer restarted the utterance (a pause), bank the
-                    // previous one before it's overwritten.
-                    if self.isReset(from: self.lastSegment, to: segment) {
-                        self.confirmedText = self.merge(self.confirmedText, self.lastSegment)
-                    }
-                    self.lastSegment = segment
-                    self.transcript = self.merge(self.confirmedText, self.lastSegment)
-                }
-                if result?.isFinal ?? false || error != nil {
-                    // Segment ended (pause finalized, or a recoverable error): bank it.
-                    self.confirmedText = self.merge(self.confirmedText, self.lastSegment)
-                    self.lastSegment = ""
-                    self.transcript = self.confirmedText
-                    self.task = nil
-                    self.request = nil
-                    if self.isStopping {
-                        self.finishCleanup()
-                    } else {
-                        self.startSegment()   // continue recording the next utterance
-                    }
-                }
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { buffer, _ in
+            if let converter, let outFormat,
+               let converted = Self.convert(buffer, using: converter, to: outFormat) {
+                continuation.yield(AnalyzerInput(buffer: converted))
+            } else {
+                continuation.yield(AnalyzerInput(buffer: buffer))
             }
         }
+
+        audioEngine.prepare()
+        try audioEngine.start()
+        try await analyzer.start(inputSequence: inputSequence)
+        isRecording = true
     }
 
     func stopRecording() {
         guard isRecording else { return }
-        isStopping = true
-        request?.endAudio()
+        isRecording = false
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
-        isRecording = false
-        // The in-flight task delivers its final result and then finishCleanup runs;
-        // if there's no task, clean up now.
-        if task == nil { finishCleanup() }
+        inputContinuation?.finish()
+        inputContinuation = nil
+
+        let analyzer = self.analyzer
+        Task {
+            try? await analyzer?.finalizeAndFinishThroughEndOfInput()
+            self.resultsTask?.cancel()
+            self.resultsTask = nil
+            self.analyzer = nil
+            self.transcriber = nil
+        }
     }
 
-    /// Heuristic: the recognizer restarted the utterance if the new text no
-    /// longer begins with the start of the previous one (a fresh utterance after
-    /// a pause), rather than extending/revising it.
-    private func isReset(from old: String, to new: String) -> Bool {
-        let o = old.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard o.count >= 3 else { return false }
-        let key = String(o.prefix(8)).lowercased()
-        return !new.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix(key)
+    // MARK: - Helpers
+
+    private func ensureModel(for transcriber: SpeechTranscriber, locale: Locale) async throws {
+        let target = locale.identifier(.bcp47)
+        let supported = await SpeechTranscriber.supportedLocales.map { $0.identifier(.bcp47) }
+        guard supported.contains(target) else { throw SpeechError.localeNotSupported }
+
+        let installed = await SpeechTranscriber.installedLocales.map { $0.identifier(.bcp47) }
+        if installed.contains(target) { return }
+
+        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            try await request.downloadAndInstall()
+        }
     }
 
-    /// Joins confirmed text and the current segment with a single space.
-    private func merge(_ base: String, _ segment: String) -> String {
+    /// Joins finalized chunks with a single space.
+    private func append(_ base: String, _ chunk: String) -> String {
         let b = base.trimmingCharacters(in: .whitespacesAndNewlines)
-        let s = segment.trimmingCharacters(in: .whitespacesAndNewlines)
-        if b.isEmpty { return s }
-        if s.isEmpty { return b }
-        return b + " " + s
+        let c = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        if b.isEmpty { return c }
+        if c.isEmpty { return b }
+        return b + " " + c
     }
 
-    private func finishCleanup() {
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
-        request = nil
-        task = nil
-        isRecording = false
+    /// Converts a mic buffer to the analyzer's format. Runs on the audio thread.
+    nonisolated private static func convert(_ buffer: AVAudioPCMBuffer,
+                                            using converter: AVAudioConverter,
+                                            to format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        let ratio = format.sampleRate / buffer.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1024
+        guard let out = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return nil }
+        var error: NSError?
+        var supplied = false
+        converter.convert(to: out, error: &error) { _, status in
+            if supplied {
+                status.pointee = .noDataNow
+                return nil
+            }
+            supplied = true
+            status.pointee = .haveData
+            return buffer
+        }
+        return error == nil ? out : nil
     }
 }

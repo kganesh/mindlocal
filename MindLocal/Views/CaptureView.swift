@@ -71,7 +71,7 @@ struct CaptureView: View {
             } else {
                 Task {
                     if await viewModel.speech.requestAuthorization() {
-                        try? viewModel.speech.startRecording()
+                        try? await viewModel.speech.startRecording()
                     }
                 }
             }
