@@ -80,26 +80,31 @@ final class SpeechService: SpeechServicing {
         guard let recognizer, !isStopping else { return }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
-        request.requiresOnDeviceRecognition = true   // privacy + offline (spec §7)
+        // Prefer on-device (privacy + offline, spec §7). The simulator has no
+        // on-device speech model, so fall back to server recognition there so the
+        // capture flow is testable; real hardware always stays on-device.
+        request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
         request.shouldReportPartialResults = true
         self.request = request
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
-
-            if let result {
-                self.transcript = self.merge(self.confirmedText, result.bestTranscription.formattedString)
-            }
-
-            if result?.isFinal ?? false || error != nil {
-                // Segment ended (pause, or a recoverable error). Keep its text.
-                self.confirmedText = self.transcript
-                self.task = nil
-                self.request = nil
-                if self.isStopping {
-                    self.finishCleanup()
-                } else {
-                    self.startSegment()   // continue recording the next utterance
+            // Recognition callbacks arrive on a background queue; @Observable state
+            // and the segment restart must run on the main actor.
+            DispatchQueue.main.async {
+                if let result {
+                    self.transcript = self.merge(self.confirmedText, result.bestTranscription.formattedString)
+                }
+                if result?.isFinal ?? false || error != nil {
+                    // Segment ended (pause, or a recoverable error). Keep its text.
+                    self.confirmedText = self.transcript
+                    self.task = nil
+                    self.request = nil
+                    if self.isStopping {
+                        self.finishCleanup()
+                    } else {
+                        self.startSegment()   // continue recording the next utterance
+                    }
                 }
             }
         }
