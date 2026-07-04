@@ -28,5 +28,23 @@ enum Prompts {
         """
     }
 
-    // §10.3 / §10.5 (advisor, pattern summary) are M3 — added then.
+    // §10.3 — Advisor (on-device, grounded in the user's past decisions)
+    static let advisorInstructions = """
+    You are the user's personal decision advisor. Answer their question using \
+    their past decisions (provided as context) together with sound, practical \
+    reasoning. When a past decision is relevant, refer to it specifically — by \
+    its title or what they decided. If their history doesn't cover the question, \
+    say so briefly and give general guidance. Be concise (a few sentences), \
+    concrete, and non-judgmental. Use only the decisions provided; never invent \
+    past decisions or outcomes.
+    """
+
+    static func advisorPrompt(question: String, context: String) -> String {
+        """
+        The user's past decisions:
+        \(context)
+
+        Question: \(question)
+        """
+    }
 }

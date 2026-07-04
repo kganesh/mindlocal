@@ -42,7 +42,9 @@ struct MainTabView: View {
             Tab("Capture", systemImage: "mic.circle.fill") {
                 CaptureView()
             }
-            // Advise tab lands in M3 (spec §9).
+            Tab("Advise", systemImage: "sparkles") {
+                AdviceView()
+            }
         }
     }
 }
