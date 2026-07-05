@@ -4,6 +4,7 @@ import SwiftData
 /// Ask-AI tab: answers questions grounded in the user's saved decisions (spec §9).
 struct AdviceView: View {
     @Query(sort: \Decision.createdAt, order: .reverse) private var decisions: [Decision]
+    @Query(sort: \Experience.createdAt, order: .reverse) private var experiences: [Experience]
     @State private var viewModel = AdviceViewModel()
 
     var body: some View {
@@ -16,8 +17,9 @@ struct AdviceView: View {
                         .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
 
                     Button {
-                        let history = decisions.map(DecisionSummary.init)
-                        Task { await viewModel.ask(history: history) }
+                        let decisionSummaries = decisions.map(DecisionSummary.init)
+                        let experienceSummaries = experiences.map(ExperienceSummary.init)
+                        Task { await viewModel.ask(decisions: decisionSummaries, experiences: experienceSummaries) }
                     } label: {
                         Label("Ask", systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
@@ -29,7 +31,7 @@ struct AdviceView: View {
 
                     Spacer(minLength: 0)
 
-                    Text("Grounded in your \(decisions.count) saved decision\(decisions.count == 1 ? "" : "s"). Runs on-device.")
+                    Text("Grounded in your \(decisions.count) decision\(decisions.count == 1 ? "" : "s") and \(experiences.count) experience\(experiences.count == 1 ? "" : "s"). Runs on-device.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -44,10 +46,10 @@ struct AdviceView: View {
     private var content: some View {
         switch viewModel.phase {
         case .idle:
-            if decisions.isEmpty {
-                hint("Save a few decisions first — answers draw on your decision history.")
+            if decisions.isEmpty && experiences.isEmpty {
+                hint("Save a few decisions or experiences first — answers draw on your history.")
             } else {
-                hint("Try: \"What did I decide about the job offer?\" or \"How do I usually handle money decisions?\"")
+                hint("Try: \"How do I usually handle money decisions?\" or \"What helps me have a good day?\"")
             }
         case .thinking:
             ProgressView("Thinking…")

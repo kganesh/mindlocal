@@ -14,9 +14,24 @@ struct DecisionSummary: Sendable, Identifiable {
     let outcome: String?
 }
 
+/// A compact, Sendable snapshot of a saved experience for advisor context.
+struct ExperienceSummary: Sendable, Identifiable {
+    let id: UUID
+    let createdAt: Date
+    let title: String
+    let summary: String
+    let feelings: String
+    let tone: String
+    let factors: String
+    let learning: String
+    let domain: String
+}
+
 protocol AdvisingServicing: Sendable {
-    /// Answers `question`, grounded in the user's past decisions.
-    func advise(question: String, history: [DecisionSummary]) async throws -> String
+    /// Answers `question`, grounded in the user's past decisions and experiences.
+    func advise(question: String,
+                decisions: [DecisionSummary],
+                experiences: [ExperienceSummary]) async throws -> String
 }
 
 enum AdviceError: Error {
@@ -29,7 +44,9 @@ enum AdviceError: Error {
 /// is a later milestone; for now the most recent decisions are used.)
 final class AdviceService: AdvisingServicing {
 
-    func advise(question: String, history: [DecisionSummary]) async throws -> String {
+    func advise(question: String,
+                decisions: [DecisionSummary],
+                experiences: [ExperienceSummary]) async throws -> String {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { throw AdviceError.noQuestion }
         guard SystemLanguageModel.default.isAvailable else { throw AdviceError.modelUnavailable }
@@ -39,27 +56,42 @@ final class AdviceService: AdvisingServicing {
             instructions: Prompts.advisorInstructions
         )
         let response = try await session.respond(
-            to: Prompts.advisorPrompt(question: q, context: Self.context(from: history))
+            to: Prompts.advisorPrompt(question: q, context: Self.context(decisions: decisions, experiences: experiences))
         )
         return response.content
     }
 
-    /// Formats the most recent decisions into a compact context block.
-    static func context(from history: [DecisionSummary]) -> String {
-        guard !history.isEmpty else { return "(no past decisions on record)" }
-
+    /// Formats the most recent decisions and experiences into a compact context.
+    static func context(decisions: [DecisionSummary], experiences: [ExperienceSummary]) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM"
+        var blocks: [String] = []
 
-        let recent = history.sorted { $0.createdAt > $1.createdAt }.prefix(15)
-        return recent.enumerated().map { index, decision in
-            var lines = ["\(index + 1). [\(decision.domain), \(decision.stakes) stakes, \(formatter.string(from: decision.createdAt))] \(decision.title)"]
-            if !decision.statement.isEmpty { lines.append("   Decided: \(clip(decision.statement))") }
-            if !decision.rationale.isEmpty { lines.append("   Because: \(clip(decision.rationale))") }
-            if let outcome = decision.outcome, !outcome.isEmpty { lines.append("   Outcome: \(clip(outcome))") }
-            return lines.joined(separator: "\n")
+        if !decisions.isEmpty {
+            let recent = decisions.sorted { $0.createdAt > $1.createdAt }.prefix(12)
+            let lines = recent.enumerated().map { index, d -> String in
+                var parts = ["\(index + 1). [\(d.domain), \(d.stakes) stakes, \(formatter.string(from: d.createdAt))] \(d.title)"]
+                if !d.statement.isEmpty { parts.append("   Decided: \(clip(d.statement))") }
+                if !d.rationale.isEmpty { parts.append("   Because: \(clip(d.rationale))") }
+                if let o = d.outcome, !o.isEmpty { parts.append("   Outcome: \(clip(o))") }
+                return parts.joined(separator: "\n")
+            }
+            blocks.append("PAST DECISIONS:\n" + lines.joined(separator: "\n\n"))
         }
-        .joined(separator: "\n\n")
+
+        if !experiences.isEmpty {
+            let recent = experiences.sorted { $0.createdAt > $1.createdAt }.prefix(12)
+            let lines = recent.enumerated().map { index, e -> String in
+                var parts = ["\(index + 1). [\(e.tone), \(e.domain), \(formatter.string(from: e.createdAt))] \(e.title)"]
+                if !e.summary.isEmpty { parts.append("   Happened: \(clip(e.summary))") }
+                if !e.factors.isEmpty { parts.append("   Because: \(clip(e.factors))") }
+                if !e.learning.isEmpty { parts.append("   Takeaway: \(clip(e.learning))") }
+                return parts.joined(separator: "\n")
+            }
+            blocks.append("PAST EXPERIENCES (pleasant to recreate, unpleasant to handle better):\n" + lines.joined(separator: "\n\n"))
+        }
+
+        return blocks.isEmpty ? "(no past decisions or experiences on record)" : blocks.joined(separator: "\n\n")
     }
 
     private static func clip(_ text: String, max: Int = 240) -> String {
@@ -69,11 +101,30 @@ final class AdviceService: AdvisingServicing {
 
 /// Deterministic mock for previews and tests.
 final class MockAdviceService: AdvisingServicing {
-    func advise(question: String, history: [DecisionSummary]) async throws -> String {
-        if history.isEmpty {
-            return "You don't have any saved decisions yet, so I can only offer general guidance."
+    func advise(question: String,
+                decisions: [DecisionSummary],
+                experiences: [ExperienceSummary]) async throws -> String {
+        if decisions.isEmpty && experiences.isEmpty {
+            return "You don't have any saved decisions or experiences yet, so I can only offer general guidance."
         }
-        return "Looking at your past decisions, you tend to weigh budget and long-term growth heavily. For this, I'd lean the same way."
+        return "Drawing on your history — the choices you've made and what you've lived through — I'd lean this way."
+    }
+}
+
+extension ExperienceSummary {
+    @MainActor
+    init(_ experience: Experience) {
+        self.init(
+            id: experience.id,
+            createdAt: experience.createdAt,
+            title: experience.title,
+            summary: experience.summary,
+            feelings: experience.feelings,
+            tone: experience.tone.label,
+            factors: experience.factors,
+            learning: experience.learning,
+            domain: experience.domain.label
+        )
     }
 }
 

@@ -7,6 +7,6 @@ struct MindLocalApp: App {
         WindowGroup {
             RootView()
         }
-        .modelContainer(for: [Decision.self, OptionConsidered.self, Outcome.self])
+        .modelContainer(for: [Decision.self, OptionConsidered.self, Outcome.self, Experience.self])
     }
 }

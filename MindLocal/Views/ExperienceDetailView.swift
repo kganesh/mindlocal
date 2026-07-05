@@ -1,0 +1,40 @@
+import SwiftUI
+import SwiftData
+
+struct ExperienceDetailView: View {
+    @Bindable var experience: Experience
+
+    var body: some View {
+        Form {
+            Section("Experience") {
+                TextField("Title", text: $experience.title)
+                TextField("What happened", text: $experience.summary, axis: .vertical)
+            }
+            Section("How it felt") {
+                Picker("Tone", selection: $experience.toneRaw) {
+                    ForEach(ExperienceTone.allCases) { tone in
+                        Label(tone.label, systemImage: tone.symbol).tag(tone.rawValue)
+                    }
+                }
+                TextField("Feelings", text: $experience.feelings, axis: .vertical)
+                TextField("What made it that way", text: $experience.factors, axis: .vertical)
+            }
+            Section(experience.tone == .pleasant ? "To repeat" : "To handle better") {
+                TextField("What you did", text: $experience.response, axis: .vertical)
+                TextField("Takeaway", text: $experience.learning, axis: .vertical)
+            }
+            Section("Classification") {
+                Picker("Domain", selection: $experience.domainRaw) {
+                    ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+            }
+            if let raw = experience.rawText, !raw.isEmpty {
+                Section("Original note") {
+                    Text(raw).font(.callout).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle(experience.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

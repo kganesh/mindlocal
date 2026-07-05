@@ -9,15 +9,24 @@ final class CaptureViewModel {
     enum Phase: Equatable {
         case input                 // mic or text entry
         case extracting
-        case preview               // editable DecisionDraft
+        case preview               // editable DecisionDraft / ExperienceDraft
         case followUp(question: String, field: String)
-        case notADecision
+        case nothingFound          // note contained no decision / experience
         case error(String)
     }
 
+    /// What the capture is recording — a decision or a lived experience.
+    enum Mode: String, CaseIterable, Identifiable {
+        case decision, experience
+        var id: String { rawValue }
+        var label: String { self == .decision ? "Decision" : "Experience" }
+    }
+
     var phase: Phase = .input
+    var mode: Mode = .decision
     var typedText: String = ""
     var draft: DecisionDraft?
+    var experienceDraft: ExperienceDraft?
     private var followUpsAsked = 0
     private let extraction: ExtractionServicing
     let speech: SpeechServicing
@@ -43,12 +52,23 @@ final class CaptureViewModel {
         DraftStore.save(transcript: transcript)
         phase = .extracting
         do {
-            let extracted = try await extraction.extract(from: transcript)
-            if extracted.isDecision {
-                draft = extracted
-                await advanceToPreviewOrFollowUp(transcript: transcript)
-            } else {
-                phase = .notADecision
+            switch mode {
+            case .decision:
+                let extracted = try await extraction.extract(from: transcript)
+                if extracted.isDecision {
+                    draft = extracted
+                    await advanceToPreviewOrFollowUp(transcript: transcript)
+                } else {
+                    phase = .nothingFound
+                }
+            case .experience:
+                let extracted = try await extraction.extractExperience(from: transcript)
+                if extracted.isExperience {
+                    experienceDraft = extracted
+                    phase = .preview
+                } else {
+                    phase = .nothingFound
+                }
             }
         } catch ExtractionError.modelUnavailable {
             phase = .error("Apple Intelligence isn't available right now. Your note is saved as a draft.")
@@ -97,6 +117,16 @@ final class CaptureViewModel {
         return decision
     }
 
+    /// Returns the Experience to insert; caller owns the ModelContext.
+    func finalizeExperience() -> Experience? {
+        guard let experienceDraft, experienceDraft.isExperience else { return nil }
+        let transcript = typedText.isEmpty ? speech.transcript : typedText
+        let experience = experienceDraft.toExperience(rawText: transcript)
+        DraftStore.clear()
+        reset()
+        return experience
+    }
+
     func discard() {
         DraftStore.clear()
         reset()
@@ -105,7 +135,9 @@ final class CaptureViewModel {
     private func reset() {
         typedText = ""
         draft = nil
+        experienceDraft = nil
         followUpsAsked = 0
         phase = .input
+        // keep `mode` so the user stays in their chosen capture mode
     }
 }

@@ -31,12 +31,12 @@ final class AdviceViewModel {
         return nil
     }
 
-    func ask(history: [DecisionSummary]) async {
+    func ask(decisions: [DecisionSummary], experiences: [ExperienceSummary]) async {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
         phase = .thinking
         do {
-            phase = .answer(try await advisor.advise(question: q, history: history))
+            phase = .answer(try await advisor.advise(question: q, decisions: decisions, experiences: experiences))
         } catch AdviceError.modelUnavailable {
             phase = .error("Apple Intelligence isn't available right now. Please try again later.")
         } catch {

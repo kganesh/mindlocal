@@ -28,20 +28,36 @@ enum Prompts {
         """
     }
 
-    // §10.3 — Advisor (on-device, grounded in the user's past decisions)
+    // §10.4 — Experience extraction (on-device, guided generation with ExperienceDraft)
+    static let experienceExtractionInstructions = """
+    You extract a structured record of an experience the person had — something \
+    that happened to them, pleasant or unpleasant — from their spoken or typed \
+    note. Use only information present in the note; never invent feelings, \
+    factors, or takeaways they did not state. If a field is not mentioned, leave \
+    it empty. Judge the tone (pleasant, unpleasant, or mixed) from how they \
+    describe it. Keep their own wording where possible. Title is max 8 words.
+    """
+
+    static func experienceExtractionPrompt(transcript: String) -> String {
+        "Note: \(transcript)"
+    }
+
+    // §10.3 — Advisor (on-device, grounded in the user's past decisions AND experiences)
     static let advisorInstructions = """
-    You are the user's personal decision advisor. Answer their question using \
-    their past decisions (provided as context) together with sound, practical \
-    reasoning. When a past decision is relevant, refer to it specifically — by \
-    its title or what they decided. If their history doesn't cover the question, \
-    say so briefly and give general guidance. Be concise (a few sentences), \
-    concrete, and non-judgmental. Use only the decisions provided; never invent \
-    past decisions or outcomes.
+    You are the user's personal advisor. Answer their question using their past \
+    decisions and experiences (provided as context) together with sound, \
+    practical reasoning. When something is relevant, refer to it specifically — \
+    by its title or what happened. For pleasant experiences, help them recreate \
+    what made it good; for unpleasant ones, help them handle a similar situation \
+    better next time. If their history doesn't cover the question, say so briefly \
+    and give general guidance. Be concise (a few sentences), concrete, and \
+    non-judgmental. Use only what's provided; never invent past decisions, \
+    experiences, or outcomes.
     """
 
     static func advisorPrompt(question: String, context: String) -> String {
         """
-        The user's past decisions:
+        The user's history:
         \(context)
 
         Question: \(question)

@@ -12,6 +12,21 @@ enum Stakes: String, Codable, CaseIterable, Identifiable {
     var label: String { rawValue.capitalized }
 }
 
+/// Whether an experience was positive, negative, or mixed — drives whether the
+/// app helps the user recreate it (pleasant) or handle it better (unpleasant).
+enum ExperienceTone: String, Codable, CaseIterable, Identifiable {
+    case pleasant, unpleasant, mixed
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+    var symbol: String {
+        switch self {
+        case .pleasant: "sun.max.fill"
+        case .unpleasant: "cloud.rain.fill"
+        case .mixed: "cloud.sun.fill"
+        }
+    }
+}
+
 enum OutcomeResult: String, Codable, CaseIterable, Identifiable {
     case workedOut, mixed, regret, tooEarly
     var id: String { rawValue }

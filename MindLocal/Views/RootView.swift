@@ -39,6 +39,9 @@ struct MainTabView: View {
             Tab("Decisions", systemImage: "list.bullet.rectangle") {
                 DecisionListView()
             }
+            Tab("Experiences", systemImage: "sparkle") {
+                ExperienceListView()
+            }
             Tab("Capture", systemImage: "mic.circle.fill") {
                 CaptureView()
             }

@@ -3,6 +3,7 @@ import FoundationModels
 
 protocol ExtractionServicing: Sendable {
     func extract(from transcript: String) async throws -> DecisionDraft
+    func extractExperience(from transcript: String) async throws -> ExperienceDraft
     func followUpQuestion(draftSummary: String, missingField: String) async throws -> String
 }
 
@@ -24,6 +25,21 @@ final class ExtractionService: ExtractionServicing {
         let response = try await session.respond(
             to: Prompts.extractionPrompt(transcript: transcript),
             generating: DecisionDraft.self
+        )
+        return response.content
+    }
+
+    func extractExperience(from transcript: String) async throws -> ExperienceDraft {
+        guard SystemLanguageModel.default.isAvailable else {
+            throw ExtractionError.modelUnavailable
+        }
+        let session = LanguageModelSession(
+            model: .default,
+            instructions: Prompts.experienceExtractionInstructions
+        )
+        let response = try await session.respond(
+            to: Prompts.experienceExtractionPrompt(transcript: transcript),
+            generating: ExperienceDraft.self
         )
         return response.content
     }
@@ -54,6 +70,20 @@ final class MockExtractionService: ExtractionServicing {
             rationale: "Budget matters more than schedule right now.",
             domain: "money",
             stakes: "medium"
+        )
+    }
+
+    func extractExperience(from transcript: String) async throws -> ExperienceDraft {
+        ExperienceDraft(
+            title: "Great morning run by the river",
+            summary: "I went for a run along the river at sunrise and felt fantastic.",
+            feelings: "Energized, calm, proud.",
+            tone: "pleasant",
+            factors: "Quiet trail, cool weather, going before work.",
+            response: "Kept an easy pace and stopped to watch the sunrise.",
+            learning: "Morning runs set up my whole day — do this more often.",
+            tags: ["health", "morning"],
+            domain: "health"
         )
     }
 

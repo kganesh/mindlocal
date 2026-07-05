@@ -15,13 +15,15 @@ struct CaptureView: View {
                 case .extracting:
                     ProgressView("Understanding your note…")
                 case .preview:
-                    if viewModel.draft != nil {
+                    if viewModel.mode == .experience, viewModel.experienceDraft != nil {
+                        ExperiencePreviewView(viewModel: viewModel, onSave: saveExperience)
+                    } else if viewModel.draft != nil {
                         DraftPreviewView(viewModel: viewModel, onSave: save)
                     }
                 case .followUp(let question, let field):
                     FollowUpView(question: question, field: field, viewModel: viewModel)
-                case .notADecision:
-                    notADecisionView
+                case .nothingFound:
+                    nothingFoundView
                 case .error(let message):
                     errorView(message)
                 }
@@ -35,13 +37,22 @@ struct CaptureView: View {
 
     private var inputView: some View {
         VStack(spacing: 24) {
+            Picker("Mode", selection: $viewModel.mode) {
+                ForEach(CaptureViewModel.Mode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
             TextEditor(text: $viewModel.typedText)
                 .frame(minHeight: 120)
                 .padding(8)
                 .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
                 .overlay(alignment: .topLeading) {
                     if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
-                        Text("What did you decide? Speak or type freely…")
+                        Text(viewModel.mode == .decision
+                             ? "What did you decide? Speak or type freely…"
+                             : "What happened? Speak or type freely…")
                             .foregroundStyle(.secondary)
                             .padding(16)
                             .allowsHitTesting(false)
@@ -83,11 +94,14 @@ struct CaptureView: View {
         .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Start recording")
     }
 
-    private var notADecisionView: some View {
+    private var nothingFoundView: some View {
         ContentUnavailableView {
-            Label("No Decision Found", systemImage: "questionmark.bubble")
+            Label(viewModel.mode == .decision ? "No Decision Found" : "No Experience Found",
+                  systemImage: "questionmark.bubble")
         } description: {
-            Text("This note doesn't seem to contain a decision.")
+            Text(viewModel.mode == .decision
+                 ? "This note doesn't seem to contain a decision."
+                 : "This note doesn't seem to describe an experience.")
         } actions: {
             Button("Edit Note") { viewModel.phase = .input }
             Button("Discard", role: .destructive) { viewModel.discard() }
@@ -108,6 +122,12 @@ struct CaptureView: View {
     private func save() {
         if let decision = viewModel.finalizeDecision() {
             modelContext.insert(decision)
+        }
+    }
+
+    private func saveExperience() {
+        if let experience = viewModel.finalizeExperience() {
+            modelContext.insert(experience)
         }
     }
 }
