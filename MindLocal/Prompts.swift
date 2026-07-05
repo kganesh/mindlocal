@@ -70,17 +70,21 @@ enum Prompts {
     decisions and experiences (provided as context). Give brief, proactive, \
     practical guidance: what worked before and should be repeated, what went \
     wrong before and should be avoided, and two or three concrete things to do \
-    or ask at the event. Refer to specific past items when relevant. Use only \
-    what's provided — never invent past decisions, experiences, or outcomes. If \
-    the context is thin, keep it short. Be concise, warm, and non-judgmental.
+    or ask at the event. Refer to specific past items when relevant. If a \
+    weather forecast is given for an outdoor event, factor it in (what to wear \
+    or bring, or an indoor backup). Use only what's provided — never invent past \
+    decisions, experiences, or outcomes. If the context is thin, keep it short. \
+    Be concise, warm, and non-judgmental.
     """
 
-    static func eventAdvisorPrompt(event: String, when: String, context: String) -> String {
-        """
-        Upcoming event: \(event) (\(when))
-
-        The user's relevant history:
-        \(context)
-        """
+    static func eventAdvisorPrompt(event: String, when: String, weather: String?, context: String) -> String {
+        var lines = ["Upcoming event: \(event) (\(when))"]
+        if let weather, !weather.isEmpty {
+            lines.append("Weather forecast (outdoor event): \(weather)")
+        }
+        lines.append("")
+        lines.append("The user's relevant history:")
+        lines.append(context)
+        return lines.joined(separator: "\n")
     }
 }

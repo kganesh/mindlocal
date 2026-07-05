@@ -35,9 +35,11 @@ protocol AdvisingServicing: Sendable {
                 experiences: [ExperienceSummary]) async throws -> String
 
     /// Proactive preparation advice for an upcoming event, grounded in the
-    /// (already-filtered, relevant) decisions and experiences.
+    /// (already-filtered, relevant) decisions and experiences, optionally
+    /// factoring in a weather forecast for outdoor events.
     func eventAdvice(event: String,
                      when: Date,
+                     weather: String?,
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String
 }
@@ -71,6 +73,7 @@ final class AdviceService: AdvisingServicing {
 
     func eventAdvice(event: String,
                      when: Date,
+                     weather: String?,
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String {
         guard SystemLanguageModel.default.isAvailable else { throw AdviceError.modelUnavailable }
@@ -86,6 +89,7 @@ final class AdviceService: AdvisingServicing {
             to: Prompts.eventAdvisorPrompt(
                 event: event,
                 when: formatter.string(from: when),
+                weather: weather,
                 context: Self.context(decisions: decisions, experiences: experiences)
             )
         )
@@ -143,6 +147,7 @@ final class MockAdviceService: AdvisingServicing {
 
     func eventAdvice(event: String,
                      when: Date,
+                     weather: String?,
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String {
         "Before \(event): last time something similar came up it went reasonably well — repeat what worked, and jot down two questions to ask."

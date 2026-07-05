@@ -188,6 +188,8 @@ struct EventFormView: View {
     @State private var date = Date.now
     @State private var domain: Domain = .other
     @State private var notes = ""
+    @State private var location = ""
+    @State private var isOutdoor = false
 
     var body: some View {
         NavigationStack {
@@ -200,6 +202,12 @@ struct EventFormView: View {
                     }
                     TextField("Notes (optional)", text: $notes, axis: .vertical)
                 }
+                Section {
+                    Toggle("Outdoor event", isOn: $isOutdoor)
+                    TextField("Location (city or address)", text: $location)
+                } footer: {
+                    Text("For outdoor events with a location, advice factors in the weather forecast.")
+                }
             }
             .navigationTitle("New Event")
             .navigationBarTitleDisplayMode(.inline)
@@ -209,7 +217,8 @@ struct EventFormView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        onSave(Event(title: title, notes: notes, date: date, domain: domain))
+                        onSave(Event(title: title, notes: notes, date: date,
+                                     location: location, isOutdoor: isOutdoor, domain: domain))
                         dismiss()
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

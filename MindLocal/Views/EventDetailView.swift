@@ -2,14 +2,17 @@ import SwiftUI
 import SwiftData
 
 /// Shows an event and proactively generates advice grounded in the user's
-/// relevant past decisions and experiences (auto on open, cached, with refresh).
+/// relevant past decisions and experiences (auto on open, cached). For outdoor
+/// events with a location, it also factors in the weather forecast.
 struct EventDetailView: View {
     @Bindable var event: Event
     @Query private var decisions: [Decision]
     @Query private var experiences: [Experience]
 
     @State private var phase: Phase = .idle
+    @State private var weatherLine: String?
     private let advisor: AdvisingServicing = AdviceService()
+    private let weather: WeatherProviding = WeatherKitService()
 
     enum Phase: Equatable {
         case idle, thinking, ready, noHistory, error(String)
@@ -26,12 +29,22 @@ struct EventDetailView: View {
                 TextField("Notes", text: $event.notes, axis: .vertical)
             }
 
+            Section("Setting") {
+                Toggle("Outdoor event", isOn: $event.isOutdoor)
+                TextField("Location (city or address)", text: $event.location)
+                if let weatherLine {
+                    Label(weatherLine, systemImage: "cloud.sun")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section {
                 adviceContent
             } header: {
                 Label("Suggested advice", systemImage: "sparkles")
             } footer: {
-                Text("Grounded only in your own logged decisions and experiences. On-device.")
+                Text("Grounded in your logged decisions and experiences (on-device). Weather uses Apple WeatherKit.")
             }
         }
         .navigationTitle("Event")
@@ -61,6 +74,7 @@ struct EventDetailView: View {
 
     private func generate() async {
         phase = .thinking
+
         let decisionSummaries = decisions.map(DecisionSummary.init)
         let experienceSummaries = experiences.map(ExperienceSummary.init)
         let keywords = EventMatcher.keywords("\(event.title) \(event.notes)")
@@ -74,10 +88,21 @@ struct EventDetailView: View {
             phase = .noHistory
             return
         }
+
+        // Weather only for outdoor, upcoming events with a location.
+        var weatherText: String?
+        if event.isOutdoor, !event.location.isEmpty, event.date > .now {
+            if let summary = await weather.forecast(location: event.location, date: event.date) {
+                weatherText = summary.line
+                weatherLine = summary.line
+            }
+        }
+
         do {
             let advice = try await advisor.eventAdvice(
                 event: event.title,
                 when: event.date,
+                weather: weatherText,
                 decisions: relevant.decisions,
                 experiences: relevant.experiences
             )
@@ -87,7 +112,7 @@ struct EventDetailView: View {
         } catch AdviceError.modelUnavailable {
             phase = .error("Apple Intelligence isn't available right now.")
         } catch {
-            phase = .error("Couldn't generate advice. Try Refresh.")
+            phase = .error("Couldn't generate advice.")
         }
     }
 }
