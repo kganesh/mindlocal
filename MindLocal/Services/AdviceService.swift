@@ -25,6 +25,7 @@ struct ExperienceSummary: Sendable, Identifiable {
     let factors: String
     let learning: String
     let domain: String
+    let tags: [String]
 }
 
 protocol AdvisingServicing: Sendable {
@@ -32,6 +33,13 @@ protocol AdvisingServicing: Sendable {
     func advise(question: String,
                 decisions: [DecisionSummary],
                 experiences: [ExperienceSummary]) async throws -> String
+
+    /// Proactive preparation advice for an upcoming event, grounded in the
+    /// (already-filtered, relevant) decisions and experiences.
+    func eventAdvice(event: String,
+                     when: Date,
+                     decisions: [DecisionSummary],
+                     experiences: [ExperienceSummary]) async throws -> String
 }
 
 enum AdviceError: Error {
@@ -57,6 +65,29 @@ final class AdviceService: AdvisingServicing {
         )
         let response = try await session.respond(
             to: Prompts.advisorPrompt(question: q, context: Self.context(decisions: decisions, experiences: experiences))
+        )
+        return response.content
+    }
+
+    func eventAdvice(event: String,
+                     when: Date,
+                     decisions: [DecisionSummary],
+                     experiences: [ExperienceSummary]) async throws -> String {
+        guard SystemLanguageModel.default.isAvailable else { throw AdviceError.modelUnavailable }
+
+        let session = LanguageModelSession(
+            model: .default,
+            instructions: Prompts.eventAdvisorInstructions
+        )
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        let response = try await session.respond(
+            to: Prompts.eventAdvisorPrompt(
+                event: event,
+                when: formatter.string(from: when),
+                context: Self.context(decisions: decisions, experiences: experiences)
+            )
         )
         return response.content
     }
@@ -109,6 +140,13 @@ final class MockAdviceService: AdvisingServicing {
         }
         return "Drawing on your history — the choices you've made and what you've lived through — I'd lean this way."
     }
+
+    func eventAdvice(event: String,
+                     when: Date,
+                     decisions: [DecisionSummary],
+                     experiences: [ExperienceSummary]) async throws -> String {
+        "Before \(event): last time something similar came up it went reasonably well — repeat what worked, and jot down two questions to ask."
+    }
 }
 
 extension ExperienceSummary {
@@ -123,7 +161,8 @@ extension ExperienceSummary {
             tone: experience.tone.label,
             factors: experience.factors,
             learning: experience.learning,
-            domain: experience.domain.label
+            domain: experience.domain.label,
+            tags: experience.tags
         )
     }
 }

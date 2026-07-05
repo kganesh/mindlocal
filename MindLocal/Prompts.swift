@@ -63,4 +63,24 @@ enum Prompts {
         Question: \(question)
         """
     }
+
+    // §10.5 — Event preparation (proactive advice for an upcoming calendar event)
+    static let eventAdvisorInstructions = """
+    You help the user prepare for an upcoming event using only their own past \
+    decisions and experiences (provided as context). Give brief, proactive, \
+    practical guidance: what worked before and should be repeated, what went \
+    wrong before and should be avoided, and two or three concrete things to do \
+    or ask at the event. Refer to specific past items when relevant. Use only \
+    what's provided — never invent past decisions, experiences, or outcomes. If \
+    the context is thin, keep it short. Be concise, warm, and non-judgmental.
+    """
+
+    static func eventAdvisorPrompt(event: String, when: String, context: String) -> String {
+        """
+        Upcoming event: \(event) (\(when))
+
+        The user's relevant history:
+        \(context)
+        """
+    }
 }

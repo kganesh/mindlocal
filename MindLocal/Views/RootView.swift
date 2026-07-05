@@ -45,6 +45,9 @@ struct MainTabView: View {
             Tab("Capture", systemImage: "mic.circle.fill") {
                 CaptureView()
             }
+            Tab("Calendar", systemImage: "calendar") {
+                CalendarView()
+            }
             Tab("Advise", systemImage: "sparkles") {
                 AdviceView()
             }
