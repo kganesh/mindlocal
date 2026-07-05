@@ -36,17 +36,14 @@ struct RootView: View {
 struct MainTabView: View {
     var body: some View {
         TabView {
+            Tab("Timeline", systemImage: "calendar") {
+                CalendarView()
+            }
             Tab("Decisions", systemImage: "list.bullet.rectangle") {
                 DecisionListView()
             }
             Tab("Experiences", systemImage: "sparkle") {
                 ExperienceListView()
-            }
-            Tab("Capture", systemImage: "mic.circle.fill") {
-                CaptureView()
-            }
-            Tab("Calendar", systemImage: "calendar") {
-                CalendarView()
             }
             Tab("Advise", systemImage: "sparkles") {
                 AdviceView()

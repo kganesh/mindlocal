@@ -1,82 +1,181 @@
 import SwiftUI
 import SwiftData
 
-/// Calendar of upcoming (and past) events, each with proactive, history-grounded
-/// advice generated when you open it.
+/// The app's home: a unified chronological timeline of events, decisions, and
+/// experiences. The "+" is the main entry point to add any of them.
 struct CalendarView: View {
-    @Query(sort: \Event.date, order: .forward) private var events: [Event]
+    @Query private var events: [Event]
+    @Query private var decisions: [Decision]
+    @Query private var experiences: [Experience]
     @Environment(\.modelContext) private var modelContext
-    @State private var showingAdd = false
+    @State private var addSheet: AddSheet?
 
-    private var upcoming: [Event] { events.filter { $0.date >= startOfToday } }
-    private var past: [Event] { events.filter { $0.date < startOfToday }.reversed() }
-    private var startOfToday: Date { Calendar.current.startOfDay(for: .now) }
+    private var allItems: [TimelineItem] {
+        events.map(TimelineItem.event)
+        + decisions.map(TimelineItem.decision)
+        + experiences.map(TimelineItem.experience)
+    }
+    private var upcoming: [TimelineItem] {
+        allItems.filter { $0.date > .now }.sorted { $0.date < $1.date }
+    }
+    private var past: [TimelineItem] {
+        allItems.filter { $0.date <= .now }.sorted { $0.date > $1.date }
+    }
 
     var body: some View {
         NavigationStack {
             List {
                 if !upcoming.isEmpty {
                     Section("Upcoming") {
-                        ForEach(upcoming) { event in link(event) }
+                        ForEach(upcoming) { row($0) }
                             .onDelete { delete($0, from: upcoming) }
                     }
                 }
                 if !past.isEmpty {
-                    Section("Past") {
-                        ForEach(past) { event in link(event) }
+                    Section("Timeline") {
+                        ForEach(past) { row($0) }
                             .onDelete { delete($0, from: past) }
                     }
                 }
             }
             .overlay {
-                if events.isEmpty {
+                if allItems.isEmpty {
                     ContentUnavailableView(
-                        "No Events Yet",
+                        "Nothing Yet",
                         systemImage: "calendar",
-                        description: Text("Add an event and get advice grounded in your past decisions and experiences.")
+                        description: Text("Tap + to add an event, decision, or experience.")
                     )
                 }
             }
-            .navigationTitle("Calendar")
+            .navigationTitle("Timeline")
             .toolbar {
-                Button { showingAdd = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("Add Event")
-            }
-            .navigationDestination(for: UUID.self) { id in
-                if let event = events.first(where: { $0.id == id }) {
-                    EventDetailView(event: event)
+                Menu {
+                    Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
+                    Button { addSheet = .decision } label: { Label("New Decision", systemImage: "checklist") }
+                    Button { addSheet = .experience } label: { Label("New Experience", systemImage: "sparkle") }
+                } label: {
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel("Add")
             }
-            .sheet(isPresented: $showingAdd) {
-                EventFormView { event in modelContext.insert(event) }
+            .sheet(item: $addSheet) { sheet in
+                switch sheet {
+                case .event:      EventFormView { modelContext.insert($0) }
+                case .decision:   CaptureView(initialMode: .decision)
+                case .experience: CaptureView(initialMode: .experience)
+                }
             }
         }
     }
 
-    private func link(_ event: Event) -> some View {
-        NavigationLink(value: event.id) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.title).font(.headline)
-                HStack(spacing: 8) {
-                    Image(systemName: "calendar")
-                    Text(event.date, format: .dateTime.month().day().hour().minute())
+    private func row(_ item: TimelineItem) -> some View {
+        NavigationLink {
+            destination(for: item)
+        } label: {
+            TimelineRow(item: item)
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for item: TimelineItem) -> some View {
+        switch item {
+        case .event(let event):           EventDetailView(event: event)
+        case .decision(let decision):      DecisionDetailView(decision: decision)
+        case .experience(let experience):  ExperienceDetailView(experience: experience)
+        }
+    }
+
+    private func delete(_ offsets: IndexSet, from list: [TimelineItem]) {
+        for index in offsets where list.indices.contains(index) {
+            switch list[index] {
+            case .event(let e):      modelContext.delete(e)
+            case .decision(let d):   modelContext.delete(d)
+            case .experience(let x): modelContext.delete(x)
+            }
+        }
+    }
+
+    enum AddSheet: String, Identifiable {
+        case event, decision, experience
+        var id: String { rawValue }
+    }
+}
+
+/// A single timeline entry — event, decision, or experience.
+enum TimelineItem: Identifiable {
+    case event(Event)
+    case decision(Decision)
+    case experience(Experience)
+
+    var id: String {
+        switch self {
+        case .event(let e):      "event-\(e.id)"
+        case .decision(let d):   "decision-\(d.id)"
+        case .experience(let x): "experience-\(x.id)"
+        }
+    }
+
+    var date: Date {
+        switch self {
+        case .event(let e):      e.date
+        case .decision(let d):   d.timelineDate
+        case .experience(let x): x.timelineDate
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .event(let e):      e.title
+        case .decision(let d):   d.title
+        case .experience(let x): x.title
+        }
+    }
+
+    var kind: String {
+        switch self {
+        case .event:      "Event"
+        case .decision:   "Decision"
+        case .experience: "Experience"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .event:            "calendar"
+        case .decision:         "checklist"
+        case .experience(let x): x.tone.symbol
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .event:      .blue
+        case .decision:   .indigo
+        case .experience(let x): x.tone == .pleasant ? .yellow : x.tone == .unpleasant ? .purple : .orange
+        }
+    }
+}
+
+private struct TimelineRow: View {
+    let item: TimelineItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: item.icon)
+                .foregroundStyle(item.tint)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).font(.headline).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(item.kind)
                     Text("·")
-                    Text(event.domain.label)
-                    if event.generatedAdvice != nil {
-                        Image(systemName: "sparkles").foregroundStyle(.purple)
-                    }
+                    Text(item.date, format: .dateTime.month().day().year())
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 2)
         }
-    }
-
-    private func delete(_ offsets: IndexSet, from list: [Event]) {
-        for index in offsets where list.indices.contains(index) {
-            modelContext.delete(list[index])
-        }
+        .padding(.vertical, 2)
     }
 }
 

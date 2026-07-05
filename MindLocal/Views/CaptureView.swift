@@ -2,9 +2,12 @@ import SwiftUI
 import SwiftData
 
 struct CaptureView: View {
+    var initialMode: CaptureViewModel.Mode = .decision
     @State private var viewModel = CaptureViewModel()
+    @State private var didApplyInitialMode = false
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -28,7 +31,16 @@ struct CaptureView: View {
                     errorView(message)
                 }
             }
-            .navigationTitle("Capture")
+            .navigationTitle(viewModel.mode == .decision ? "New Decision" : "New Experience")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { viewModel.discard(); dismiss() }
+                }
+            }
+            .onAppear {
+                if !didApplyInitialMode { viewModel.mode = initialMode; didApplyInitialMode = true }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background { viewModel.persistWorkInProgress() }
             }
@@ -123,12 +135,14 @@ struct CaptureView: View {
         if let decision = viewModel.finalizeDecision() {
             modelContext.insert(decision)
         }
+        dismiss()
     }
 
     private func saveExperience() {
         if let experience = viewModel.finalizeExperience() {
             modelContext.insert(experience)
         }
+        dismiss()
     }
 }
 

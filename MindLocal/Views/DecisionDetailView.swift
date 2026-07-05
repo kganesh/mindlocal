@@ -32,6 +32,13 @@ struct DecisionDetailView: View {
                 TextField("Rationale", text: $decision.rationale, axis: .vertical)
             }
             Section("Classification") {
+                DatePicker(
+                    "When you decided",
+                    selection: Binding(
+                        get: { decision.occurredAt ?? decision.createdAt },
+                        set: { decision.occurredAt = $0 }
+                    )
+                )
                 Picker("Domain", selection: $decision.domainRaw) {
                     ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }
                 }

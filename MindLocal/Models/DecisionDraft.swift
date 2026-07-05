@@ -51,7 +51,7 @@ extension DecisionDraft {
         return missing
     }
 
-    func toDecision(rawTranscript: String?) -> Decision {
+    func toDecision(rawTranscript: String?, occurredAt: Date?) -> Decision {
         Decision(
             title: title.isEmpty ? String(statement.prefix(48)) : title,
             statement: statement,
@@ -65,7 +65,8 @@ extension DecisionDraft {
             rationale: rationale,
             domain: Domain(rawValue: domain) ?? .other,
             stakes: Stakes(rawValue: stakes) ?? .medium,
-            rawTranscript: rawTranscript
+            rawTranscript: rawTranscript,
+            occurredAt: occurredAt
         )
     }
 }

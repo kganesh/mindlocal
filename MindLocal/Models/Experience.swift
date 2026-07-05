@@ -24,6 +24,9 @@ final class Experience {
     var domainRaw: String
     var rawText: String?
     var embedding: [Float]
+    /// When the experience actually happened (for the timeline). Optional so
+    /// existing records migrate cleanly; falls back to `createdAt`.
+    var occurredAt: Date?
 
     var tone: ExperienceTone {
         get { ExperienceTone(rawValue: toneRaw) ?? .mixed }
@@ -33,6 +36,8 @@ final class Experience {
         get { Domain(rawValue: domainRaw) ?? .other }
         set { domainRaw = newValue.rawValue }
     }
+    /// Chronological anchor for the timeline.
+    var timelineDate: Date { occurredAt ?? createdAt }
 
     init(
         id: UUID = UUID(),
@@ -47,10 +52,12 @@ final class Experience {
         tags: [String] = [],
         domain: Domain = .other,
         rawText: String? = nil,
-        embedding: [Float] = []
+        embedding: [Float] = [],
+        occurredAt: Date? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
+        self.occurredAt = occurredAt
         self.title = title
         self.summary = summary
         self.feelings = feelings

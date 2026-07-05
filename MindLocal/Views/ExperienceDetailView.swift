@@ -24,6 +24,13 @@ struct ExperienceDetailView: View {
                 TextField("Takeaway", text: $experience.learning, axis: .vertical)
             }
             Section("Classification") {
+                DatePicker(
+                    "When it happened",
+                    selection: Binding(
+                        get: { experience.occurredAt ?? experience.createdAt },
+                        set: { experience.occurredAt = $0 }
+                    )
+                )
                 Picker("Domain", selection: $experience.domainRaw) {
                     ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }
                 }

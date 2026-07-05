@@ -31,6 +31,9 @@ struct DraftPreviewView: View {
                 Section("Rationale") {
                     TextField("Why this choice", text: binding(\.rationale), axis: .vertical)
                 }
+                Section("When") {
+                    DatePicker("When you decided", selection: $viewModel.occurredAt)
+                }
                 Section("Classification") {
                     Picker("Domain", selection: binding(\.domain)) {
                         ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }

@@ -27,6 +27,8 @@ final class CaptureViewModel {
     var typedText: String = ""
     var draft: DecisionDraft?
     var experienceDraft: ExperienceDraft?
+    /// When the decision was made / the experience happened (editable in review).
+    var occurredAt: Date = .now
     private var followUpsAsked = 0
     private let extraction: ExtractionServicing
     let speech: SpeechServicing
@@ -111,7 +113,7 @@ final class CaptureViewModel {
     func finalizeDecision() -> Decision? {
         guard let draft, draft.isDecision else { return nil }
         let transcript = typedText.isEmpty ? speech.transcript : typedText
-        let decision = draft.toDecision(rawTranscript: transcript)
+        let decision = draft.toDecision(rawTranscript: transcript, occurredAt: occurredAt)
         DraftStore.clear()
         reset()
         return decision
@@ -121,7 +123,7 @@ final class CaptureViewModel {
     func finalizeExperience() -> Experience? {
         guard let experienceDraft, experienceDraft.isExperience else { return nil }
         let transcript = typedText.isEmpty ? speech.transcript : typedText
-        let experience = experienceDraft.toExperience(rawText: transcript)
+        let experience = experienceDraft.toExperience(rawText: transcript, occurredAt: occurredAt)
         DraftStore.clear()
         reset()
         return experience
@@ -136,6 +138,7 @@ final class CaptureViewModel {
         typedText = ""
         draft = nil
         experienceDraft = nil
+        occurredAt = .now
         followUpsAsked = 0
         phase = .input
         // keep `mode` so the user stays in their chosen capture mode

@@ -39,7 +39,7 @@ extension ExperienceDraft {
         !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    func toExperience(rawText: String?) -> Experience {
+    func toExperience(rawText: String?, occurredAt: Date?) -> Experience {
         Experience(
             title: title.isEmpty ? String(summary.prefix(48)) : title,
             summary: summary,
@@ -50,7 +50,8 @@ extension ExperienceDraft {
             learning: learning,
             tags: tags.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
             domain: Domain(rawValue: domain) ?? .other,
-            rawText: rawText
+            rawText: rawText,
+            occurredAt: occurredAt
         )
     }
 }

@@ -26,6 +26,9 @@ struct ExperiencePreviewView: View {
                     TextField(toneIsPleasant ? "What to do again" : "What would help next time",
                               text: binding(\.learning), axis: .vertical)
                 }
+                Section("When") {
+                    DatePicker("When it happened", selection: $viewModel.occurredAt)
+                }
                 Section("Classification") {
                     Picker("Domain", selection: binding(\.domain)) {
                         ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }

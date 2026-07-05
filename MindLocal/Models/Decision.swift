@@ -16,6 +16,9 @@ final class Decision {
     @Relationship(deleteRule: .cascade) var outcome: Outcome?
     var rawTranscript: String?
     var embedding: [Float]   // populated in M2; empty in M1
+    /// When the decision was actually made (for the timeline). Optional so
+    /// existing records migrate cleanly; falls back to `createdAt`.
+    var occurredAt: Date?
 
     var domain: Domain {
         get { Domain(rawValue: domainRaw) ?? .other }
@@ -25,6 +28,8 @@ final class Decision {
         get { Stakes(rawValue: stakesRaw) ?? .medium }
         set { stakesRaw = newValue.rawValue }
     }
+    /// Chronological anchor for the timeline.
+    var timelineDate: Date { occurredAt ?? createdAt }
 
     init(
         id: UUID = UUID(),
@@ -38,10 +43,12 @@ final class Decision {
         stakes: Stakes = .medium,
         revisitAt: Date? = nil,
         rawTranscript: String? = nil,
-        embedding: [Float] = []
+        embedding: [Float] = [],
+        occurredAt: Date? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
+        self.occurredAt = occurredAt
         self.title = title
         self.statement = statement
         self.context = context
