@@ -10,12 +10,17 @@ struct EventDetailView: View {
     @Query private var experiences: [Experience]
 
     @State private var phase: Phase = .idle
-    @State private var weatherLine: String?
+    @State private var weatherStatus: WeatherStatus = .none
     private let advisor: AdvisingServicing = AdviceService()
     private let weather: WeatherProviding = WeatherKitService()
 
     enum Phase: Equatable {
         case idle, thinking, ready, noHistory, error(String)
+    }
+    enum WeatherStatus: Equatable {
+        case none                 // not an outdoor/upcoming/located event
+        case loaded(String)
+        case unavailable
     }
 
     var body: some View {
@@ -32,10 +37,17 @@ struct EventDetailView: View {
             Section("Setting") {
                 Toggle("Outdoor event", isOn: $event.isOutdoor)
                 TextField("Location (city or address)", text: $event.location)
-                if let weatherLine {
-                    Label(weatherLine, systemImage: "cloud.sun")
+                switch weatherStatus {
+                case .loaded(let line):
+                    Label(line, systemImage: "cloud.sun")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                case .unavailable:
+                    Label("Weather unavailable for this location or date.", systemImage: "cloud.slash")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                case .none:
+                    EmptyView()
                 }
             }
 
@@ -69,7 +81,22 @@ struct EventDetailView: View {
     }
 
     private func loadIfNeeded() async {
+        await refreshWeather()
         if event.generatedAdvice != nil { phase = .ready } else { await generate() }
+    }
+
+    /// Fetches the forecast for outdoor, upcoming, located events; otherwise
+    /// leaves the status as `.none`. Sets `.unavailable` if the fetch fails.
+    private func refreshWeather() async {
+        guard event.isOutdoor, !event.location.isEmpty, event.date > .now else {
+            weatherStatus = .none
+            return
+        }
+        if let summary = await weather.forecast(location: event.location, date: event.date) {
+            weatherStatus = .loaded(summary.line)
+        } else {
+            weatherStatus = .unavailable
+        }
     }
 
     private func generate() async {
@@ -89,14 +116,7 @@ struct EventDetailView: View {
             return
         }
 
-        // Weather only for outdoor, upcoming events with a location.
-        var weatherText: String?
-        if event.isOutdoor, !event.location.isEmpty, event.date > .now {
-            if let summary = await weather.forecast(location: event.location, date: event.date) {
-                weatherText = summary.line
-                weatherLine = summary.line
-            }
-        }
+        let weatherText: String? = if case .loaded(let line) = weatherStatus { line } else { nil }
 
         do {
             let advice = try await advisor.eventAdvice(
