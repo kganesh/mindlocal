@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 import WeatherKit
 
 /// A compact, model-friendly weather summary for a location on a day.
@@ -36,12 +37,13 @@ final class WeatherKitService: WeatherProviding {
         let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        // Geocode the free-text location to coordinates.
-        guard let placemark = try? await CLGeocoder().geocodeAddressString(trimmed).first,
-              let coordinate = placemark.location else { return nil }
+        // Geocode the free-text location to coordinates (MapKit, iOS 26+).
+        guard let request = MKGeocodingRequest(addressString: trimmed),
+              let mapItem = try? await request.mapItems.first else { return nil }
+        let location = mapItem.location
 
         do {
-            let daily = try await WeatherService.shared.weather(for: coordinate, including: .daily)
+            let daily = try await WeatherService.shared.weather(for: location, including: .daily)
             guard let day = daily.forecast.first(where: {
                 Calendar.current.isDate($0.date, inSameDayAs: date)
             }) else { return nil }
