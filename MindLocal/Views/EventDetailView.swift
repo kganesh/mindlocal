@@ -29,14 +29,7 @@ struct EventDetailView: View {
             Section {
                 adviceContent
             } header: {
-                HStack {
-                    Label("Suggested advice", systemImage: "sparkles")
-                    Spacer()
-                    if event.generatedAdvice != nil || phase == .noHistory {
-                        Button("Refresh") { Task { await generate() } }
-                            .font(.caption)
-                    }
-                }
+                Label("Suggested advice", systemImage: "sparkles")
             } footer: {
                 Text("Grounded only in your own logged decisions and experiences. On-device.")
             }
