@@ -11,10 +11,25 @@ struct AdviceView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    TextField("Ask about a decision…", text: $viewModel.question, axis: .vertical)
-                        .lineLimit(1...4)
-                        .padding(12)
-                        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+                    HStack(alignment: .bottom, spacing: 8) {
+                        TextField("Ask about a decision or experience…", text: $viewModel.question, axis: .vertical)
+                            .lineLimit(1...4)
+                            .padding(12)
+                            .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+
+                        Button {
+                            toggleMic()
+                        } label: {
+                            Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                                .font(.system(size: 34))
+                                .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
+                        }
+                        .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
+                    }
+                    // Stream the spoken question into the field while recording.
+                    .onChange(of: viewModel.speech.transcript) { _, newValue in
+                        if viewModel.speech.isRecording { viewModel.question = newValue }
+                    }
 
                     Button {
                         let decisionSummaries = decisions.map(DecisionSummary.init)
@@ -70,6 +85,19 @@ struct AdviceView: View {
             Label(message, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func toggleMic() {
+        if viewModel.speech.isRecording {
+            viewModel.speech.stopRecording()
+            viewModel.question = viewModel.speech.transcript
+        } else {
+            Task {
+                if await viewModel.speech.requestAuthorization() {
+                    try? await viewModel.speech.startRecording()
+                }
+            }
         }
     }
 

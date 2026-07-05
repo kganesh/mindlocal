@@ -17,9 +17,12 @@ final class AdviceViewModel {
     private(set) var phase: Phase = .idle
 
     private let advisor: AdvisingServicing
+    let speech: SpeechServicing
 
-    init(advisor: AdvisingServicing = AdviceService()) {
+    init(advisor: AdvisingServicing = AdviceService(),
+         speech: SpeechServicing = SpeechService()) {
         self.advisor = advisor
+        self.speech = speech
     }
 
     var canAsk: Bool {
