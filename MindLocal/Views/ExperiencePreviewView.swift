@@ -28,19 +28,20 @@ struct ExperiencePreviewView: View {
                 }
                 if let decisions = viewModel.experienceDraft?.decisions, !decisions.isEmpty {
                     Section {
-                        ForEach(Array(decisions.enumerated()), id: \.offset) { _, decision in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(decision.statement.isEmpty ? decision.title : decision.statement)
-                                if !decision.rationale.isEmpty {
-                                    Text(decision.rationale).font(.caption).foregroundStyle(.secondary)
-                                }
+                        ForEach(decisions.indices, id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("What you decided", text: decisionBinding(index, \.statement), axis: .vertical)
+                                TextField("Why", text: decisionBinding(index, \.rationale), axis: .vertical)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
                             }
+                            .padding(.vertical, 2)
                         }
                         .onDelete { viewModel.experienceDraft?.decisions.remove(atOffsets: $0) }
                     } header: {
                         Label("Decisions detected", systemImage: "checklist")
                     } footer: {
-                        Text("Extracted from what you said. Swipe to remove any that aren't right.")
+                        Text("Extracted from what you said. Edit, or swipe to remove any that aren't right.")
                     }
                 }
                 Section("When") {
@@ -71,6 +72,20 @@ struct ExperiencePreviewView: View {
         Binding(
             get: { viewModel.experienceDraft?[keyPath: keyPath] ?? "" },
             set: { viewModel.experienceDraft?[keyPath: keyPath] = $0 }
+        )
+    }
+
+    private func decisionBinding(_ index: Int, _ keyPath: WritableKeyPath<DecisionDraft, String>) -> Binding<String> {
+        Binding(
+            get: {
+                guard let decisions = viewModel.experienceDraft?.decisions,
+                      decisions.indices.contains(index) else { return "" }
+                return decisions[index][keyPath: keyPath]
+            },
+            set: {
+                guard viewModel.experienceDraft?.decisions.indices.contains(index) == true else { return }
+                viewModel.experienceDraft?.decisions[index][keyPath: keyPath] = $0
+            }
         )
     }
 }
