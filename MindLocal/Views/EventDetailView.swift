@@ -6,6 +6,7 @@ import SwiftData
 /// events with a location, it also factors in the weather forecast.
 struct EventDetailView: View {
     @Bindable var event: Event
+    @Environment(\.modelContext) private var modelContext
     @Query private var decisions: [Decision]
     @Query private var experiences: [Experience]
 
@@ -92,8 +93,14 @@ struct EventDetailView: View {
     }
 
     private func loadIfNeeded() async {
-        await refreshWeather()
-        if event.generatedAdvice != nil { phase = .ready } else { await generate() }
+        // Already generated → show the cached advice immediately, never regenerate.
+        if event.generatedAdvice != nil {
+            phase = .ready
+            await refreshWeather()   // for the forecast line only
+            return
+        }
+        await refreshWeather()       // needed before first generation
+        await generate()
     }
 
     /// Fetches the forecast for outdoor, upcoming, located events; otherwise
@@ -139,6 +146,7 @@ struct EventDetailView: View {
             )
             event.generatedAdvice = advice
             event.adviceGeneratedAt = .now
+            try? modelContext.save()   // persist the cache immediately
             phase = .ready
         } catch AdviceError.modelUnavailable {
             phase = .error("Apple Intelligence isn't available right now.")
