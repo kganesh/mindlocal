@@ -23,6 +23,20 @@ struct ExperienceDetailView: View {
                 TextField("What you did", text: $experience.response, axis: .vertical)
                 TextField("Takeaway", text: $experience.learning, axis: .vertical)
             }
+            if !experience.decisions.isEmpty {
+                Section("Decisions") {
+                    ForEach(experience.decisions) { decision in
+                        NavigationLink { DecisionDetailView(decision: decision) } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(decision.title).font(.subheadline)
+                                if !decision.statement.isEmpty {
+                                    Text(decision.statement).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             Section("Classification") {
                 DatePicker(
                     "When it happened",

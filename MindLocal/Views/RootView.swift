@@ -39,10 +39,7 @@ struct MainTabView: View {
             Tab("Timeline", systemImage: "calendar") {
                 CalendarView()
             }
-            Tab("Decisions", systemImage: "list.bullet.rectangle") {
-                DecisionListView()
-            }
-            Tab("Experiences", systemImage: "sparkle") {
+            Tab("Journal", systemImage: "book") {
                 ExperienceListView()
             }
             Tab("Advise", systemImage: "sparkles") {

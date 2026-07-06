@@ -19,6 +19,8 @@ final class Decision {
     /// When the decision was actually made (for the timeline). Optional so
     /// existing records migrate cleanly; falls back to `createdAt`.
     var occurredAt: Date?
+    /// The experience this decision was extracted from, if any (nil = standalone).
+    var experience: Experience?
 
     var domain: Domain {
         get { Domain(rawValue: domainRaw) ?? .other }

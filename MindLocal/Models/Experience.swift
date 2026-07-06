@@ -27,6 +27,9 @@ final class Experience {
     /// When the experience actually happened (for the timeline). Optional so
     /// existing records migrate cleanly; falls back to `createdAt`.
     var occurredAt: Date?
+    /// Decisions the person mentioned within this experience (extracted by AI).
+    @Relationship(deleteRule: .cascade, inverse: \Decision.experience)
+    var decisions: [Decision] = []
 
     var tone: ExperienceTone {
         get { ExperienceTone(rawValue: toneRaw) ?? .mixed }

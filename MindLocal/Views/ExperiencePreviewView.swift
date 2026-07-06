@@ -26,6 +26,23 @@ struct ExperiencePreviewView: View {
                     TextField(toneIsPleasant ? "What to do again" : "What would help next time",
                               text: binding(\.learning), axis: .vertical)
                 }
+                if let decisions = viewModel.experienceDraft?.decisions, !decisions.isEmpty {
+                    Section {
+                        ForEach(Array(decisions.enumerated()), id: \.offset) { _, decision in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(decision.statement.isEmpty ? decision.title : decision.statement)
+                                if !decision.rationale.isEmpty {
+                                    Text(decision.rationale).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .onDelete { viewModel.experienceDraft?.decisions.remove(atOffsets: $0) }
+                    } header: {
+                        Label("Decisions detected", systemImage: "checklist")
+                    } footer: {
+                        Text("Extracted from what you said. Swipe to remove any that aren't right.")
+                    }
+                }
                 Section("When") {
                     DatePicker("When it happened", selection: $viewModel.occurredAt)
                 }

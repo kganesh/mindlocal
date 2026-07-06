@@ -11,9 +11,12 @@ struct CalendarView: View {
     @State private var addSheet: AddSheet?
 
     private var allItems: [TimelineItem] {
-        events.map(TimelineItem.event)
-        + decisions.map(TimelineItem.decision)
-        + experiences.map(TimelineItem.experience)
+        // Decisions extracted from an experience appear inside that experience,
+        // not as separate timeline items — only standalone decisions show here.
+        var items: [TimelineItem] = events.map(TimelineItem.event)
+        items += decisions.filter { $0.experience == nil }.map(TimelineItem.decision)
+        items += experiences.map(TimelineItem.experience)
+        return items
     }
     private var upcoming: [TimelineItem] {
         allItems.filter { $0.date > .now }.sorted { $0.date < $1.date }
@@ -43,16 +46,15 @@ struct CalendarView: View {
                     ContentUnavailableView(
                         "Nothing Yet",
                         systemImage: "calendar",
-                        description: Text("Tap + to add an event, decision, or experience.")
+                        description: Text("Tap + to add an entry or an event.")
                     )
                 }
             }
             .navigationTitle("Timeline")
             .toolbar {
                 Menu {
+                    Button { addSheet = .entry } label: { Label("New Entry", systemImage: "square.and.pencil") }
                     Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
-                    Button { addSheet = .decision } label: { Label("New Decision", systemImage: "checklist") }
-                    Button { addSheet = .experience } label: { Label("New Experience", systemImage: "sparkle") }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -60,9 +62,8 @@ struct CalendarView: View {
             }
             .sheet(item: $addSheet) { sheet in
                 switch sheet {
-                case .event:      EventFormView { modelContext.insert($0) }
-                case .decision:   CaptureView(initialMode: .decision)
-                case .experience: CaptureView(initialMode: .experience)
+                case .entry: CaptureView()
+                case .event: EventFormView { modelContext.insert($0) }
                 }
             }
         }
@@ -96,7 +97,7 @@ struct CalendarView: View {
     }
 
     enum AddSheet: String, Identifiable {
-        case event, decision, experience
+        case entry, event
         var id: String { rawValue }
     }
 }

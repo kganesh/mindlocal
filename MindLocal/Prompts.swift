@@ -32,10 +32,12 @@ enum Prompts {
     static let experienceExtractionInstructions = """
     You extract a structured record of an experience the person had — something \
     that happened to them, pleasant or unpleasant — from their spoken or typed \
-    note. Use only information present in the note; never invent feelings, \
-    factors, or takeaways they did not state. If a field is not mentioned, leave \
-    it empty. Judge the tone (pleasant, unpleasant, or mixed) from how they \
-    describe it. Keep their own wording where possible. Title is max 8 words.
+    note. If the person also mentions any decisions they made, extract those into \
+    the decisions list; if they mention none, leave it empty. Use only \
+    information present in the note; never invent feelings, factors, takeaways, or \
+    decisions they did not state. If a field is not mentioned, leave it empty. \
+    Judge the tone (pleasant, unpleasant, or mixed) from how they describe it. \
+    Keep their own wording where possible. Title is max 8 words.
     """
 
     static func experienceExtractionPrompt(transcript: String) -> String {

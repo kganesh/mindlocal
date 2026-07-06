@@ -32,6 +32,9 @@ struct ExperienceDraft: Equatable {
 
     @Guide(description: "One of: career, money, health, family, work, other.")
     var domain: String
+
+    @Guide(description: "Any decisions the person mentions having made in this note, as structured records. Empty array if they did not mention deciding anything. Never invent a decision.")
+    var decisions: [DecisionDraft]
 }
 
 extension ExperienceDraft {

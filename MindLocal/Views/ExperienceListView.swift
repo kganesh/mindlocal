@@ -32,13 +32,13 @@ struct ExperienceListView: View {
             .overlay {
                 if experiences.isEmpty {
                     ContentUnavailableView(
-                        "No Experiences Yet",
-                        systemImage: "sparkle",
-                        description: Text("Capture one from the Capture tab — switch to Experience.")
+                        "Journal Empty",
+                        systemImage: "book",
+                        description: Text("Add an entry from the Timeline’s + button.")
                     )
                 }
             }
-            .searchable(text: $searchText, prompt: "Search experiences")
+            .searchable(text: $searchText, prompt: "Search journal")
             .toolbar {
                 Menu {
                     Button("All") { toneFilter = nil }
@@ -49,7 +49,7 @@ struct ExperienceListView: View {
                     Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
                 }
             }
-            .navigationTitle("Experiences")
+            .navigationTitle("Journal")
             .navigationDestination(for: UUID.self) { id in
                 if let experience = experiences.first(where: { $0.id == id }) {
                     ExperienceDetailView(experience: experience)
