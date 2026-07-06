@@ -56,7 +56,14 @@ struct EventDetailView: View {
             Section {
                 adviceContent
             } header: {
-                Label("Suggested advice", systemImage: "sparkles")
+                HStack {
+                    Label("Suggested advice", systemImage: "sparkles")
+                    Spacer()
+                    if canRegenerate {
+                        Button("Regenerate") { Task { await regenerate() } }
+                            .font(.caption)
+                    }
+                }
             } footer: {
                 Text("Grounded in your logged decisions and experiences (on-device). Weather uses Apple WeatherKit.")
             }
@@ -90,6 +97,20 @@ struct EventDetailView: View {
         case .error(let message):
             Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
         }
+    }
+
+    private var canRegenerate: Bool {
+        switch phase {
+        case .ready, .noHistory, .error: true
+        case .idle, .thinking: false
+        }
+    }
+
+    /// Re-runs advice (e.g. after editing the event's details), refreshing
+    /// weather first and overwriting the cached advice.
+    private func regenerate() async {
+        await refreshWeather()
+        await generate()
     }
 
     private func loadIfNeeded() async {
