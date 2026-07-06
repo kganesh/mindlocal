@@ -42,7 +42,7 @@ struct CaptureView: View {
 
     private var inputView: some View {
         VStack(spacing: 24) {
-            DatePicker("Date", selection: $viewModel.occurredAt, displayedComponents: [.date])
+            DatePicker("Date & time", selection: $viewModel.occurredAt, displayedComponents: [.date, .hourAndMinute])
                 .padding(.horizontal, 4)
 
             TextEditor(text: $viewModel.typedText)
