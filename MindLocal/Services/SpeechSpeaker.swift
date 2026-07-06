@@ -38,9 +38,13 @@ final class SpeechSpeaker: NSObject {
         isSpeaking = false
     }
 
-    /// The highest-quality installed voice for the user's language (premium >
-    /// enhanced > default), falling back to a default voice.
+    /// The user's chosen voice if set, otherwise the highest-quality installed
+    /// voice for their language (premium > enhanced > default).
     private static func bestVoice() -> AVSpeechSynthesisVoice? {
+        if let id = UserDefaults.standard.string(forKey: "selectedVoiceId"), !id.isEmpty,
+           let chosen = AVSpeechSynthesisVoice(identifier: id) {
+            return chosen
+        }
         let prefix = String((Locale.current.language.languageCode?.identifier ?? "en").prefix(2))
         let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix(prefix) }
         func rank(_ quality: AVSpeechSynthesisVoiceQuality) -> Int {

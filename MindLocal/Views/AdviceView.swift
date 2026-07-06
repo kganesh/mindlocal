@@ -7,6 +7,7 @@ struct AdviceView: View {
     @Query(sort: \Experience.createdAt, order: .reverse) private var experiences: [Experience]
     @State private var viewModel = AdviceViewModel()
     @State private var speaker = SpeechSpeaker()
+    @State private var showingVoiceSettings = false
 
     var body: some View {
         NavigationStack {
@@ -55,6 +56,15 @@ struct AdviceView: View {
                 .padding()
             }
             .navigationTitle("Advise")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingVoiceSettings = true } label: {
+                        Image(systemName: "waveform")
+                    }
+                    .accessibilityLabel("Read-aloud voice")
+                }
+            }
+            .sheet(isPresented: $showingVoiceSettings) { VoiceSettingsView() }
             .onDisappear { speaker.stop() }
         }
     }
