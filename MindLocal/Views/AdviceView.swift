@@ -6,6 +6,7 @@ struct AdviceView: View {
     @Query(sort: \Decision.createdAt, order: .reverse) private var decisions: [Decision]
     @Query(sort: \Experience.createdAt, order: .reverse) private var experiences: [Experience]
     @State private var viewModel = AdviceViewModel()
+    @State private var speaker = SpeechSpeaker()
 
     var body: some View {
         NavigationStack {
@@ -54,6 +55,7 @@ struct AdviceView: View {
                 .padding()
             }
             .navigationTitle("Advise")
+            .onDisappear { speaker.stop() }
         }
     }
 
@@ -72,9 +74,18 @@ struct AdviceView: View {
                 .padding(.top, 8)
         case .answer(let text):
             VStack(alignment: .leading, spacing: 12) {
-                Label("Answer", systemImage: "sparkles")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Label("Answer", systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        speaker.toggle(text)
+                    } label: {
+                        Image(systemName: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
+                    }
+                    .accessibilityLabel(speaker.isSpeaking ? "Stop reading" : "Read aloud")
+                }
                 Text(text)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)

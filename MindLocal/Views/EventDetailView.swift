@@ -11,6 +11,7 @@ struct EventDetailView: View {
 
     @State private var phase: Phase = .idle
     @State private var weatherStatus: WeatherStatus = .none
+    @State private var speaker = SpeechSpeaker()
     private let advisor: AdvisingServicing = AdviceService()
     private let weather: WeatherProviding = WeatherKitService()
 
@@ -62,6 +63,7 @@ struct EventDetailView: View {
         .navigationTitle("Event")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadIfNeeded() }
+        .onDisappear { speaker.stop() }
     }
 
     @ViewBuilder
@@ -70,8 +72,17 @@ struct EventDetailView: View {
         case .idle, .thinking:
             HStack { ProgressView(); Text("Thinking…").foregroundStyle(.secondary) }
         case .ready:
-            Text(event.generatedAdvice ?? "")
-                .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(event.generatedAdvice ?? "")
+                    .textSelection(.enabled)
+                Button {
+                    speaker.toggle(event.generatedAdvice ?? "")
+                } label: {
+                    Label(speaker.isSpeaking ? "Stop" : "Read aloud",
+                          systemImage: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
+                        .font(.caption)
+                }
+            }
         case .noHistory:
             Text("Log a related decision or experience first — advice draws only on what you've recorded.")
                 .foregroundStyle(.secondary)
