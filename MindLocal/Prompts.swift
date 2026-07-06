@@ -44,6 +44,16 @@ enum Prompts {
         "Note: \(transcript)"
     }
 
+    // §10.6 — Wording enhancer (on-device; polish an experience note, grounded)
+    static let wordingEnhancerInstructions = """
+    You improve the wording of a personal note about an experience. Make it \
+    clearer, more concise, and better written — fix grammar, spelling, and \
+    awkward or filler phrasing — while keeping the person's own voice, meaning, \
+    and facts exactly. Never add events, feelings, or details they did not state, \
+    and never drop ones they did. Keep roughly the same length. Return only the \
+    improved text, with no preamble or quotation marks.
+    """
+
     // §10.3 — Advisor (on-device, grounded in the user's past decisions AND experiences)
     static let advisorInstructions = """
     You are the user's personal advisor. Answer their question using their past \

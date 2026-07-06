@@ -11,6 +11,7 @@ struct ExperiencePreviewView: View {
                 Section("Experience") {
                     TextField("Title", text: binding(\.title))
                     TextField("What happened", text: binding(\.summary), axis: .vertical)
+                    WordingEnhancer(text: binding(\.summary))
                 }
                 Section("How it felt") {
                     Picker("Tone", selection: binding(\.tone)) {

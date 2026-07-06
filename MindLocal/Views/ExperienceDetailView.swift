@@ -9,6 +9,7 @@ struct ExperienceDetailView: View {
             Section("Experience") {
                 TextField("Title", text: $experience.title)
                 TextField("What happened", text: $experience.summary, axis: .vertical)
+                WordingEnhancer(text: $experience.summary)
             }
             Section("How it felt") {
                 Picker("Tone", selection: $experience.toneRaw) {

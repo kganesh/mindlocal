@@ -5,6 +5,8 @@ protocol ExtractionServicing: Sendable {
     func extract(from transcript: String) async throws -> DecisionDraft
     func extractExperience(from transcript: String) async throws -> ExperienceDraft
     func followUpQuestion(draftSummary: String, missingField: String) async throws -> String
+    /// Rewrites a note more clearly without changing meaning or facts.
+    func enhanceWording(_ text: String) async throws -> String
 }
 
 enum ExtractionError: Error {
@@ -41,6 +43,20 @@ final class ExtractionService: ExtractionServicing {
             to: Prompts.experienceExtractionPrompt(transcript: transcript),
             generating: ExperienceDraft.self
         )
+        return response.content
+    }
+
+    func enhanceWording(_ text: String) async throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return text }
+        guard SystemLanguageModel.default.isAvailable else {
+            throw ExtractionError.modelUnavailable
+        }
+        let session = LanguageModelSession(
+            model: .default,
+            instructions: Prompts.wordingEnhancerInstructions
+        )
+        let response = try await session.respond(to: trimmed)
         return response.content
     }
 
@@ -94,5 +110,9 @@ final class MockExtractionService: ExtractionServicing {
 
     func followUpQuestion(draftSummary: String, missingField: String) async throws -> String {
         "What made you choose this option?"
+    }
+
+    func enhanceWording(_ text: String) async throws -> String {
+        text.isEmpty ? text : text + " (polished)"
     }
 }
