@@ -8,6 +8,7 @@ struct AdviceView: View {
     @State private var viewModel = AdviceViewModel()
     @State private var speaker = SpeechSpeaker()
     @State private var showingVoiceSettings = false
+    @FocusState private var isQuestionFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -18,6 +19,7 @@ struct AdviceView: View {
                             .lineLimit(1...4)
                             .padding(12)
                             .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+                            .focused($isQuestionFocused)
 
                         Button {
                             toggleMic()
@@ -34,6 +36,7 @@ struct AdviceView: View {
                     }
 
                     Button {
+                        isQuestionFocused = false
                         let decisionSummaries = decisions.map(DecisionSummary.init)
                         let experienceSummaries = experiences.map(ExperienceSummary.init)
                         Task { await viewModel.ask(decisions: decisionSummaries, experiences: experienceSummaries) }
@@ -55,6 +58,7 @@ struct AdviceView: View {
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Advise")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -110,6 +114,7 @@ struct AdviceView: View {
     }
 
     private func toggleMic() {
+        isQuestionFocused = false
         if viewModel.speech.isRecording {
             viewModel.speech.stopRecording()
             viewModel.question = viewModel.speech.transcript
