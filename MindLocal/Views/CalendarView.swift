@@ -9,6 +9,7 @@ struct CalendarView: View {
     @Query private var experiences: [Experience]
     @Environment(\.modelContext) private var modelContext
     @State private var addSheet: AddSheet?
+    @State private var showingSettings = false
 
     private var allItems: [TimelineItem] {
         // Decisions extracted from an experience appear inside that experience,
@@ -52,14 +53,23 @@ struct CalendarView: View {
             }
             .navigationTitle("Timeline")
             .toolbar {
-                Menu {
-                    Button { addSheet = .entry } label: { Label("New Entry", systemImage: "square.and.pencil") }
-                    Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
-                } label: {
-                    Image(systemName: "plus")
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
                 }
-                .accessibilityLabel("Add")
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button { addSheet = .entry } label: { Label("New Entry", systemImage: "square.and.pencil") }
+                        Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add")
+                }
             }
+            .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(item: $addSheet) { sheet in
                 switch sheet {
                 case .entry: CaptureView()
