@@ -61,6 +61,7 @@ struct CalendarView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button { addSheet = .conversation } label: { Label("Talk about my day", systemImage: "moon.stars") }
                         Button { addSheet = .entry } label: { Label("New Entry", systemImage: "square.and.pencil") }
                         Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
                     } label: {
@@ -72,6 +73,7 @@ struct CalendarView: View {
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(item: $addSheet) { sheet in
                 switch sheet {
+                case .conversation: JournalConversationView()
                 case .entry: CaptureView()
                 case .event: EventFormView { modelContext.insert($0) }
                 }
@@ -107,7 +109,7 @@ struct CalendarView: View {
     }
 
     enum AddSheet: String, Identifiable {
-        case entry, event
+        case conversation, entry, event
         var id: String { rawValue }
     }
 }
