@@ -25,6 +25,14 @@ struct CalendarView: View {
     private var past: [TimelineItem] {
         allItems.filter { $0.date <= .now }.sorted { $0.date > $1.date }
     }
+    /// Past items grouped by calendar day, newest day first (items within a day
+    /// stay newest-first from `past`).
+    private var pastByDay: [(day: Date, items: [TimelineItem])] {
+        let cal = Calendar.current
+        let groups = Dictionary(grouping: past) { cal.startOfDay(for: $0.date) }
+        return groups.map { (day: $0.key, items: $0.value) }
+            .sorted { $0.day > $1.day }
+    }
 
     var body: some View {
         NavigationStack {
@@ -35,10 +43,10 @@ struct CalendarView: View {
                             .onDelete { delete($0, from: upcoming) }
                     }
                 }
-                if !past.isEmpty {
-                    Section("Timeline") {
-                        ForEach(past) { row($0) }
-                            .onDelete { delete($0, from: past) }
+                ForEach(pastByDay, id: \.day) { group in
+                    Section(dayLabel(group.day)) {
+                        ForEach(group.items) { row($0) }
+                            .onDelete { delete($0, from: group.items) }
                     }
                 }
             }
@@ -79,6 +87,16 @@ struct CalendarView: View {
                 }
             }
         }
+    }
+
+    private func dayLabel(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today" }
+        if cal.isDateInYesterday(date) { return "Yesterday" }
+        if cal.component(.year, from: date) != cal.component(.year, from: .now) {
+            return date.formatted(.dateTime.month(.abbreviated).day().year())
+        }
+        return date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
     private func row(_ item: TimelineItem) -> some View {
