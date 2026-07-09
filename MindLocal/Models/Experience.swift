@@ -27,6 +27,12 @@ final class Experience {
     /// When the experience actually happened (for the timeline). Optional so
     /// existing records migrate cleanly; falls back to `createdAt`.
     var occurredAt: Date?
+    /// Semantic extraction for journaling (additive; default empty for migration).
+    var people: [String] = []
+    var activities: [String] = []
+    var outcomes: [String] = []
+    /// Forward-looking wants / wishes / hopes.
+    var hopes: [String] = []
     /// Decisions the person mentioned within this experience (extracted by AI).
     @Relationship(deleteRule: .cascade, inverse: \Decision.experience)
     var decisions: [Decision] = []
@@ -56,7 +62,11 @@ final class Experience {
         domain: Domain = .other,
         rawText: String? = nil,
         embedding: [Float] = [],
-        occurredAt: Date? = nil
+        occurredAt: Date? = nil,
+        people: [String] = [],
+        activities: [String] = [],
+        outcomes: [String] = [],
+        hopes: [String] = []
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -72,5 +82,9 @@ final class Experience {
         self.domainRaw = domain.rawValue
         self.rawText = rawText
         self.embedding = embedding
+        self.people = people
+        self.activities = activities
+        self.outcomes = outcomes
+        self.hopes = hopes
     }
 }

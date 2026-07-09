@@ -24,6 +24,14 @@ struct ExperienceDetailView: View {
                 TextField("What you did", text: $experience.response, axis: .vertical)
                 TextField("Takeaway", text: $experience.learning, axis: .vertical)
             }
+            if hasJournalDetails {
+                Section("Details") {
+                    detailRow("People", experience.people, systemImage: "person.2")
+                    detailRow("Activities", experience.activities, systemImage: "figure.walk")
+                    detailRow("Outcomes", experience.outcomes, systemImage: "arrow.right.circle")
+                    detailRow("Hopes & wants", experience.hopes, systemImage: "sparkles")
+                }
+            }
             if !experience.decisions.isEmpty {
                 Section("Decisions") {
                     ForEach(experience.decisions) { decision in
@@ -58,5 +66,25 @@ struct ExperienceDetailView: View {
         }
         .navigationTitle(experience.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var hasJournalDetails: Bool {
+        !(experience.people.isEmpty && experience.activities.isEmpty
+          && experience.outcomes.isEmpty && experience.hopes.isEmpty)
+    }
+
+    @ViewBuilder
+    private func detailRow(_ title: String, _ items: [String], systemImage: String) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(title, systemImage: systemImage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(items.joined(separator: " · "))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.vertical, 2)
+        }
     }
 }

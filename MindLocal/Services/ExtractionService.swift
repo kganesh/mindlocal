@@ -100,6 +100,10 @@ final class MockExtractionService: ExtractionServicing {
             learning: "Morning runs set up my whole day — do this more often.",
             tags: ["health", "morning"],
             domain: "health",
+            people: ["Sam"],
+            activities: ["morning run", "watched the sunrise"],
+            outcomes: ["felt energized all day"],
+            hopes: ["wants to run three mornings a week"],
             decisions: [
                 DecisionDraft(title: "Run before work", statement: "I decided to run before work instead of after.",
                               context: "", options: [], rationale: "Mornings are quieter and set up my day.",

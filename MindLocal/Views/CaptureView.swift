@@ -61,15 +61,38 @@ struct CaptureView: View {
                     if viewModel.speech.isRecording { viewModel.typedText = newValue }
                 }
 
+            HStack {
+                Spacer()
+                Text("\(wordCount) / \(wordLimit) words")
+                    .font(.caption)
+                    .foregroundStyle(wordCount > wordLimit ? .red : .secondary)
+            }
+
             micButton
 
             Button("Continue") {
                 Task { await viewModel.submit() }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(viewModel.typedText.isEmpty && viewModel.speech.transcript.isEmpty)
+            .disabled(isInputEmpty || wordCount > wordLimit)
+
+            if wordCount > wordLimit {
+                Text("Keep it under \(wordLimit) words — trim a little to continue.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
         .padding()
+    }
+
+    private let wordLimit = 500
+
+    private var wordCount: Int {
+        viewModel.typedText.split(whereSeparator: \.isWhitespace).count
+    }
+
+    private var isInputEmpty: Bool {
+        viewModel.typedText.isEmpty && viewModel.speech.transcript.isEmpty
     }
 
     private var micButton: some View {

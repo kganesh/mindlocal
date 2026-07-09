@@ -33,6 +33,18 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "One of: career, money, health, family, work, other.")
     var domain: String
 
+    @Guide(description: "People involved, by name or relationship (e.g. 'Sam', 'my manager', 'Mom'). Empty if none mentioned. Never invent.")
+    var people: [String]
+
+    @Guide(description: "Concrete activities or actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Empty if none. Never invent.")
+    var activities: [String]
+
+    @Guide(description: "Results or outcomes — how things turned out. Each a short phrase. Empty if none stated.")
+    var outcomes: [String]
+
+    @Guide(description: "Forward-looking wants, wishes, or hopes the person expressed (e.g. 'wants to travel more', 'hopes the interview goes well'). Empty if none. Never invent.")
+    var hopes: [String]
+
     @Guide(description: "Any decisions the person mentions having made in this note, as structured records. Empty array if they did not mention deciding anything. Never invent a decision.")
     var decisions: [DecisionDraft]
 }
@@ -54,7 +66,15 @@ extension ExperienceDraft {
             tags: tags.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
             domain: Domain(rawValue: domain) ?? .other,
             rawText: rawText,
-            occurredAt: occurredAt
+            occurredAt: occurredAt,
+            people: ExperienceDraft.cleaned(people),
+            activities: ExperienceDraft.cleaned(activities),
+            outcomes: ExperienceDraft.cleaned(outcomes),
+            hopes: ExperienceDraft.cleaned(hopes)
         )
+    }
+
+    static func cleaned(_ items: [String]) -> [String] {
+        items.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 }

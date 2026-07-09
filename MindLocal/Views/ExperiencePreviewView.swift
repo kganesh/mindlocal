@@ -45,6 +45,18 @@ struct ExperiencePreviewView: View {
                         Text("Extracted from what you said. Edit, or swipe to remove any that aren't right.")
                     }
                 }
+                if let draft = viewModel.experienceDraft, draftHasDetails(draft) {
+                    Section {
+                        detectedRow("People", draft.people, systemImage: "person.2")
+                        detectedRow("Activities", draft.activities, systemImage: "figure.walk")
+                        detectedRow("Outcomes", draft.outcomes, systemImage: "arrow.right.circle")
+                        detectedRow("Hopes & wants", draft.hopes, systemImage: "sparkles")
+                    } header: {
+                        Label("Detected", systemImage: "sparkles")
+                    } footer: {
+                        Text("Extracted from your entry.")
+                    }
+                }
                 Section("When") {
                     DatePicker("When it happened", selection: $viewModel.occurredAt)
                 }
@@ -67,6 +79,27 @@ struct ExperiencePreviewView: View {
 
     private var toneIsPleasant: Bool {
         (viewModel.experienceDraft?.tone.lowercased() ?? "") == ExperienceTone.pleasant.rawValue
+    }
+
+    private func draftHasDetails(_ draft: ExperienceDraft) -> Bool {
+        !(draft.people.isEmpty && draft.activities.isEmpty
+          && draft.outcomes.isEmpty && draft.hopes.isEmpty)
+    }
+
+    @ViewBuilder
+    private func detectedRow(_ title: String, _ items: [String], systemImage: String) -> some View {
+        let cleaned = items.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        if !cleaned.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(title, systemImage: systemImage)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(cleaned.joined(separator: " · "))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.vertical, 2)
+        }
     }
 
     private func binding(_ keyPath: WritableKeyPath<ExperienceDraft, String>) -> Binding<String> {
