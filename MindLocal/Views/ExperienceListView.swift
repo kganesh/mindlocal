@@ -6,6 +6,7 @@ struct ExperienceListView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var searchText = ""
     @State private var toneFilter: ExperienceTone?
+    @State private var showingTrends = false
 
     private var filtered: [Experience] {
         experiences.filter { e in
@@ -40,15 +41,24 @@ struct ExperienceListView: View {
             }
             .searchable(text: $searchText, prompt: "Search journal")
             .toolbar {
-                Menu {
-                    Button("All") { toneFilter = nil }
-                    ForEach(ExperienceTone.allCases) { tone in
-                        Button(tone.label) { toneFilter = tone }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingTrends = true } label: {
+                        Image(systemName: "chart.xyaxis.line")
                     }
-                } label: {
-                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    .accessibilityLabel("Mood trends")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("All") { toneFilter = nil }
+                        ForEach(ExperienceTone.allCases) { tone in
+                            Button(tone.label) { toneFilter = tone }
+                        }
+                    } label: {
+                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    }
                 }
             }
+            .sheet(isPresented: $showingTrends) { MoodTrendsView() }
             .navigationTitle("Journal")
             .navigationDestination(for: UUID.self) { id in
                 if let experience = experiences.first(where: { $0.id == id }) {

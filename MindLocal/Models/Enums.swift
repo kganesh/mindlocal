@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum Domain: String, Codable, CaseIterable, Identifiable {
     case career, money, health, family, work, other
@@ -23,6 +24,21 @@ enum ExperienceTone: String, Codable, CaseIterable, Identifiable {
         case .pleasant: "sun.max.fill"
         case .unpleasant: "cloud.rain.fill"
         case .mixed: "cloud.sun.fill"
+        }
+    }
+    /// Numeric mood for trend charts: pleasant +1, mixed 0, unpleasant −1.
+    var score: Double {
+        switch self {
+        case .pleasant: 1
+        case .mixed: 0
+        case .unpleasant: -1
+        }
+    }
+    var tint: Color {
+        switch self {
+        case .pleasant: .green
+        case .unpleasant: .orange
+        case .mixed: .yellow
         }
     }
 }
