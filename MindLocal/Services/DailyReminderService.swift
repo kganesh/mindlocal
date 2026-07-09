@@ -7,7 +7,8 @@ import UserNotifications
 final class DailyReminderService {
     static let shared = DailyReminderService()
 
-    private let identifier = "mindlocal.daily-journal-reminder"
+    static let reminderIdentifier = "mindlocal.daily-journal-reminder"
+    private var identifier: String { Self.reminderIdentifier }
 
     /// Asks for notification permission. Returns whether it's granted.
     @discardableResult

@@ -34,7 +34,10 @@ struct RootView: View {
 }
 
 struct MainTabView: View {
+    @Environment(NightlyCheckInRouter.self) private var checkInRouter
+
     var body: some View {
+        @Bindable var router = checkInRouter
         TabView {
             Tab("Timeline", systemImage: "calendar") {
                 CalendarView()
@@ -45,6 +48,10 @@ struct MainTabView: View {
             Tab("Advise", systemImage: "sparkles") {
                 AdviceView()
             }
+        }
+        // Tapping the nightly reminder opens the voice check-in.
+        .fullScreenCover(isPresented: $router.isActive) {
+            JournalConversationView()
         }
     }
 }
@@ -62,4 +69,4 @@ struct UnavailableView: View {
     }
 }
 
-#Preview { RootView() }
+#Preview { RootView().environment(NightlyCheckInRouter.shared) }
