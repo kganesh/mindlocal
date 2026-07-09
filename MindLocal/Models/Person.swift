@@ -42,7 +42,75 @@ final class Person {
     }
 }
 
-/// Typed edges for the people graph (used when relationship edges land next).
-enum RelationshipType: String, Codable, CaseIterable {
+extension Person {
+    /// The journaler node — anchor for relative terms. Created on demand.
+    @MainActor
+    static func fetchOrCreateMe(in context: ModelContext) -> Person {
+        let all = (try? context.fetch(FetchDescriptor<Person>())) ?? []
+        if let me = all.first(where: { $0.isMe }) { return me }
+        let me = Person(name: "Me", isMe: true)
+        context.insert(me)
+        return me
+    }
+}
+
+/// Typed edges for the people graph. A `PersonRelationship` reads
+/// "subject is <type> of object" (e.g. Lilly is `spouse` of Me; Lilly is
+/// `parent` of Emma). spouse/sibling/friend/coworker are symmetric; parent/child
+/// are inverses of each other.
+enum RelationshipType: String, Codable, CaseIterable, Identifiable {
     case spouse, parent, child, sibling, friend, coworker, other
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .spouse:   "Spouse"
+        case .parent:   "Parent"
+        case .child:    "Child"
+        case .sibling:  "Sibling"
+        case .friend:   "Friend"
+        case .coworker: "Coworker"
+        case .other:    "Related"
+        }
+    }
+
+    var isSymmetric: Bool {
+        switch self {
+        case .spouse, .sibling, .friend, .coworker: true
+        case .parent, .child, .other: false
+        }
+    }
+
+    /// Spoken relationship words → the mentioned person's role relative to "me".
+    static func role(forTerm term: String) -> RelationshipType? {
+        switch term.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "wife", "husband", "spouse", "partner":                 .spouse
+        case "mom", "mother", "mum", "mommy", "dad", "father", "papa", "daddy": .parent
+        case "son", "daughter", "kid", "child":                      .child
+        case "sister", "brother", "sibling":                         .sibling
+        default: nil
+        }
+    }
+}
+
+@Model
+final class PersonRelationship {
+    var id: UUID
+    var typeRaw: String
+    @Relationship var subject: Person?
+    @Relationship var object: Person?
+    var createdAt: Date
+
+    var type: RelationshipType {
+        get { RelationshipType(rawValue: typeRaw) ?? .other }
+        set { typeRaw = newValue.rawValue }
+    }
+
+    init(subject: Person?, type: RelationshipType, object: Person?, id: UUID = UUID(), createdAt: Date = .now) {
+        self.id = id
+        self.subject = subject
+        self.typeRaw = type.rawValue
+        self.object = object
+        self.createdAt = createdAt
+    }
 }

@@ -14,6 +14,6 @@ struct MindLocalApp: App {
             RootView()
                 .environment(checkInRouter)
         }
-        .modelContainer(for: [Decision.self, OptionConsidered.self, Outcome.self, Experience.self, Event.self, Person.self])
+        .modelContainer(for: [Decision.self, OptionConsidered.self, Outcome.self, Experience.self, Event.self, Person.self, PersonRelationship.self])
     }
 }
