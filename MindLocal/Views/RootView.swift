@@ -45,6 +45,9 @@ struct MainTabView: View {
             Tab("Journal", systemImage: "book") {
                 ExperienceListView()
             }
+            Tab("People", systemImage: "person.2") {
+                PeopleListView()
+            }
             Tab("Advise", systemImage: "sparkles") {
                 AdviceView()
             }

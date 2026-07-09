@@ -140,6 +140,7 @@ struct CaptureView: View {
     private func save() {
         if let experience = viewModel.finalizeEntry() {
             modelContext.insert(experience)
+            experience.linkedPeople = PersonResolver.resolve(experience.people, in: modelContext)
         }
         dismiss()
     }

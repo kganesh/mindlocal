@@ -36,6 +36,9 @@ final class Experience {
     /// Decisions the person mentioned within this experience (extracted by AI).
     @Relationship(deleteRule: .cascade, inverse: \Decision.experience)
     var decisions: [Decision] = []
+    /// People mentioned in this entry, resolved to graph nodes (inverse defined
+    /// on `Person.experiences`). The raw `people` strings stay as-is.
+    @Relationship var linkedPeople: [Person] = []
 
     var tone: ExperienceTone {
         get { ExperienceTone(rawValue: toneRaw) ?? .mixed }
