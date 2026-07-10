@@ -20,6 +20,8 @@ final class CaptureViewModel {
     var experienceDraft: ExperienceDraft?
     /// When the experience happened (editable in review).
     var occurredAt: Date = .now
+    /// Role mentions the user identified in review → chosen person name.
+    var peopleAssignments: [String: String] = [:]
 
     private let extraction: ExtractionServicing
     let speech: SpeechServicing
@@ -82,6 +84,7 @@ final class CaptureViewModel {
         typedText = ""
         experienceDraft = nil
         occurredAt = .now
+        peopleAssignments = [:]
         phase = .input
     }
 }

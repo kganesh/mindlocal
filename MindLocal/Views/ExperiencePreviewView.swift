@@ -1,9 +1,20 @@
 import SwiftUI
+import SwiftData
 
 /// Editable structured preview of an extracted experience before save.
 struct ExperiencePreviewView: View {
     @Bindable var viewModel: CaptureViewModel
     let onSave: () -> Void
+
+    @Query(sort: \Person.name) private var people: [Person]
+    @State private var namingRole: String?
+    @State private var newName: String = ""
+
+    /// Role/title mentions ("principal engineer", "my manager") that should be
+    /// tied to a specific person.
+    private var roleReferences: [String] {
+        (viewModel.experienceDraft?.people ?? []).filter { PersonResolver.isRoleReference($0) }
+    }
 
     var body: some View {
         if viewModel.experienceDraft != nil {
@@ -57,6 +68,32 @@ struct ExperiencePreviewView: View {
                         Text("Extracted from your entry.")
                     }
                 }
+                if !roleReferences.isEmpty {
+                    Section {
+                        ForEach(roleReferences, id: \.self) { role in
+                            HStack {
+                                Text(role)
+                                Spacer()
+                                Menu {
+                                    ForEach(people) { person in
+                                        Button(person.name) { viewModel.peopleAssignments[role] = person.name }
+                                    }
+                                    Button("New person…") { newName = ""; namingRole = role }
+                                    if viewModel.peopleAssignments[role] != nil {
+                                        Button("Clear", role: .destructive) { viewModel.peopleAssignments[role] = nil }
+                                    }
+                                } label: {
+                                    Text(assignmentLabel(for: role))
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                    } header: {
+                        Label("Who's who?", systemImage: "person.fill.questionmark")
+                    } footer: {
+                        Text("You mentioned a role — tie it to a person, or leave it unidentified.")
+                    }
+                }
                 Section("When") {
                     DatePicker("When it happened", selection: $viewModel.occurredAt)
                 }
@@ -74,7 +111,24 @@ struct ExperiencePreviewView: View {
                 }
             }
             .navigationTitle("Review")
+            .alert("Who is this?", isPresented: Binding(get: { namingRole != nil }, set: { if !$0 { namingRole = nil } })) {
+                TextField("Name", text: $newName)
+                Button("Add") {
+                    if let role = namingRole, !newName.trimmingCharacters(in: .whitespaces).isEmpty {
+                        viewModel.peopleAssignments[role] = newName
+                    }
+                    namingRole = nil
+                }
+                Button("Cancel", role: .cancel) { namingRole = nil }
+            } message: {
+                Text("Enter a name for “\(namingRole ?? "")”.")
+            }
         }
+    }
+
+    private func assignmentLabel(for role: String) -> String {
+        guard let name = viewModel.peopleAssignments[role] else { return "Identify" }
+        return name.isEmpty ? "Identify" : name
     }
 
     private var toneIsPleasant: Bool {
