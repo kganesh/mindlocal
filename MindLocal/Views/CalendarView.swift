@@ -10,6 +10,8 @@ struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var addSheet: AddSheet?
     @State private var showingSettings = false
+    @State private var importMessage: String?
+    private let calendarImporter = CalendarImportService()
 
     private var allItems: [TimelineItem] {
         // Decisions extracted from an experience appear inside that experience,
@@ -72,11 +74,20 @@ struct CalendarView: View {
                         Button { addSheet = .conversation } label: { Label("Talk about my day", systemImage: "moon.stars") }
                         Button { addSheet = .entry } label: { Label("New Entry", systemImage: "square.and.pencil") }
                         Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
+                        Divider()
+                        Button { Task { await importCalendar() } } label: {
+                            Label("Import from Calendar", systemImage: "calendar.badge.clock")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("Add")
                 }
+            }
+            .alert("Calendar", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
+                Button("OK") { importMessage = nil }
+            } message: {
+                Text(importMessage ?? "")
             }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(item: $addSheet) { sheet in
@@ -85,6 +96,19 @@ struct CalendarView: View {
                 case .entry: CaptureView()
                 case .event: EventFormView { modelContext.insert($0) }
                 }
+            }
+        }
+    }
+
+    private func importCalendar() async {
+        switch await calendarImporter.importUpcoming(into: modelContext) {
+        case .denied:
+            importMessage = "MindLocal needs Calendar access. Enable it in Settings › MindLocal."
+        case .imported(let new, let updated):
+            if new == 0 && updated == 0 {
+                importMessage = "No upcoming events found in your calendar."
+            } else {
+                importMessage = "Imported \(new) new event\(new == 1 ? "" : "s")\(updated > 0 ? ", updated \(updated)" : "")."
             }
         }
     }

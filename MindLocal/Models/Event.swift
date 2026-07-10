@@ -18,6 +18,9 @@ final class Event {
     var domainRaw: String
     var generatedAdvice: String?
     var adviceGeneratedAt: Date?
+    /// EventKit identifier when imported from the iPhone Calendar (nil for
+    /// events created in the app). Used to de-duplicate on re-import.
+    var externalId: String?
 
     var domain: Domain {
         get { Domain(rawValue: domainRaw) ?? .other }
@@ -34,7 +37,8 @@ final class Event {
         isOutdoor: Bool = false,
         domain: Domain = .other,
         generatedAdvice: String? = nil,
-        adviceGeneratedAt: Date? = nil
+        adviceGeneratedAt: Date? = nil,
+        externalId: String? = nil
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -46,5 +50,6 @@ final class Event {
         self.domainRaw = domain.rawValue
         self.generatedAdvice = generatedAdvice
         self.adviceGeneratedAt = adviceGeneratedAt
+        self.externalId = externalId
     }
 }
