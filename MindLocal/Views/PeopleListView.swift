@@ -28,6 +28,9 @@ struct PeopleListView: View {
                             }
                         }
                     }
+                    .onDelete { offsets in
+                        for i in offsets { modelContext.delete(people[i]) }
+                    }
                 }
             }
             .navigationTitle("People")

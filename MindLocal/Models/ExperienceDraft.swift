@@ -33,7 +33,7 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "One of: career, money, health, family, work, other.")
     var domain: String
 
-    @Guide(description: "People involved, by name or relationship (e.g. 'Sam', 'my manager', 'Mom'). Empty if none mentioned. Never invent.")
+    @Guide(description: "Specific individuals involved, by name or a specific relationship (e.g. 'Sam', 'my manager', 'Mom'). Do NOT include groups or plurals ('the team', 'senior engineers', 'colleagues'), generic job titles, or the writer themselves ('me', 'self'). Empty if none. Never invent.")
     var people: [String]
 
     @Guide(description: "Concrete activities or actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Empty if none. Never invent.")
