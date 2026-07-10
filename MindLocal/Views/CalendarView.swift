@@ -89,6 +89,7 @@ struct CalendarView: View {
             } message: {
                 Text(importMessage ?? "")
             }
+            .task { await calendarImporter.importIfAuthorized(into: modelContext) }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(item: $addSheet) { sheet in
                 switch sheet {

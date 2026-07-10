@@ -14,8 +14,20 @@ final class CalendarImportService {
 
     private let store = EKEventStore()
 
+    /// Whether calendar access is already granted (no prompt).
+    var isAuthorized: Bool {
+        EKEventStore.authorizationStatus(for: .event) == .fullAccess
+    }
+
     func requestAccess() async -> Bool {
         (try? await store.requestFullAccessToEvents()) ?? false
+    }
+
+    /// Silently refreshes from the calendar only if access is already granted —
+    /// used on launch so it never prompts unexpectedly.
+    func importIfAuthorized(days: Int = 30, into context: ModelContext) async {
+        guard isAuthorized else { return }
+        _ = await importUpcoming(days: days, into: context)
     }
 
     /// Imports events from now through `days` ahead. Returns counts, or `.denied`.
