@@ -13,6 +13,7 @@ struct EventDetailView: View {
     @State private var phase: Phase = .idle
     @State private var weatherStatus: WeatherStatus = .none
     @State private var speaker = SpeechSpeaker()
+    @State private var pickingLocation = false
     private let advisor: AdvisingServicing = AdviceService()
     private let weather: WeatherProviding = WeatherKitService()
 
@@ -38,7 +39,16 @@ struct EventDetailView: View {
 
             Section("Setting") {
                 Toggle("Outdoor event", isOn: $event.isOutdoor)
-                TextField("Location (city or address)", text: $event.location)
+                Button {
+                    pickingLocation = true
+                } label: {
+                    Label(event.location.isEmpty ? "Choose location" : event.location, systemImage: "mappin.circle")
+                        .foregroundStyle(event.location.isEmpty ? Color.accentColor : .primary)
+                }
+                if let lat = event.latitude, let lon = event.longitude {
+                    LocationMapPreview(latitude: lat, longitude: lon, name: event.location)
+                        .listRowInsets(EdgeInsets())
+                }
                 switch weatherStatus {
                 case .loaded(let line):
                     Label(line, systemImage: "cloud.sun")
@@ -72,6 +82,14 @@ struct EventDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadIfNeeded() }
         .onDisappear { speaker.stop() }
+        .sheet(isPresented: $pickingLocation) {
+            LocationPickerView { name, lat, lon in
+                event.location = name
+                event.latitude = lat
+                event.longitude = lon
+                weatherStatus = .none   // refetch for the new place
+            }
+        }
     }
 
     @ViewBuilder
@@ -131,11 +149,14 @@ struct EventDetailView: View {
             weatherStatus = .none
             return
         }
-        if let summary = await weather.forecast(location: event.location, date: event.date) {
-            weatherStatus = .loaded(summary.line)
+        // Prefer exact map coordinates; fall back to geocoding the place name.
+        let summary: WeatherSummary?
+        if let lat = event.latitude, let lon = event.longitude {
+            summary = await weather.forecast(latitude: lat, longitude: lon, date: event.date)
         } else {
-            weatherStatus = .unavailable
+            summary = await weather.forecast(location: event.location, date: event.date)
         }
+        weatherStatus = summary.map { .loaded($0.line) } ?? .unavailable
     }
 
     private func generate() async {

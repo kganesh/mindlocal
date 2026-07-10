@@ -245,7 +245,10 @@ struct EventFormView: View {
     @State private var domain: Domain = .other
     @State private var notes = ""
     @State private var location = ""
+    @State private var latitude: Double?
+    @State private var longitude: Double?
     @State private var isOutdoor = false
+    @State private var pickingLocation = false
 
     var body: some View {
         NavigationStack {
@@ -260,13 +263,34 @@ struct EventFormView: View {
                 }
                 Section {
                     Toggle("Outdoor event", isOn: $isOutdoor)
-                    TextField("Location (city or address)", text: $location)
+                    Button {
+                        pickingLocation = true
+                    } label: {
+                        HStack {
+                            Label(location.isEmpty ? "Choose location" : location, systemImage: "mappin.circle")
+                                .foregroundStyle(location.isEmpty ? Color.accentColor : .primary)
+                            Spacer()
+                            if !location.isEmpty {
+                                Button("Clear") { location = ""; latitude = nil; longitude = nil }
+                                    .font(.caption).buttonStyle(.borderless)
+                            }
+                        }
+                    }
+                    if let lat = latitude, let lon = longitude {
+                        LocationMapPreview(latitude: lat, longitude: lon, name: location)
+                            .listRowInsets(EdgeInsets())
+                    }
                 } footer: {
                     Text("For outdoor events with a location, advice factors in the weather forecast.")
                 }
             }
             .navigationTitle("New Event")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $pickingLocation) {
+                LocationPickerView { name, lat, lon in
+                    location = name; latitude = lat; longitude = lon
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -274,7 +298,8 @@ struct EventFormView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         onSave(Event(title: title, notes: notes, date: date,
-                                     location: location, isOutdoor: isOutdoor, domain: domain))
+                                     location: location, latitude: latitude, longitude: longitude,
+                                     isOutdoor: isOutdoor, domain: domain))
                         dismiss()
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

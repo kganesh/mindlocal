@@ -11,8 +11,12 @@ final class Event {
     var title: String
     var notes: String
     var date: Date
-    /// Free-text location (city or address) used for weather-aware advice.
+    /// Place name (from the map picker or free text) used for weather-aware advice.
     var location: String = ""
+    /// Coordinates from the map picker, when chosen — used for precise weather and
+    /// the map preview. Nil for free-text-only or unset locations.
+    var latitude: Double?
+    var longitude: Double?
     /// Whether it's an outdoor event — weather only factors in for outdoor ones.
     var isOutdoor: Bool = false
     var domainRaw: String
@@ -34,6 +38,8 @@ final class Event {
         notes: String = "",
         date: Date = .now,
         location: String = "",
+        latitude: Double? = nil,
+        longitude: Double? = nil,
         isOutdoor: Bool = false,
         domain: Domain = .other,
         generatedAdvice: String? = nil,
@@ -46,6 +52,8 @@ final class Event {
         self.notes = notes
         self.date = date
         self.location = location
+        self.latitude = latitude
+        self.longitude = longitude
         self.isOutdoor = isOutdoor
         self.domainRaw = domain.rawValue
         self.generatedAdvice = generatedAdvice

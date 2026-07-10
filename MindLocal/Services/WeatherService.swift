@@ -28,6 +28,8 @@ protocol WeatherProviding: Sendable {
     /// Forecast for `location` on `date`, or nil if it can't be resolved (bad
     /// location, date outside the forecast window, or WeatherKit unavailable).
     func forecast(location: String, date: Date) async -> WeatherSummary?
+    /// Forecast for exact coordinates (from the map picker) — precise, no geocode.
+    func forecast(latitude: Double, longitude: Double, date: Date) async -> WeatherSummary?
 }
 
 /// Weather via Apple WeatherKit. Requires the WeatherKit capability on the App
@@ -40,8 +42,12 @@ final class WeatherKitService: WeatherProviding {
         // Geocode the free-text location to coordinates (MapKit, iOS 26+).
         guard let request = MKGeocodingRequest(addressString: trimmed),
               let mapItem = try? await request.mapItems.first else { return nil }
-        let location = mapItem.location
+        let coord = mapItem.location.coordinate
+        return await forecast(latitude: coord.latitude, longitude: coord.longitude, date: date)
+    }
 
+    func forecast(latitude: Double, longitude: Double, date: Date) async -> WeatherSummary? {
+        let location = CLLocation(latitude: latitude, longitude: longitude)
         do {
             let daily = try await WeatherService.shared.weather(for: location, including: .daily)
             guard let day = daily.forecast.first(where: {
@@ -63,6 +69,9 @@ final class WeatherKitService: WeatherProviding {
 /// Deterministic mock for previews and tests (no network).
 final class MockWeatherService: WeatherProviding {
     func forecast(location: String, date: Date) async -> WeatherSummary? {
+        WeatherSummary(condition: "Light Rain", highC: 18, lowC: 11, precipitationChance: 0.7)
+    }
+    func forecast(latitude: Double, longitude: Double, date: Date) async -> WeatherSummary? {
         WeatherSummary(condition: "Light Rain", highC: 18, lowC: 11, precipitationChance: 0.7)
     }
 }
