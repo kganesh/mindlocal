@@ -15,6 +15,15 @@ final class CurrentLocationProvider: NSObject, CLLocationManagerDelegate {
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
 
+    /// True when the user has already granted location access, so we can use it
+    /// without prompting.
+    var isAuthorized: Bool {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways: true
+        default: false
+        }
+    }
+
     /// One-shot location. Returns nil if denied or it can't get a fix.
     func currentLocation() async -> CLLocation? {
         await withCheckedContinuation { cont in

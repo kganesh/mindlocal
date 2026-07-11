@@ -11,6 +11,7 @@ struct CaptureView: View {
     @Query private var people: [Person]
     @State private var peopleConfirmed = false
     @State private var pickingLocation = false
+    @State private var locationProvider = CurrentLocationProvider()
     @FocusState private var editorFocused: Bool
 
     /// Mentions that need a "who is this?" question: role references and
@@ -144,6 +145,19 @@ struct CaptureView: View {
             }
         }
         .padding()
+        .task { await prefillLocationIfAuthorized() }
+    }
+
+    /// If the user already shares location, fill the new entry's place from their
+    /// current location — silently, and only when they haven't set one. Never
+    /// prompts; the manual "Add location" button covers the un-granted case.
+    private func prefillLocationIfAuthorized() async {
+        guard viewModel.location.isEmpty, locationProvider.isAuthorized else { return }
+        guard let location = await locationProvider.currentLocation() else { return }
+        guard viewModel.location.isEmpty else { return }   // user picked one meanwhile
+        viewModel.location = await locationProvider.placeName(for: location)
+        viewModel.latitude = location.coordinate.latitude
+        viewModel.longitude = location.coordinate.longitude
     }
 
     private let wordLimit = 500
