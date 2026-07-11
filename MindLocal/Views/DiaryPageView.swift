@@ -18,7 +18,7 @@ struct DiaryPageView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text(experience.timelineDate.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
-                    .font(.custom("Noteworthy-Bold", size: 19))
+                    .font(.custom("Caveat-Bold", size: 26))
                     .foregroundStyle(ink.opacity(0.65))
 
                 Rectangle()
@@ -26,15 +26,15 @@ struct DiaryPageView: View {
                     .frame(height: 1)
 
                 Text(body_text)
-                    .font(.custom("Noteworthy-Light", size: 23))
-                    .lineSpacing(9)
+                    .font(.custom("Caveat-Regular", size: 30))
+                    .lineSpacing(6)
                     .foregroundStyle(ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
 
                 if !experience.learning.isEmpty {
                     Text("— \(experience.learning)")
-                        .font(.custom("Noteworthy-Bold", size: 19))
+                        .font(.custom("Caveat-Bold", size: 26))
                         .foregroundStyle(ink.opacity(0.8))
                         .padding(.top, 4)
                 }
@@ -43,7 +43,7 @@ struct DiaryPageView: View {
                     Image(systemName: experience.tone.symbol)
                     Text(experience.tone.label)
                 }
-                .font(.custom("Noteworthy-Light", size: 17))
+                .font(.custom("Caveat-Regular", size: 22))
                 .foregroundStyle(experience.tone.tint)
                 .padding(.top, 6)
             }

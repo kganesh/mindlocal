@@ -6,6 +6,7 @@ struct MindLocalApp: App {
     @State private var checkInRouter = NightlyCheckInRouter.shared
 
     init() {
+        FontRegistration.registerBundledFonts()
         NightlyCheckInRouter.shared.register()
     }
 
