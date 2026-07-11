@@ -61,9 +61,11 @@ struct ExperienceListView: View {
             .sheet(isPresented: $showingTrends) { MoodTrendsView() }
             .navigationTitle("Journal")
             .navigationDestination(for: UUID.self) { id in
-                if let experience = experiences.first(where: { $0.id == id }) {
-                    DiaryPageView(experience: experience)
-                }
+                let entries = filtered
+                JournalReaderView(
+                    entries: entries,
+                    startIndex: entries.firstIndex(where: { $0.id == id }) ?? 0
+                )
             }
         }
     }

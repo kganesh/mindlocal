@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Reads a journal entry as a diary page — warm paper, handwriting, a dated
-/// header — like turning a page in a notebook. Edit opens the structured editor.
-struct DiaryPageView: View {
+/// The visual of a single diary page — warm paper, a dated header, and the
+/// narrative set in handwriting. Used both standalone (DiaryPageView) and as a
+/// page inside the flip-through reader (JournalReaderView).
+struct DiaryPageContent: View {
     @Bindable var experience: Experience
 
     private let paper = Color(red: 0.98, green: 0.96, blue: 0.89)
@@ -50,17 +51,28 @@ struct DiaryPageView: View {
             .padding(28)
             .frame(maxWidth: .infinity, minHeight: 480, alignment: .topLeading)
         }
-        .background(paper.ignoresSafeArea())
-        .navigationTitle(experience.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    ExperienceDetailView(experience: experience)
-                } label: {
-                    Text("Edit")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(paper)
+    }
+}
+
+/// Reads a single journal entry as a diary page. Edit opens the structured editor.
+struct DiaryPageView: View {
+    @Bindable var experience: Experience
+
+    var body: some View {
+        DiaryPageContent(experience: experience)
+            .ignoresSafeArea(edges: .bottom)
+            .navigationTitle(experience.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        ExperienceDetailView(experience: experience)
+                    } label: {
+                        Text("Edit")
+                    }
                 }
             }
-        }
     }
 }
