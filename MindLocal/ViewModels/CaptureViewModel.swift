@@ -47,7 +47,7 @@ final class CaptureViewModel {
         DraftStore.save(transcript: transcript)
         phase = .extracting
         do {
-            let extracted = try await extraction.extractExperience(from: transcript)
+            let extracted = try await extractWithRetry(transcript: transcript)
             if extracted.isExperience {
                 experienceDraft = extracted
                 phase = .preview
@@ -57,8 +57,42 @@ final class CaptureViewModel {
         } catch ExtractionError.modelUnavailable {
             phase = .error("Apple Intelligence isn't available right now. Your note is saved as a draft.")
         } catch {
-            phase = .error("Couldn't process the note. Your note is saved as a draft.")
+            phase = .error(Self.friendlyMessage(for: error))
         }
+    }
+
+    /// Guided generation on a long, dense note occasionally fails transiently
+    /// (malformed structured output, rate limits). Retry once before surfacing.
+    private func extractWithRetry(transcript: String) async throws -> ExperienceDraft {
+        do {
+            return try await extraction.extractExperience(from: transcript)
+        } catch ExtractionError.modelUnavailable {
+            throw ExtractionError.modelUnavailable   // don't retry an unavailable model
+        } catch {
+            return try await extraction.extractExperience(from: transcript)
+        }
+    }
+
+    /// Turns the underlying error into an actionable message. Matches on the
+    /// error text so we don't hard-code FoundationModels' case names, and shows
+    /// the raw reason in DEBUG so device testing reveals the exact cause.
+    static func friendlyMessage(for error: Error) -> String {
+        let detail = String(describing: error).lowercased()
+        let base: String
+        if detail.contains("guardrail") || detail.contains("safety") {
+            base = "The on-device model declined this note (safety guardrail). Try rewording it."
+        } else if detail.contains("context") || detail.contains("window") || detail.contains("exceeded") {
+            base = "This entry is a bit long for on-device processing. Try splitting it into two shorter moments."
+        } else if detail.contains("decod") || detail.contains("parse") {
+            base = "The model couldn't structure this note cleanly — tap Try Again."
+        } else {
+            base = "Couldn't process the note."
+        }
+        #if DEBUG
+        return "\(base)\n\n[\(error)]\n\nYour note is saved as a draft."
+        #else
+        return "\(base) Your note is saved as a draft."
+        #endif
     }
 
     /// Builds the Experience (with any linked decisions) to insert; caller owns
