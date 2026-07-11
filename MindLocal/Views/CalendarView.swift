@@ -137,7 +137,7 @@ struct CalendarView: View {
         switch item {
         case .event(let event):           EventDetailView(event: event)
         case .decision(let decision):      DecisionDetailView(decision: decision)
-        case .experience(let experience):  ExperienceDetailView(experience: experience)
+        case .experience(let experience):  DiaryPageView(experience: experience)
         }
     }
 

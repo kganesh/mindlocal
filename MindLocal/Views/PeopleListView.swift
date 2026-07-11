@@ -96,7 +96,7 @@ struct PersonDetailView: View {
                 } else {
                     ForEach(entries) { entry in
                         NavigationLink {
-                            ExperienceDetailView(experience: entry)
+                            DiaryPageView(experience: entry)
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(entry.title).font(.subheadline)
