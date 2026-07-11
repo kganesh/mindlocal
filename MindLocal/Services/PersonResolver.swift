@@ -95,7 +95,9 @@ enum PersonResolver {
         "me", "myself", "self", "i", "we", "us", "everyone", "everybody",
         "team", "others", "people", "someone", "somebody", "no one", "nobody",
         "group", "family", "friends", "colleagues", "coworkers", "co-workers",
-        "everybody else", "the team", "my team", "the group", "staff"
+        "everybody else", "the team", "my team", "the group", "staff",
+        // Third-person self-references the summarizer may use for the diary writer.
+        "the writer", "the author", "the narrator", "writer", "author", "narrator"
     ]
 
     /// Plural group nouns — a mention ending in one of these is a group, not a person.

@@ -23,6 +23,7 @@ final class PersonResolverTests: XCTestCase {
             ("senior engineers", false), ("team members", false), ("other senior engineers", false),
             ("colleagues", false), ("the team", false), ("everyone", false),
             ("self", false), ("me", false), ("myself", false), ("people", false),
+            ("the writer", false), ("the narrator", false), ("the author", false),
             ("", false), ("   ", false),
         ]
         for (input, expected) in cases {

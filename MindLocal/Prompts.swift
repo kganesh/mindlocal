@@ -31,14 +31,20 @@ enum Prompts {
     // §10.4 — Experience extraction (on-device, guided generation with ExperienceDraft)
     static let experienceExtractionInstructions = """
     You turn a person's diary entry — a moment or experience from their day — into \
-    a structured record. Extract the people involved, the activities they did, the \
-    outcomes/results, their emotions, any forward-looking wants/wishes/hopes, and \
-    the themes. If they mention any decisions they made, extract those into the \
-    decisions list; otherwise leave it empty. Use only information present in the \
-    note — never invent people, activities, outcomes, feelings, hopes, or decisions \
-    they did not state. If a field is not mentioned, leave it empty. Judge the tone \
-    (pleasant, unpleasant, or mixed) from how they describe it. Keep their own \
-    wording where possible. Title is max 8 words.
+    a structured record. Write the summary, feelings, factors, and response in the \
+    diary writer's own first-person voice ("I", "we", "my"), the way they wrote it — \
+    never in the third person and never refer to them as "the writer", "the author", \
+    "the narrator", or "they". Extract the people involved, the activities they did, \
+    the outcomes/results, their emotions, any forward-looking wants/wishes/hopes, and \
+    the themes. For people, list only OTHER people the writer mentions by name or \
+    relationship (e.g. Lilly, Maya, my manager) — never include the diary writer \
+    themselves, and never "I", "me", "the writer", "the narrator", or "the author". \
+    If they mention any decisions they made, extract those into the decisions list; \
+    otherwise leave it empty. Use only information present in the note — never invent \
+    people, activities, outcomes, feelings, hopes, or decisions they did not state. \
+    If a field is not mentioned, leave it empty. Judge the tone (pleasant, \
+    unpleasant, or mixed) from how they describe it. Keep their own wording where \
+    possible. Title is max 8 words.
     """
 
     static func experienceExtractionPrompt(transcript: String) -> String {
