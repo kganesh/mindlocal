@@ -105,6 +105,7 @@ struct JournalConversationView: View {
             if !didSave, let experience = viewModel.builtExperience {
                 modelContext.insert(experience)
                 experience.linkedPeople = PersonResolver.resolve(experience.people, in: modelContext)
+                EmbeddingService.embed(experience)
                 didSave = true
             }
         }

@@ -168,6 +168,7 @@ struct CaptureView: View {
                 assignments: viewModel.peopleAssignments,
                 in: modelContext
             )
+            EmbeddingService.embed(experience)
         }
         dismiss()
     }

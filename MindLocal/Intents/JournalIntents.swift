@@ -39,6 +39,7 @@ struct LogJournalEntryIntent: AppIntent {
 
         context.insert(experience)
         experience.linkedPeople = PersonResolver.resolve(experience.people, in: context)
+        EmbeddingService.embed(experience)
         try? context.save()
 
         return .result(dialog: "Saved your journal for today.")

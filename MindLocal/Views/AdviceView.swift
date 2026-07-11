@@ -37,8 +37,19 @@ struct AdviceView: View {
 
                     Button {
                         isQuestionFocused = false
-                        let decisionSummaries = decisions.map(DecisionSummary.init)
-                        let experienceSummaries = experiences.map(ExperienceSummary.init)
+                        // Retrieve the entries most relevant to the question (semantic),
+                        // not just the most recent.
+                        let query = viewModel.question
+                        let relevantExperiences = SemanticRetriever.topK(
+                            experiences, query: query, k: 10,
+                            text: EmbeddingService.experienceText, embedding: { $0.embedding }
+                        )
+                        let relevantDecisions = SemanticRetriever.topK(
+                            decisions, query: query, k: 8,
+                            text: EmbeddingService.decisionText, embedding: { $0.embedding }
+                        )
+                        let decisionSummaries = relevantDecisions.map(DecisionSummary.init)
+                        let experienceSummaries = relevantExperiences.map(ExperienceSummary.init)
                         Task { await viewModel.ask(decisions: decisionSummaries, experiences: experienceSummaries) }
                     } label: {
                         Label("Ask", systemImage: "sparkles")
