@@ -74,12 +74,13 @@ private struct PageCurlReader: UIViewControllerRepresentable {
         var parent: PageCurlReader
         init(_ parent: PageCurlReader) { self.parent = parent }
 
-        /// Only begin the page-curl pan when the drag is mostly horizontal, so
-        /// vertical drags fall through to the entry's scroll view.
+        /// Only begin the page-curl pan when the drag is clearly horizontal, so
+        /// vertical (and even diagonal) drags fall through to the entry's scroll
+        /// view. Horizontal must dominate by this factor to turn the page.
         func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
             guard let pan = gesture as? UIPanGestureRecognizer, let view = pan.view else { return true }
             let velocity = pan.velocity(in: view)
-            return abs(velocity.x) > abs(velocity.y)
+            return abs(velocity.x) > abs(velocity.y) * 2.5
         }
 
         /// Don't let the curl pan recognize alongside the scroll view's pan.
