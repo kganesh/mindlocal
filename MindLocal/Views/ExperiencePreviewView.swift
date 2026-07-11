@@ -14,7 +14,7 @@ struct ExperiencePreviewView: View {
                     WordingEnhancer(text: binding(\.summary))
                 }
                 Section("How it felt") {
-                    Picker("Tone", selection: binding(\.tone)) {
+                    Picker("Tone", selection: toneBinding) {
                         ForEach(ExperienceTone.allCases) { tone in
                             Label(tone.label, systemImage: tone.symbol).tag(tone.rawValue)
                         }
@@ -100,6 +100,18 @@ struct ExperiencePreviewView: View {
             }
             .padding(.vertical, 2)
         }
+    }
+
+    /// Normalizes the model's tone (which may be capitalized or slightly off) to a
+    /// valid case so the picker shows the selection instead of a blank "Tone".
+    private var toneBinding: Binding<String> {
+        Binding(
+            get: {
+                let raw = (viewModel.experienceDraft?.tone ?? "").lowercased()
+                return ExperienceTone(rawValue: raw)?.rawValue ?? ExperienceTone.mixed.rawValue
+            },
+            set: { viewModel.experienceDraft?.tone = $0 }
+        )
     }
 
     private func binding(_ keyPath: WritableKeyPath<ExperienceDraft, String>) -> Binding<String> {

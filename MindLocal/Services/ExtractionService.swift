@@ -16,12 +16,21 @@ enum ExtractionError: Error {
 /// On-device extraction via Foundation Models guided generation (spec §5, §10.1–10.2).
 final class ExtractionService: ExtractionServicing {
 
+    /// The diary transforms the user's own words into a structured record, so we
+    /// use permissive guardrails — the default filter false-positives on ordinary
+    /// journal content (e.g. work stress) and refuses with "may contain sensitive
+    /// content", which would otherwise block the entry entirely.
+    private static let model = SystemLanguageModel(
+        useCase: .general,
+        guardrails: .permissiveContentTransformations
+    )
+
     func extract(from transcript: String) async throws -> DecisionDraft {
-        guard SystemLanguageModel.default.isAvailable else {
+        guard Self.model.isAvailable else {
             throw ExtractionError.modelUnavailable
         }
         let session = LanguageModelSession(
-            model: .default,
+            model: Self.model,
             instructions: Prompts.extractionInstructions
         )
         let response = try await session.respond(
@@ -32,11 +41,11 @@ final class ExtractionService: ExtractionServicing {
     }
 
     func extractExperience(from transcript: String) async throws -> ExperienceDraft {
-        guard SystemLanguageModel.default.isAvailable else {
+        guard Self.model.isAvailable else {
             throw ExtractionError.modelUnavailable
         }
         let session = LanguageModelSession(
-            model: .default,
+            model: Self.model,
             instructions: Prompts.experienceExtractionInstructions
         )
         let response = try await session.respond(
@@ -49,11 +58,11 @@ final class ExtractionService: ExtractionServicing {
     func enhanceWording(_ text: String) async throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return text }
-        guard SystemLanguageModel.default.isAvailable else {
+        guard Self.model.isAvailable else {
             throw ExtractionError.modelUnavailable
         }
         let session = LanguageModelSession(
-            model: .default,
+            model: Self.model,
             instructions: Prompts.wordingEnhancerInstructions
         )
         let response = try await session.respond(to: trimmed)
@@ -61,11 +70,11 @@ final class ExtractionService: ExtractionServicing {
     }
 
     func followUpQuestion(draftSummary: String, missingField: String) async throws -> String {
-        guard SystemLanguageModel.default.isAvailable else {
+        guard Self.model.isAvailable else {
             throw ExtractionError.modelUnavailable
         }
         let session = LanguageModelSession(
-            model: .default,
+            model: Self.model,
             instructions: Prompts.followUpInstructions
         )
         let response = try await session.respond(
