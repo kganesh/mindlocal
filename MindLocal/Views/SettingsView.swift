@@ -1,12 +1,16 @@
 import SwiftUI
+import SwiftData
 
-/// App settings. Read-aloud voice + the nightly journal reminder.
+/// App settings: the nightly journal reminder and data management.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @AppStorage("reminderEnabled") private var reminderEnabled = false
     @AppStorage("reminderHour")    private var reminderHour = 22   // 10 PM
     @AppStorage("reminderMinute")  private var reminderMinute = 0
+
+    @State private var confirmingWipe = false
 
     var body: some View {
         NavigationStack {
@@ -22,13 +26,18 @@ struct SettingsView: View {
                     Text("A gentle nudge to record your day. Default 10:00 PM.")
                 }
 
-                Section("Read Aloud") {
-                    NavigationLink {
-                        VoicePicker()
+                Section {
+                    Button(role: .destructive) {
+                        confirmingWipe = true
                     } label: {
-                        Label("Voice", systemImage: "waveform")
+                        Label("Wipe All Data", systemImage: "trash")
                     }
+                } header: {
+                    Text("Data")
+                } footer: {
+                    Text("Permanently deletes all entries, events, and people from this device. This can't be undone.")
                 }
+
                 Section {
                     LabeledContent("Version", value: "1.0")
                 } footer: {
@@ -43,7 +52,24 @@ struct SettingsView: View {
             .onChange(of: reminderEnabled) { _, _ in applyReminder() }
             .onChange(of: reminderHour)    { _, _ in applyReminder() }
             .onChange(of: reminderMinute)  { _, _ in applyReminder() }
+            .alert("Wipe all data?", isPresented: $confirmingWipe) {
+                Button("Delete Everything", role: .destructive) { wipeAllData() }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This permanently deletes all entries, events, and people. It can't be undone.")
+            }
         }
+    }
+
+    private func wipeAllData() {
+        try? modelContext.delete(model: Experience.self)
+        try? modelContext.delete(model: Decision.self)
+        try? modelContext.delete(model: OptionConsidered.self)
+        try? modelContext.delete(model: Outcome.self)
+        try? modelContext.delete(model: Event.self)
+        try? modelContext.delete(model: PersonRelationship.self)
+        try? modelContext.delete(model: Person.self)
+        try? modelContext.save()
     }
 
     private var reminderTime: Binding<Date> {
