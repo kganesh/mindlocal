@@ -11,6 +11,7 @@ struct CaptureView: View {
     @Query private var people: [Person]
     @State private var peopleConfirmed = false
     @State private var pickingLocation = false
+    @FocusState private var editorFocused: Bool
 
     /// Mentions that need a "who is this?" question: role references and
     /// same-name ambiguity. Clear new names + relationship terms auto-resolve.
@@ -102,12 +103,19 @@ struct CaptureView: View {
                 .frame(minHeight: 140)
                 .padding(8)
                 .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+                .focused($editorFocused)
                 .overlay(alignment: .topLeading) {
                     if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
                         Text("What happened? Speak or type freely — mention any decisions you made.")
                             .foregroundStyle(.secondary)
                             .padding(16)
                             .allowsHitTesting(false)
+                    }
+                }
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") { editorFocused = false }
                     }
                 }
                 .onChange(of: viewModel.speech.transcript) { _, newValue in
