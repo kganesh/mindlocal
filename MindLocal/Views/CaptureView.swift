@@ -155,9 +155,21 @@ struct CaptureView: View {
         } description: {
             Text(message)
         } actions: {
+            if viewModel.canSaveRaw {
+                Button("Save Entry Anyway") { saveRaw() }
+                    .buttonStyle(.borderedProminent)
+            }
             Button("Try Again") { Task { await viewModel.submit() } }
             Button("Back") { viewModel.phase = .input }
         }
+    }
+
+    /// Saves the note as a plain diary entry when AI extraction failed.
+    private func saveRaw() {
+        let experience = viewModel.finalizeRawEntry()
+        modelContext.insert(experience)
+        EmbeddingService.embed(experience)
+        dismiss()
     }
 
     private func save() {

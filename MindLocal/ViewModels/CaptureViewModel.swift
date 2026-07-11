@@ -22,6 +22,8 @@ final class CaptureViewModel {
     var occurredAt: Date = .now
     /// Role mentions the user identified in review → chosen person name.
     var peopleAssignments: [String: String] = [:]
+    /// True once extraction has failed, so we can offer to save the raw note.
+    var canSaveRaw = false
 
     private let extraction: ExtractionServicing
     let speech: SpeechServicing
@@ -45,6 +47,7 @@ final class CaptureViewModel {
         let transcript = typedText.isEmpty ? speech.transcript : typedText
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         DraftStore.save(transcript: transcript)
+        canSaveRaw = false
         phase = .extracting
         do {
             let extracted = try await extractWithRetry(transcript: transcript)
@@ -55,8 +58,10 @@ final class CaptureViewModel {
                 phase = .nothingFound
             }
         } catch ExtractionError.modelUnavailable {
-            phase = .error("Apple Intelligence isn't available right now. Your note is saved as a draft.")
+            canSaveRaw = true
+            phase = .error("Apple Intelligence isn't available right now. You can save this as a plain entry below.")
         } catch {
+            canSaveRaw = true
             phase = .error(Self.friendlyMessage(for: error))
         }
     }
@@ -79,9 +84,11 @@ final class CaptureViewModel {
     static func friendlyMessage(for error: Error) -> String {
         let detail = String(describing: error).lowercased()
         let base: String
-        if detail.contains("guardrail") || detail.contains("safety") {
-            base = "The on-device model declined this note (safety guardrail). Try rewording it."
-        } else if detail.contains("context") || detail.contains("window") || detail.contains("exceeded") {
+        if detail.contains("refus") || detail.contains("guardrail")
+            || detail.contains("sensitive") || detail.contains("safety") {
+            base = "Apple's on-device safety filter flagged this note and wouldn't process it. "
+                + "You can save it as a plain entry below, or reword the flagged part and try again."
+        } else if detail.contains("exceededcontextwindow") || detail.contains("context window") {
             base = "This entry is a bit long for on-device processing. Try splitting it into two shorter moments."
         } else if detail.contains("decod") || detail.contains("parse") {
             base = "The model couldn't structure this note cleanly — tap Try Again."
@@ -109,6 +116,29 @@ final class CaptureViewModel {
         return experience
     }
 
+    /// Builds a plain journal entry straight from the note when AI extraction
+    /// fails (e.g. a false-positive safety refusal), so the diary is never lost.
+    /// The raw text still reads as a diary page; structured fields stay empty.
+    func finalizeRawEntry() -> Experience {
+        let transcript = typedText.isEmpty ? speech.transcript : typedText
+        let draft = ExperienceDraft(
+            title: Self.derivedTitle(from: transcript),
+            summary: transcript, feelings: "", tone: "mixed", factors: "",
+            response: "", learning: "", tags: [], domain: "other",
+            people: [], activities: [], outcomes: [], hopes: [], decisions: []
+        )
+        let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
+        DraftStore.clear()
+        reset()
+        return experience
+    }
+
+    private static func derivedTitle(from text: String) -> String {
+        let firstLine = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
+        let words = firstLine.split(separator: " ").prefix(6).joined(separator: " ")
+        return words.isEmpty ? "Journal entry" : words
+    }
+
     func discard() {
         DraftStore.clear()
         reset()
@@ -119,6 +149,7 @@ final class CaptureViewModel {
         experienceDraft = nil
         occurredAt = .now
         peopleAssignments = [:]
+        canSaveRaw = false
         phase = .input
     }
 }
