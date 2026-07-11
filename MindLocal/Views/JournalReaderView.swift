@@ -58,6 +58,11 @@ private struct PageCurlReader: UIViewControllerRepresentable {
             [context.coordinator.controller(for: index)],
             direction: .forward, animated: false
         )
+        // Let vertical drags scroll a long entry; only horizontal drags turn the
+        // page. Without this, the page-curl pan fights the ScrollView.
+        for case let pan as UIPanGestureRecognizer in pvc.gestureRecognizers {
+            pan.delegate = context.coordinator
+        }
         return pvc
     }
 
@@ -65,9 +70,23 @@ private struct PageCurlReader: UIViewControllerRepresentable {
         context.coordinator.parent = self
     }
 
-    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIGestureRecognizerDelegate {
         var parent: PageCurlReader
         init(_ parent: PageCurlReader) { self.parent = parent }
+
+        /// Only begin the page-curl pan when the drag is mostly horizontal, so
+        /// vertical drags fall through to the entry's scroll view.
+        func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard let pan = gesture as? UIPanGestureRecognizer, let view = pan.view else { return true }
+            let velocity = pan.velocity(in: view)
+            return abs(velocity.x) > abs(velocity.y)
+        }
+
+        /// Don't let the curl pan recognize alongside the scroll view's pan.
+        func gestureRecognizer(_ gesture: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            false
+        }
 
         func controller(for idx: Int) -> UIViewController {
             let host = UIHostingController(rootView: DiaryPageContent(experience: parent.entries[idx]))
