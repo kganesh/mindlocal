@@ -33,6 +33,12 @@ final class Experience {
     var outcomes: [String] = []
     /// Forward-looking wants / wishes / hopes.
     var hopes: [String] = []
+    /// Health context for the entry's day, from HealthKit (nil if unavailable /
+    /// not connected). Additive; defaults keep existing records migrating cleanly.
+    var sleepHours: Double? = nil
+    var steps: Int? = nil
+    var workoutMinutes: Double? = nil
+    var workoutCount: Int? = nil
     /// Decisions the person mentioned within this experience (extracted by AI).
     @Relationship(deleteRule: .cascade, inverse: \Decision.experience)
     var decisions: [Decision] = []
@@ -50,6 +56,8 @@ final class Experience {
     }
     /// Chronological anchor for the timeline.
     var timelineDate: Date { occurredAt ?? createdAt }
+    /// Whether any HealthKit context is attached to this entry.
+    var hasHealthContext: Bool { sleepHours != nil || steps != nil || (workoutCount ?? 0) > 0 }
 
     init(
         id: UUID = UUID(),

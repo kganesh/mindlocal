@@ -169,6 +169,7 @@ struct CaptureView: View {
         let experience = viewModel.finalizeRawEntry()
         modelContext.insert(experience)
         EmbeddingService.embed(experience)
+        Task { await HealthService.shared.enrich(experience) }
         dismiss()
     }
 
@@ -181,6 +182,7 @@ struct CaptureView: View {
                 in: modelContext
             )
             EmbeddingService.embed(experience)
+            Task { await HealthService.shared.enrich(experience) }
         }
         dismiss()
     }

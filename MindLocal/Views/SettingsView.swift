@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("reminderEnabled") private var reminderEnabled = false
     @AppStorage("reminderHour")    private var reminderHour = 22   // 10 PM
     @AppStorage("reminderMinute")  private var reminderMinute = 0
+    @AppStorage(HealthService.connectedKey) private var healthConnected = false
 
     @State private var confirmingWipe = false
 
@@ -24,6 +25,25 @@ struct SettingsView: View {
                     Text("Daily Journal")
                 } footer: {
                     Text("A gentle nudge to record your day. Default 10:00 PM.")
+                }
+
+                if HealthService.isAvailable {
+                    Section {
+                        if healthConnected {
+                            Label("Apple Health connected", systemImage: "heart.fill")
+                                .foregroundStyle(.pink)
+                        } else {
+                            Button {
+                                Task { healthConnected = await HealthService.shared.requestAuthorization() }
+                            } label: {
+                                Label("Connect Apple Health", systemImage: "heart")
+                            }
+                        }
+                    } header: {
+                        Text("Health")
+                    } footer: {
+                        Text("Adds your sleep, steps, and workouts as gentle context on entries and mood trends. Read-only and kept on your device.")
+                    }
                 }
 
                 #if DEBUG

@@ -47,12 +47,35 @@ struct DiaryPageContent: View {
                 .font(.custom("Caveat-Regular", size: 22))
                 .foregroundStyle(experience.tone.tint)
                 .padding(.top, 6)
+
+                if experience.hasHealthContext {
+                    HStack(spacing: 16) {
+                        if let hours = experience.sleepHours {
+                            healthChip("bed.double.fill", String(format: "%.1f h", hours))
+                        }
+                        if let steps = experience.steps {
+                            healthChip("figure.walk", steps.formatted())
+                        }
+                        if let count = experience.workoutCount, count > 0 {
+                            healthChip("figure.run", count == 1 ? "1 workout" : "\(count) workouts")
+                        }
+                    }
+                    .font(.custom("Caveat-Regular", size: 18))
+                    .foregroundStyle(ink.opacity(0.5))
+                }
             }
             .padding(28)
             .frame(maxWidth: .infinity, minHeight: 480, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(paper)
+    }
+
+    private func healthChip(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: symbol)
+            Text(text)
+        }
     }
 }
 

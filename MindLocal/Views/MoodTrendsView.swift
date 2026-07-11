@@ -95,6 +95,26 @@ struct MoodTrendsView: View {
                             balanceRow("Mixed", counts.mixed, tone: .mixed)
                             balanceRow("Unpleasant", counts.unpleasant, tone: .unpleasant)
                         }
+
+                        if hasHealthData {
+                            Section {
+                                healthRow("Pleasant days",
+                                          sleep: avgSleep(.pleasant), steps: avgSteps(.pleasant),
+                                          tone: .pleasant)
+                                healthRow("Unpleasant days",
+                                          sleep: avgSleep(.unpleasant), steps: avgSteps(.unpleasant),
+                                          tone: .unpleasant)
+                                if let insight = sleepInsight {
+                                    Label(insight, systemImage: "sparkles")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } header: {
+                                Text("Body & mood")
+                            } footer: {
+                                Text("From Apple Health. A pattern, not a cause — notice it, don't judge it.")
+                            }
+                        }
                     }
                 }
             }
@@ -104,6 +124,53 @@ struct MoodTrendsView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
         }
+    }
+
+    // MARK: - Health correlation
+
+    private var hasHealthData: Bool {
+        HealthService.isConnected && experiences.contains { $0.sleepHours != nil || $0.steps != nil }
+    }
+
+    private func avgSleep(_ tone: ExperienceTone) -> Double? {
+        average(experiences.filter { $0.tone == tone }.compactMap(\.sleepHours))
+    }
+
+    private func avgSteps(_ tone: ExperienceTone) -> Int? {
+        average(experiences.filter { $0.tone == tone }.compactMap { $0.steps.map(Double.init) }).map { Int($0) }
+    }
+
+    private func average(_ values: [Double]) -> Double? {
+        values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+    }
+
+    /// A gentle one-liner when pleasant days differ from unpleasant days on sleep.
+    private var sleepInsight: String? {
+        guard let good = avgSleep(.pleasant), let rough = avgSleep(.unpleasant) else { return nil }
+        let diff = good - rough
+        guard abs(diff) >= 0.5 else { return nil }
+        let hrs = String(format: "%.1f", abs(diff))
+        return diff > 0
+            ? "You tend to sleep about \(hrs)h more on your pleasant days."
+            : "Your rougher days tend to follow about \(hrs)h more sleep — worth a look."
+    }
+
+    private func healthRow(_ label: String, sleep: Double?, steps: Int?, tone: ExperienceTone) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Label(label, systemImage: tone.symbol).foregroundStyle(tone.tint).font(.subheadline)
+            HStack(spacing: 14) {
+                if let sleep { metric("bed.double.fill", String(format: "%.1f h sleep", sleep)) }
+                if let steps { metric("figure.walk", "\(steps.formatted()) steps") }
+                if sleep == nil && steps == nil { Text("No data yet").foregroundStyle(.tertiary) }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func metric(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 4) { Image(systemName: symbol); Text(text) }
     }
 
     private func balanceRow(_ label: String, _ count: Int, tone: ExperienceTone) -> some View {
