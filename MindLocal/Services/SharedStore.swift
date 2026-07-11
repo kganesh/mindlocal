@@ -9,9 +9,16 @@ enum SharedStore {
         Experience.self, Event.self, Person.self, PersonRelationship.self
     ])
 
+    /// True when running under XCTest — use a throwaway in-memory store so tests
+    /// don't touch real data and there's a single container in the process.
+    private static var underTest: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     static let container: ModelContainer = {
         do {
-            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema))
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: underTest)
+            return try ModelContainer(for: schema, configurations: config)
         } catch {
             fatalError("Failed to create shared ModelContainer: \(error)")
         }
