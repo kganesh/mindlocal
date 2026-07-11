@@ -99,10 +99,10 @@ struct EventDetailView: View {
             HStack { ProgressView(); Text("Thinking…").foregroundStyle(.secondary) }
         case .ready:
             VStack(alignment: .leading, spacing: 8) {
-                Text(event.generatedAdvice ?? "")
+                Text((event.generatedAdvice ?? "").renderedMarkdown)
                     .textSelection(.enabled)
                 Button {
-                    speaker.toggle(event.generatedAdvice ?? "")
+                    speaker.toggle((event.generatedAdvice ?? "").strippedMarkdown)
                 } label: {
                     Label(speaker.isSpeaking ? "Stop" : "Read aloud",
                           systemImage: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")

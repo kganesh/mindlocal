@@ -105,13 +105,13 @@ struct AdviceView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
-                        speaker.toggle(text)
+                        speaker.toggle(text.strippedMarkdown)
                     } label: {
                         Image(systemName: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
                     }
                     .accessibilityLabel(speaker.isSpeaking ? "Stop reading" : "Read aloud")
                 }
-                Text(text)
+                Text(text.renderedMarkdown)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
