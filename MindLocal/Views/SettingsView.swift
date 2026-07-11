@@ -26,6 +26,7 @@ struct SettingsView: View {
                     Text("A gentle nudge to record your day. Default 10:00 PM.")
                 }
 
+                #if DEBUG
                 Section {
                     Button(role: .destructive) {
                         confirmingWipe = true
@@ -33,10 +34,11 @@ struct SettingsView: View {
                         Label("Wipe All Data", systemImage: "trash")
                     }
                 } header: {
-                    Text("Data")
+                    Text("Data (Dev)")
                 } footer: {
                     Text("Permanently deletes all entries, events, and people from this device. This can't be undone.")
                 }
+                #endif
 
                 Section {
                     LabeledContent("Version", value: "1.0")
@@ -62,14 +64,19 @@ struct SettingsView: View {
     }
 
     private func wipeAllData() {
-        try? modelContext.delete(model: Experience.self)
-        try? modelContext.delete(model: Decision.self)
-        try? modelContext.delete(model: OptionConsidered.self)
-        try? modelContext.delete(model: Outcome.self)
-        try? modelContext.delete(model: Event.self)
-        try? modelContext.delete(model: PersonRelationship.self)
-        try? modelContext.delete(model: Person.self)
+        deleteAll(Experience.self)   // cascades its decisions
+        deleteAll(Decision.self)
+        deleteAll(OptionConsidered.self)
+        deleteAll(Outcome.self)
+        deleteAll(Event.self)
+        deleteAll(PersonRelationship.self)
+        deleteAll(Person.self)
         try? modelContext.save()
+    }
+
+    private func deleteAll<T: PersistentModel>(_ type: T.Type) {
+        let items = (try? modelContext.fetch(FetchDescriptor<T>())) ?? []
+        for item in items { modelContext.delete(item) }
     }
 
     private var reminderTime: Binding<Date> {
