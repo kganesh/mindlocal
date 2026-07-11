@@ -1,5 +1,66 @@
 import SwiftUI
 import MapKit
+import CoreLocation
+
+/// Gets a single current-location fix (asking permission if needed) and reverse
+/// geocodes it to a readable place name.
+@MainActor
+final class CurrentLocationProvider: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var continuation: CheckedContinuation<CLLocation?, Never>?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    /// One-shot location. Returns nil if denied or it can't get a fix.
+    func currentLocation() async -> CLLocation? {
+        await withCheckedContinuation { cont in
+            continuation = cont
+            switch manager.authorizationStatus {
+            case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
+            case .notDetermined: manager.requestWhenInUseAuthorization()
+            default: finish(nil)
+            }
+        }
+    }
+
+    func placeName(for location: CLLocation) async -> String {
+        let fallback = String(format: "%.4f, %.4f", location.coordinate.latitude, location.coordinate.longitude)
+        guard let request = MKReverseGeocodingRequest(location: location),
+              let item = try? await request.mapItems.first else { return fallback }
+        return item.name ?? item.address?.shortAddress ?? item.address?.fullAddress ?? fallback
+    }
+
+    private func finish(_ location: CLLocation?) {
+        continuation?.resume(returning: location)
+        continuation = nil
+    }
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        Task { @MainActor in
+            switch manager.authorizationStatus {
+            case .authorizedWhenInUse, .authorizedAlways:
+                if continuation != nil { manager.requestLocation() }
+            case .denied, .restricted:
+                finish(nil)
+            default:
+                break
+            }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        let last = locations.last
+        Task { @MainActor in finish(last) }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in finish(nil) }
+    }
+}
 
 /// Search-as-you-type place autocomplete (MKLocalSearchCompleter). Resolving a
 /// pick yields a name + coordinates.
@@ -39,12 +100,26 @@ final class LocationSearchCompleter: NSObject, MKLocalSearchCompleterDelegate {
 /// A place picker sheet. Calls `onSelect(name, lat, long)` on selection.
 struct LocationPickerView: View {
     @State private var completer = LocationSearchCompleter()
+    @State private var locationProvider = CurrentLocationProvider()
+    @State private var locating = false
+    @State private var locationDenied = false
     @Environment(\.dismiss) private var dismiss
     let onSelect: (String, Double, Double) -> Void
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Button(action: useCurrentLocation) {
+                        HStack {
+                            Label("Use current location", systemImage: "location.fill")
+                            Spacer()
+                            if locating { ProgressView() }
+                        }
+                    }
+                    .disabled(locating)
+                }
+
                 if completer.query.isEmpty {
                     ContentUnavailableView("Search a Place", systemImage: "mappin.and.ellipse",
                                            description: Text("Type a place, address, or city."))
@@ -75,6 +150,25 @@ struct LocationPickerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
+            .alert("Location Off", isPresented: $locationDenied) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Enable location in Settings → MindLocal → Location, or search for a place instead.")
+            }
+        }
+    }
+
+    private func useCurrentLocation() {
+        Task {
+            locating = true
+            defer { locating = false }
+            guard let location = await locationProvider.currentLocation() else {
+                locationDenied = true
+                return
+            }
+            let name = await locationProvider.placeName(for: location)
+            onSelect(name, location.coordinate.latitude, location.coordinate.longitude)
+            dismiss()
         }
     }
 }
