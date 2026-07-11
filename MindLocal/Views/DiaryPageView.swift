@@ -22,6 +22,15 @@ struct DiaryPageContent: View {
                     .font(.custom("Caveat-Bold", size: 26))
                     .foregroundStyle(ink.opacity(0.65))
 
+                if experience.hasLocation {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(experience.location)
+                    }
+                    .font(.custom("Caveat-Regular", size: 20))
+                    .foregroundStyle(ink.opacity(0.55))
+                }
+
                 Rectangle()
                     .fill(ink.opacity(0.15))
                     .frame(height: 1)

@@ -10,6 +10,7 @@ struct CaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var people: [Person]
     @State private var peopleConfirmed = false
+    @State private var pickingLocation = false
 
     /// Mentions that need a "who is this?" question: role references and
     /// same-name ambiguity. Clear new names + relationship terms auto-resolve.
@@ -60,6 +61,13 @@ struct CaptureView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background { viewModel.persistWorkInProgress() }
             }
+            .sheet(isPresented: $pickingLocation) {
+                LocationPickerView { name, lat, lon in
+                    viewModel.location = name
+                    viewModel.latitude = lat
+                    viewModel.longitude = lon
+                }
+            }
         }
     }
 
@@ -67,6 +75,28 @@ struct CaptureView: View {
         VStack(spacing: 24) {
             DatePicker("Date & time", selection: $viewModel.occurredAt, displayedComponents: [.date, .hourAndMinute])
                 .padding(.horizontal, 4)
+
+            HStack {
+                Button {
+                    pickingLocation = true
+                } label: {
+                    Label(viewModel.location.isEmpty ? "Add location" : viewModel.location,
+                          systemImage: "mappin.circle")
+                        .lineLimit(1)
+                }
+                Spacer()
+                if !viewModel.location.isEmpty {
+                    Button {
+                        viewModel.location = ""
+                        viewModel.latitude = nil
+                        viewModel.longitude = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Clear location")
+                }
+            }
+            .padding(.horizontal, 4)
 
             TextEditor(text: $viewModel.typedText)
                 .frame(minHeight: 140)

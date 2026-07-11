@@ -22,6 +22,10 @@ final class CaptureViewModel {
     var occurredAt: Date = .now
     /// Role mentions the user identified in review → chosen person name.
     var peopleAssignments: [String: String] = [:]
+    /// Optional place the moment happened (editable in input/review).
+    var location: String = ""
+    var latitude: Double? = nil
+    var longitude: Double? = nil
     /// True once extraction has failed, so we can offer to save the raw note.
     var canSaveRaw = false
 
@@ -111,6 +115,7 @@ final class CaptureViewModel {
         experience.decisions = experienceDraft.decisions
             .filter { $0.isDecision }
             .map { $0.toDecision(rawTranscript: transcript, occurredAt: occurredAt) }
+        applyLocation(to: experience)
         DraftStore.clear()
         reset()
         return experience
@@ -128,9 +133,16 @@ final class CaptureViewModel {
             people: [], activities: [], outcomes: [], hopes: [], decisions: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
+        applyLocation(to: experience)
         DraftStore.clear()
         reset()
         return experience
+    }
+
+    private func applyLocation(to experience: Experience) {
+        experience.location = location
+        experience.latitude = latitude
+        experience.longitude = longitude
     }
 
     private static func derivedTitle(from text: String) -> String {
@@ -149,6 +161,9 @@ final class CaptureViewModel {
         experienceDraft = nil
         occurredAt = .now
         peopleAssignments = [:]
+        location = ""
+        latitude = nil
+        longitude = nil
         canSaveRaw = false
         phase = .input
     }

@@ -39,6 +39,10 @@ final class Experience {
     var steps: Int? = nil
     var workoutMinutes: Double? = nil
     var workoutCount: Int? = nil
+    /// Where the moment happened (optional). Additive; empty/nil for migration.
+    var location: String = ""
+    var latitude: Double? = nil
+    var longitude: Double? = nil
     /// Decisions the person mentioned within this experience (extracted by AI).
     @Relationship(deleteRule: .cascade, inverse: \Decision.experience)
     var decisions: [Decision] = []
@@ -58,6 +62,8 @@ final class Experience {
     var timelineDate: Date { occurredAt ?? createdAt }
     /// Whether any HealthKit context is attached to this entry.
     var hasHealthContext: Bool { sleepHours != nil || steps != nil || (workoutCount ?? 0) > 0 }
+    /// Whether a place is associated with this entry.
+    var hasLocation: Bool { !location.isEmpty }
 
     init(
         id: UUID = UUID(),

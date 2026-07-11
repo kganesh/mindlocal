@@ -3,6 +3,7 @@ import SwiftData
 
 struct ExperienceDetailView: View {
     @Bindable var experience: Experience
+    @State private var pickingLocation = false
 
     var body: some View {
         Form {
@@ -58,6 +59,25 @@ struct ExperienceDetailView: View {
                     ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }
                 }
             }
+            Section("Location") {
+                Button {
+                    pickingLocation = true
+                } label: {
+                    Label(experience.location.isEmpty ? "Add location" : experience.location,
+                          systemImage: "mappin.circle")
+                        .foregroundStyle(experience.location.isEmpty ? Color.accentColor : .primary)
+                }
+                if let lat = experience.latitude, let lon = experience.longitude {
+                    LocationMapPreview(latitude: lat, longitude: lon, name: experience.location)
+                        .listRowInsets(EdgeInsets())
+                    Button("Remove location", role: .destructive) {
+                        experience.location = ""
+                        experience.latitude = nil
+                        experience.longitude = nil
+                    }
+                }
+            }
+
             if let raw = experience.rawText, !raw.isEmpty {
                 Section("Original note") {
                     Text(raw).font(.callout).foregroundStyle(.secondary)
@@ -66,6 +86,13 @@ struct ExperienceDetailView: View {
         }
         .navigationTitle(experience.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $pickingLocation) {
+            LocationPickerView { name, lat, lon in
+                experience.location = name
+                experience.latitude = lat
+                experience.longitude = lon
+            }
+        }
     }
 
     private var hasJournalDetails: Bool {
