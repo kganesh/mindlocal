@@ -33,10 +33,11 @@ enum PersonResolver {
             let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { continue }
 
-            // 0. User explicitly identified this mention → link to that person and
-            // remember the mention as an alias.
-            if let assigned = assignments[name]?.trimmingCharacters(in: .whitespacesAndNewlines), !assigned.isEmpty {
-                let person = findOrCreate(named: assigned)
+            // 0. User answered the confirm step for this mention.
+            if let assigned = assignments[name] {
+                let target = assigned.trimmingCharacters(in: .whitespacesAndNewlines)
+                if target.isEmpty { continue }   // explicitly skipped / "not a person"
+                let person = findOrCreate(named: target)
                 if !person.matches(name) { person.aliases.append(name) }
                 add(person)
                 continue

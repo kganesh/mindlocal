@@ -8,6 +8,23 @@ struct CaptureView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
+    @Query private var people: [Person]
+    @State private var peopleConfirmed = false
+
+    /// Mentions that need a "who is this?" question: role references and
+    /// same-name ambiguity. Clear new names + relationship terms auto-resolve.
+    private var peopleToConfirm: [String] {
+        guard let draft = viewModel.experienceDraft else { return [] }
+        return draft.people.compactMap { raw in
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard PersonResolver.isLikelyPerson(name) else { return nil }
+            let matches = people.filter { $0.matches(name) }
+            if matches.count > 1 { return name }        // ambiguous → ask
+            if matches.count == 1 { return nil }         // already resolved
+            if PersonResolver.isRoleReference(name) { return name }  // role → ask
+            return nil                                    // clear new name → auto-add
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -19,7 +36,13 @@ struct CaptureView: View {
                     ProgressView("Understanding your note…")
                 case .preview:
                     if viewModel.experienceDraft != nil {
-                        ExperiencePreviewView(viewModel: viewModel, onSave: save)
+                        if !peopleConfirmed && !peopleToConfirm.isEmpty {
+                            PeopleConfirmView(mentions: peopleToConfirm, viewModel: viewModel) {
+                                peopleConfirmed = true
+                            }
+                        } else {
+                            ExperiencePreviewView(viewModel: viewModel, onSave: save)
+                        }
                     }
                 case .nothingFound:
                     nothingFoundView
