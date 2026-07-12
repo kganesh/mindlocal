@@ -52,7 +52,9 @@ extension DecisionDraft {
     }
 
     func toDecision(rawTranscript: String?, occurredAt: Date?) -> Decision {
-        Decision(
+        let stakesValue = Stakes(rawValue: stakes) ?? .medium
+        let anchor = occurredAt ?? .now
+        return Decision(
             title: title.isEmpty ? String(statement.prefix(48)) : title,
             statement: statement,
             context: context,
@@ -64,7 +66,8 @@ extension DecisionDraft {
             },
             rationale: rationale,
             domain: Domain(rawValue: domain) ?? .other,
-            stakes: Stakes(rawValue: stakes) ?? .medium,
+            stakes: stakesValue,
+            revisitAt: Decision.revisitDate(for: stakesValue, occurredAt: anchor),
             rawTranscript: rawTranscript,
             occurredAt: occurredAt
         )

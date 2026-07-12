@@ -3,6 +3,39 @@ import XCTest
 
 final class RetrievalAndModelTests: XCTestCase {
 
+    // MARK: - Decision → outcome revisit loop (Phase 1)
+
+    func test_revisitDelay_byStakes() {
+        XCTAssertEqual(Decision.revisitDelay(for: .high),   30 * 86_400)
+        XCTAssertEqual(Decision.revisitDelay(for: .medium), 14 * 86_400)
+        XCTAssertNil(Decision.revisitDelay(for: .low))
+    }
+
+    func test_revisitDate_offsetsFromOccurrence() {
+        let made = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(Decision.revisitDate(for: .high, occurredAt: made),
+                       made.addingTimeInterval(30 * 86_400))
+        XCTAssertNil(Decision.revisitDate(for: .low, occurredAt: made))
+    }
+
+    @MainActor
+    func test_isDueForRevisit_dependsOnDateAndOutcome() {
+        let now = Date()
+        let due = Decision(title: "t", statement: "s", stakes: .high,
+                           revisitAt: now.addingTimeInterval(-86_400))   // yesterday
+        XCTAssertTrue(due.isDueForRevisit(asOf: now))
+
+        let notYet = Decision(title: "t", statement: "s", stakes: .high,
+                              revisitAt: now.addingTimeInterval(86_400))  // tomorrow
+        XCTAssertFalse(notYet.isDueForRevisit(asOf: now))
+
+        let unscheduled = Decision(title: "t", statement: "s", stakes: .low)
+        XCTAssertFalse(unscheduled.isDueForRevisit(asOf: now))
+
+        due.outcome = Outcome(result: .workedOut)   // recorded → no longer due
+        XCTAssertFalse(due.isDueForRevisit(asOf: now))
+    }
+
     // MARK: - Cosine (deterministic)
 
     func test_cosine_identicalAndOrthogonal() {

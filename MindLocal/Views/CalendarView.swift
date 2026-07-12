@@ -10,6 +10,7 @@ struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var addSheet: AddSheet?
     @State private var showingSettings = false
+    @State private var showingRevisit = false
     @State private var importMessage: String?
     private let calendarImporter = CalendarImportService()
 
@@ -20,6 +21,9 @@ struct CalendarView: View {
         items += decisions.filter { $0.experience == nil }.map(TimelineItem.decision)
         items += experiences.map(TimelineItem.experience)
         return items
+    }
+    private var dueRevisits: [Decision] {
+        decisions.filter { $0.isDueForRevisit() }
     }
     private var upcoming: [TimelineItem] {
         allItems.filter { $0.date > .now }.sorted { $0.date < $1.date }
@@ -39,6 +43,17 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             List {
+                if !dueRevisits.isEmpty {
+                    Section {
+                        Button {
+                            showingRevisit = true
+                        } label: {
+                            Label("^[\(dueRevisits.count) decision](inflect: true) to revisit",
+                                  systemImage: "arrow.uturn.backward.circle.fill")
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                }
                 if !upcoming.isEmpty {
                     Section("Upcoming") {
                         ForEach(upcoming) { row($0) }
@@ -91,6 +106,7 @@ struct CalendarView: View {
             }
             .task { await calendarImporter.importIfAuthorized(into: modelContext) }
             .sheet(isPresented: $showingSettings) { SettingsView() }
+            .sheet(isPresented: $showingRevisit) { DecisionReviewView() }
             .sheet(item: $addSheet) { sheet in
                 switch sheet {
                 case .conversation: JournalConversationView()

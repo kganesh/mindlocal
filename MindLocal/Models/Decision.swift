@@ -33,6 +33,29 @@ final class Decision {
     /// Chronological anchor for the timeline.
     var timelineDate: Date { occurredAt ?? createdAt }
 
+    // MARK: - Decision → outcome loop (Phase 1)
+
+    /// How long after a decision we prompt to record how it turned out, by stakes.
+    /// Low-stakes decisions aren't scheduled for revisit (nil).
+    static func revisitDelay(for stakes: Stakes) -> TimeInterval? {
+        switch stakes {
+        case .high:   30 * 86_400   // ~1 month
+        case .medium: 14 * 86_400   // ~2 weeks
+        case .low:    nil           // skip
+        }
+    }
+
+    /// The revisit date for a decision made at `occurredAt` with the given stakes.
+    static func revisitDate(for stakes: Stakes, occurredAt: Date) -> Date? {
+        revisitDelay(for: stakes).map { occurredAt.addingTimeInterval($0) }
+    }
+
+    /// Due to be revisited: scheduled, past its revisit date, and no outcome yet.
+    func isDueForRevisit(asOf now: Date = .now) -> Bool {
+        guard outcome == nil, let revisitAt else { return false }
+        return revisitAt <= now
+    }
+
     init(
         id: UUID = UUID(),
         createdAt: Date = .now,
