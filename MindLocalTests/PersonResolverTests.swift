@@ -49,6 +49,37 @@ final class PersonResolverTests: XCTestCase {
         }
     }
 
+    // MARK: - isKinshipTerm (bulk table)
+
+    func test_isKinshipTerm_bulk() {
+        let cases: [(String, Bool)] = [
+            ("mom", true), ("my sister", true), ("brother", true), ("wife", true),
+            ("grandma", true), ("mother-in-law", true), ("my brother-in-law", true),
+            ("uncle", true), ("son", true),
+            ("Sam", false), ("Priya", false), ("my manager", false),
+            ("the recruiter", false), ("kids", false),
+        ]
+        for (input, expected) in cases {
+            XCTAssertEqual(PersonResolver.isKinshipTerm(input), expected, "isKinshipTerm(\(input))")
+        }
+    }
+
+    func test_resolve_kinshipTerm_skippedThenAssignedThenAutoResolves() {
+        let ctx = makeContext()
+        // First appearance, no assignment → asked-about, so skipped (not created).
+        let first = PersonResolver.resolve(["my sister"], in: ctx)
+        XCTAssertTrue(first.isEmpty)
+
+        // User identifies "my sister" as Emma.
+        let assigned = PersonResolver.resolve(["my sister"], assignments: ["my sister": "Emma"], in: ctx)
+        XCTAssertEqual(assigned.map(\.name), ["Emma"])
+        XCTAssertTrue(assigned.first?.aliases.contains("my sister") ?? false)
+
+        // Later entries auto-resolve "my sister" → Emma via the alias.
+        let later = PersonResolver.resolve(["my sister"], in: ctx)
+        XCTAssertEqual(later.map(\.name), ["Emma"])
+    }
+
     // MARK: - resolve
 
     func test_resolve_createsProperNames_skipsPluralsAndRoles() {

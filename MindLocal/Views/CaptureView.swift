@@ -9,22 +9,31 @@ struct CaptureView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Query private var people: [Person]
+    @Query private var relationships: [PersonRelationship]
     @State private var peopleConfirmed = false
     @State private var pickingLocation = false
     @State private var locationProvider = CurrentLocationProvider()
     @FocusState private var editorFocused: Bool
 
-    /// Mentions that need a "who is this?" question: role references and
-    /// same-name ambiguity. Clear new names + relationship terms auto-resolve.
+    private var me: Person? { people.first { $0.isMe } }
+
+    /// Mentions that need a "who is this?" question: role references, bare kinship
+    /// terms ("my sister"), and same-name ambiguity. Clear new names, already-known
+    /// aliases, and graph-resolved relatives ("mom" with a parent edge) auto-resolve.
     private var peopleToConfirm: [String] {
         guard let draft = viewModel.experienceDraft else { return [] }
         return draft.people.compactMap { raw in
             let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard PersonResolver.isLikelyPerson(name) else { return nil }
             let matches = people.filter { $0.matches(name) }
-            if matches.count > 1 { return name }        // ambiguous → ask
-            if matches.count == 1 { return nil }         // already resolved
-            if PersonResolver.isRoleReference(name) { return name }  // role → ask
+            if matches.count > 1 { return name }         // ambiguous → ask
+            if matches.count == 1 { return nil }          // already known (name/alias)
+            if PersonResolver.graphResolves(name, me: me, relationships: relationships) {
+                return nil                                // relative resolved via graph
+            }
+            if PersonResolver.isRoleReference(name) || PersonResolver.isKinshipTerm(name) {
+                return name                               // role / bare kinship → ask
+            }
             return nil                                    // clear new name → auto-add
         }
     }

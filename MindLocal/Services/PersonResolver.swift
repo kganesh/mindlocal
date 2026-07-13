@@ -58,9 +58,10 @@ enum PersonResolver {
                 add(person)
                 continue
             }
-            // 3. A role reference with no assignment — needs identifying; skip it
-            // rather than create a "manager"/"principal engineer" person node.
-            if isRoleReference(name) { continue }
+            // 3. A role or bare kinship reference with no assignment — needs
+            // identifying; skip rather than create a "manager"/"sister" node. It
+            // will be asked again the next time it appears in an entry.
+            if isRoleReference(name) || isKinshipTerm(name) { continue }
 
             // 4. New named person.
             let person = Person(name: name)
@@ -88,6 +89,35 @@ enum PersonResolver {
             .split(whereSeparator: { $0 == " " || $0 == "-" })
             .map(String.init))
         return !words.isDisjoint(with: roleWords)
+    }
+
+    /// Bare kinship terms — a specific person referred to only by relationship
+    /// ("my sister", "mom"). Like roles, these are identified once (via the
+    /// confirm step) rather than becoming a node literally named "sister".
+    private static let kinshipWords: Set<String> = [
+        "mom", "mum", "mommy", "mother", "dad", "daddy", "father", "parent",
+        "sister", "brother", "sibling", "wife", "husband", "spouse", "fiance",
+        "fiancee", "son", "daughter", "child", "grandma", "grandmother", "grandpa",
+        "grandfather", "granddad", "granny", "aunt", "auntie", "uncle", "niece",
+        "nephew", "cousin", "godmother", "godfather", "stepmom", "stepdad",
+        "mother-in-law", "father-in-law", "sister-in-law", "brother-in-law",
+    ]
+
+    static func isKinshipTerm(_ raw: String) -> Bool {
+        let words = Set(raw.lowercased()
+            .split(whereSeparator: { $0 == " " || $0 == "-" })
+            .map(String.init))
+        // Match the whole hyphenated term too (e.g. "mother-in-law").
+        let joined = raw.lowercased().trimmingCharacters(in: .whitespaces)
+        return kinshipWords.contains(joined) || !words.isDisjoint(with: kinshipWords)
+    }
+
+    /// Whether a kinship/relative term already resolves through the graph (e.g.
+    /// "mom" when a parent edge to Me exists) — so it needn't be asked about.
+    @MainActor
+    static func graphResolves(_ mention: String, me: Person?, relationships: [PersonRelationship]) -> Bool {
+        guard let me, let role = RelationshipType.role(forTerm: mention) else { return false }
+        return personInRole(role, of: me, relationships: relationships) != nil
     }
 
     /// Self / generic references that aren't a specific person.
