@@ -24,6 +24,10 @@ final class PersonResolverTests: XCTestCase {
             ("colleagues", false), ("the team", false), ("everyone", false),
             ("self", false), ("me", false), ("myself", false), ("people", false),
             ("the writer", false), ("the narrator", false), ("the author", false),
+            ("kids", false), ("children", false), ("the kids", false), ("his kids", false),
+            ("parents", false), ("cousins", false), ("grandkids", false),
+            // Real single names ending in "s" are still people.
+            ("James", true), ("Chris", true), ("Charles", true),
             ("", false), ("   ", false),
         ]
         for (input, expected) in cases {

@@ -106,7 +106,11 @@ enum PersonResolver {
         "teammates", "peers", "leads", "directors", "analysts", "designers", "people",
         "folks", "others", "friends", "students", "residents", "doctors", "nurses",
         "customers", "clients", "users", "stakeholders", "partners", "employees",
-        "guys", "everyone", "workers", "founders", "executives", "reports"
+        "guys", "everyone", "workers", "founders", "executives", "reports",
+        // Family/social groups — a group of people, not one person.
+        "kids", "children", "grandkids", "grandchildren", "parents", "grandparents",
+        "cousins", "siblings", "relatives", "neighbors", "neighbours", "roommates",
+        "twins", "guests", "boys", "girls", "everybody",
     ]
 
     /// A mention is a specific person, not a group/plural/self-reference.
