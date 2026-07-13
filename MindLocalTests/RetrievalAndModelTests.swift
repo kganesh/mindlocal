@@ -36,6 +36,63 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertFalse(due.isDueForRevisit(asOf: now))
     }
 
+    // MARK: - Decision insights (you-model aggregates, Phase 2)
+
+    @MainActor
+    private func decision(_ domain: Domain, values: [String], _ result: OutcomeResult?) -> Decision {
+        let d = Decision(title: "t", statement: "s", valuesPrioritized: values, domain: domain, stakes: .medium)
+        if let result { d.outcome = Outcome(result: result) }
+        return d
+    }
+
+    @MainActor
+    func test_decisionInsights_ignoresDecisionsWithoutOutcome() {
+        let decisions = [
+            decision(.money, values: ["safety"], .workedOut),
+            decision(.money, values: ["safety"], nil),          // no outcome → ignored
+        ]
+        let overall = DecisionInsights.overall(decisions)
+        XCTAssertEqual(overall.total, 1)
+        XCTAssertEqual(overall.workedOut, 1)
+    }
+
+    @MainActor
+    func test_decisionInsights_byDomain_andRate() {
+        let decisions = [
+            decision(.money, values: [], .workedOut),
+            decision(.money, values: [], .regret),
+            decision(.health, values: [], .workedOut),
+        ]
+        let groups = DecisionInsights.byDomain(decisions)
+        XCTAssertEqual(groups.first?.name, "Money")          // most decisions first
+        let money = groups.first { $0.name == "Money" }!
+        XCTAssertEqual(money.tally.decided, 2)
+        XCTAssertEqual(money.tally.workedOutRate, 0.5)
+    }
+
+    @MainActor
+    func test_decisionInsights_byValue_groupsCaseInsensitively() {
+        let decisions = [
+            decision(.other, values: ["Family time"], .workedOut),
+            decision(.other, values: ["family time"], .regret),
+            decision(.other, values: ["growth"], .workedOut),
+        ]
+        let groups = DecisionInsights.byPrioritizedValue(decisions)
+        let family = groups.first { $0.name.lowercased() == "family time" }!
+        XCTAssertEqual(family.tally.total, 2)                 // merged across casing
+        XCTAssertEqual(family.tally.workedOut, 1)
+        XCTAssertEqual(family.tally.regret, 1)
+    }
+
+    @MainActor
+    func test_tally_tooEarlyExcludedFromRate() {
+        var t = DecisionInsights.Tally()
+        t.add(.workedOut); t.add(.tooEarly)
+        XCTAssertEqual(t.total, 2)
+        XCTAssertEqual(t.decided, 1)
+        XCTAssertEqual(t.workedOutRate, 1.0)   // too-early doesn't dilute the rate
+    }
+
     // MARK: - Cosine (deterministic)
 
     func test_cosine_identicalAndOrthogonal() {

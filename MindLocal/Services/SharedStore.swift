@@ -6,7 +6,8 @@ import SwiftData
 enum SharedStore {
     static let schema = Schema([
         Decision.self, OptionConsidered.self, Outcome.self,
-        Experience.self, Event.self, Person.self, PersonRelationship.self
+        Experience.self, Event.self, Person.self, PersonRelationship.self,
+        Principle.self
     ])
 
     /// True when running under XCTest — use a throwaway in-memory store so tests

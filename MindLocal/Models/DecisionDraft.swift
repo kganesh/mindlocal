@@ -22,6 +22,12 @@ struct DecisionDraft: Equatable {
     @Guide(description: "The person's stated reasons for the choice. Empty if not mentioned.")
     var rationale: String
 
+    @Guide(description: "What the person prioritized or optimized for in this choice, each a short value word or phrase (e.g. 'family time', 'financial safety', 'growth'). Empty array if not clear. Never invent.")
+    var valuesPrioritized: [String]
+
+    @Guide(description: "What the person consciously gave up or traded off for this choice, each a short value word or phrase (e.g. 'prestige', 'speed', 'money'). Empty array if not stated. Never invent.")
+    var valuesTradedOff: [String]
+
     @Guide(description: "One of: career, money, health, family, work, other.")
     var domain: String
 
@@ -41,6 +47,10 @@ struct OptionDraft: Equatable {
 extension DecisionDraft {
     var isDecision: Bool {
         !statement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    static func cleaned(_ items: [String]) -> [String] {
+        items.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     /// Fields worth a follow-up question, in priority order (spec §10.2).
@@ -65,6 +75,8 @@ extension DecisionDraft {
                 )
             },
             rationale: rationale,
+            valuesPrioritized: DecisionDraft.cleaned(valuesPrioritized),
+            valuesTradedOff: DecisionDraft.cleaned(valuesTradedOff),
             domain: Domain(rawValue: domain) ?? .other,
             stakes: stakesValue,
             revisitAt: Decision.revisitDate(for: stakesValue, occurredAt: anchor),

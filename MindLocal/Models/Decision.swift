@@ -10,6 +10,11 @@ final class Decision {
     var context: String
     @Relationship(deleteRule: .cascade) var options: [OptionConsidered]
     var rationale: String
+    /// What the person optimized for in this choice (the you-model's atoms).
+    /// Additive; default empty for clean migration.
+    var valuesPrioritized: [String] = []
+    /// What they consciously gave up for it.
+    var valuesTradedOff: [String] = []
     var domainRaw: String
     var stakesRaw: String
     var revisitAt: Date?
@@ -64,6 +69,8 @@ final class Decision {
         context: String = "",
         options: [OptionConsidered] = [],
         rationale: String = "",
+        valuesPrioritized: [String] = [],
+        valuesTradedOff: [String] = [],
         domain: Domain = .other,
         stakes: Stakes = .medium,
         revisitAt: Date? = nil,
@@ -79,6 +86,8 @@ final class Decision {
         self.context = context
         self.options = options
         self.rationale = rationale
+        self.valuesPrioritized = valuesPrioritized
+        self.valuesTradedOff = valuesTradedOff
         self.domainRaw = domain.rawValue
         self.stakesRaw = stakes.rawValue
         self.revisitAt = revisitAt

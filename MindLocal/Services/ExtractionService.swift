@@ -93,6 +93,8 @@ final class MockExtractionService: ExtractionServicing {
             context: "Two quotes, 30% price gap, tight budget this quarter.",
             options: [OptionDraft(text: "Premium contractor", rejectedBecause: "Over budget")],
             rationale: "Budget matters more than schedule right now.",
+            valuesPrioritized: ["financial safety"],
+            valuesTradedOff: ["schedule"],
             domain: "money",
             stakes: "medium"
         )
@@ -116,6 +118,7 @@ final class MockExtractionService: ExtractionServicing {
             decisions: [
                 DecisionDraft(title: "Run before work", statement: "I decided to run before work instead of after.",
                               context: "", options: [], rationale: "Mornings are quieter and set up my day.",
+                              valuesPrioritized: ["energy"], valuesTradedOff: ["sleep-in"],
                               domain: "health", stakes: "low")
             ]
         )

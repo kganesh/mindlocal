@@ -8,6 +8,7 @@ struct AdviceView: View {
     @State private var viewModel = AdviceViewModel()
     @State private var speaker = SpeechSpeaker()
     @State private var showingVoiceSettings = false
+    @State private var showingHowIDecide = false
     @FocusState private var isQuestionFocused: Bool
 
     var body: some View {
@@ -72,6 +73,12 @@ struct AdviceView: View {
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Advise")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingHowIDecide = true } label: {
+                        Image(systemName: "brain.head.profile")
+                    }
+                    .accessibilityLabel("How I decide")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingVoiceSettings = true } label: {
                         Image(systemName: "waveform")
@@ -80,6 +87,7 @@ struct AdviceView: View {
                 }
             }
             .sheet(isPresented: $showingVoiceSettings) { VoiceSettingsView() }
+            .sheet(isPresented: $showingHowIDecide) { HowIDecideView() }
             .onDisappear { speaker.stop() }
         }
     }
