@@ -1,9 +1,11 @@
 import SwiftUI
+import SwiftData
 
 /// Editable structured preview of an extracted experience before save.
 struct ExperiencePreviewView: View {
     @Bindable var viewModel: CaptureViewModel
     let onSave: () -> Void
+    @Query private var pastDecisions: [Decision]
 
     var body: some View {
         if viewModel.experienceDraft != nil {
@@ -35,6 +37,7 @@ struct ExperiencePreviewView: View {
                                 TextField("Why", text: decisionBinding(index, \.rationale), axis: .vertical)
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
+                                historyPanel(for: decisions[index])
                             }
                             .padding(.vertical, 2)
                         }
@@ -99,6 +102,56 @@ struct ExperiencePreviewView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 2)
+        }
+    }
+
+    /// "Your history on this" — relevant past decisions (with outcomes) and a
+    /// one-line pattern, shown right where you're deciding. Hidden when there's
+    /// nothing relevant yet (graceful cold start).
+    @ViewBuilder
+    private func historyPanel(for draft: DecisionDraft) -> some View {
+        let result = DecisionHistoryRetriever.history(
+            domain: Domain(rawValue: draft.domain) ?? .other,
+            prioritized: draft.valuesPrioritized,
+            tradedOff: draft.valuesTradedOff,
+            among: pastDecisions
+        )
+        if !result.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Your history on this", systemImage: "clock.arrow.circlepath")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(result.matches) { match in
+                    HStack(spacing: 8) {
+                        Text(match.decision.title)
+                            .font(.caption)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(match.decision.outcome?.result.label ?? "")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(outcomeTint(match.decision.outcome?.result))
+                    }
+                }
+                if let pattern = result.pattern {
+                    Text(pattern)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
+            .padding(.top, 4)
+        }
+    }
+
+    private func outcomeTint(_ result: OutcomeResult?) -> Color {
+        switch result {
+        case .workedOut: .green
+        case .mixed:     .yellow
+        case .regret:    .orange
+        default:         .secondary
         }
     }
 

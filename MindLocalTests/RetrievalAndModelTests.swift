@@ -93,6 +93,63 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertEqual(t.workedOutRate, 1.0)   // too-early doesn't dilute the rate
     }
 
+    // MARK: - Decision history retriever ("your history on this", Phase 3)
+
+    @MainActor
+    private func made(_ domain: Domain, prioritized: [String] = [], tradedOff: [String] = [],
+                      title: String = "d", _ result: OutcomeResult?) -> Decision {
+        let d = Decision(title: title, statement: "s", valuesPrioritized: prioritized,
+                         valuesTradedOff: tradedOff, domain: domain)
+        if let result { d.outcome = Outcome(result: result) }
+        return d
+    }
+
+    @MainActor
+    func test_history_onlyReturnsOutcomedAndScopedDecisions() {
+        let past = [
+            made(.money, tradedOff: ["safety"], title: "crypto", .regret),   // relevant + outcome
+            made(.money, tradedOff: ["safety"], title: "no-outcome", nil),   // no outcome → excluded
+            made(.health, title: "unrelated", .workedOut),                   // different domain, no value overlap
+        ]
+        let result = DecisionHistoryRetriever.history(
+            domain: .money, prioritized: [], tradedOff: ["safety"], among: past
+        )
+        XCTAssertEqual(result.matches.map { $0.decision.title }, ["crypto"])
+    }
+
+    @MainActor
+    func test_history_rankSharedValueOverDomainOnly() {
+        let valueMatch  = made(.money, tradedOff: ["safety"], title: "value", .regret)
+        let domainOnly  = made(.money, title: "domainonly", .workedOut)
+        let result = DecisionHistoryRetriever.history(
+            domain: .money, prioritized: [], tradedOff: ["safety"],
+            among: [domainOnly, valueMatch]
+        )
+        XCTAssertEqual(result.matches.first?.decision.title, "value")
+    }
+
+    @MainActor
+    func test_history_patternLine_reportsWorkedOutRatio() {
+        let past = [
+            made(.money, tradedOff: ["safety"], .regret),
+            made(.money, tradedOff: ["safety"], .workedOut),
+            made(.money, tradedOff: ["safety"], .regret),
+        ]
+        let result = DecisionHistoryRetriever.history(
+            domain: .money, prioritized: [], tradedOff: ["safety"], among: past
+        )
+        XCTAssertEqual(result.pattern, "Your decisions that traded off safety worked out 1 of 3.")
+    }
+
+    @MainActor
+    func test_history_emptyWhenNoRelevantHistory() {
+        let result = DecisionHistoryRetriever.history(
+            domain: .money, prioritized: ["growth"], tradedOff: [],
+            among: [made(.health, title: "x", .workedOut)]
+        )
+        XCTAssertTrue(result.isEmpty)
+    }
+
     // MARK: - Cosine (deterministic)
 
     func test_cosine_identicalAndOrthogonal() {
