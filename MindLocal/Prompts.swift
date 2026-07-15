@@ -42,6 +42,12 @@ enum Prompts {
     If they mention any decisions they made, extract those into the decisions list; \
     otherwise leave it empty. Use only information present in the note — never invent \
     people, activities, outcomes, feelings, hopes, or decisions they did not state. \
+    Distinguish what actually happened from what the person only planned, intends, or \
+    decided to do later. The summary, activities, and outcomes must describe ONLY \
+    actions that already occurred. Never report a planned, intended, or not-yet-done \
+    action as completed — cues like "we'll", "soon", "going to", "plan to", or \
+    "decided to (do later)" mean it has NOT happened yet. Such intentions belong in \
+    decisions or hopes, never in outcomes or the summary. \
     If a field is not mentioned, leave it empty. Judge the tone (pleasant, \
     unpleasant, or mixed) from how they describe it. Keep their own wording where \
     possible. Title is max 8 words.

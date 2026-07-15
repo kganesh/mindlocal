@@ -9,7 +9,7 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "Short title for the experience, max 8 words. Empty if the note describes no experience.")
     var title: String
 
-    @Guide(description: "What happened, in a sentence or two, in the person's words. Empty if the note describes no experience.")
+    @Guide(description: "What actually happened, in a sentence or two, in the person's words. Describe only events that already occurred — not planned or future actions. Empty if the note describes no experience.")
     var summary: String
 
     @Guide(description: "The emotions the person expressed about it. Empty if none stated.")
@@ -39,7 +39,7 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "Concrete activities or actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Empty if none. Never invent.")
     var activities: [String]
 
-    @Guide(description: "Results or outcomes — how things turned out. Each a short phrase. Empty if none stated.")
+    @Guide(description: "Results or outcomes of things that ACTUALLY happened — how they turned out. Each a short phrase. Do NOT include planned, intended, or not-yet-done actions (e.g. 'will buy', 'plan to visit'). Empty if none stated.")
     var outcomes: [String]
 
     @Guide(description: "Forward-looking wants, wishes, or hopes the person expressed (e.g. 'wants to travel more', 'hopes the interview goes well'). Empty if none. Never invent.")
