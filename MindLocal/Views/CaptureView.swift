@@ -235,11 +235,13 @@ struct CaptureView: View {
     }
 
     private func save() {
+        // Capture the confirm-step answers before finalizeEntry() resets them.
+        let assignments = viewModel.peopleAssignments
         if let experience = viewModel.finalizeEntry() {
             modelContext.insert(experience)
             experience.linkedPeople = PersonResolver.resolve(
                 experience.people,
-                assignments: viewModel.peopleAssignments,
+                assignments: assignments,
                 in: modelContext
             )
             EmbeddingService.embed(experience)
