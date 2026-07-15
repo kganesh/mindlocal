@@ -64,6 +64,33 @@ final class PersonResolverTests: XCTestCase {
         }
     }
 
+    func test_resolve_kinshipAssignment_createsRelationshipEdgeToMe() {
+        let ctx = makeContext()
+        let me = Person(name: "Me", isMe: true)
+        ctx.insert(me)
+
+        _ = PersonResolver.resolve(["my sister"], assignments: ["my sister": "Emma"], in: ctx)
+
+        let edges = (try? ctx.fetch(FetchDescriptor<PersonRelationship>())) ?? []
+        XCTAssertEqual(edges.count, 1)
+        let edge = edges[0]
+        XCTAssertEqual(edge.type, .sibling)
+        XCTAssertTrue(edge.subject?.name == "Emma" && edge.object?.isMe == true)
+
+        // A later mention of "sister" now resolves via the graph (no duplicate edge).
+        _ = PersonResolver.resolve(["sister"], in: ctx)
+        let after = (try? ctx.fetch(FetchDescriptor<PersonRelationship>())) ?? []
+        XCTAssertEqual(after.count, 1)
+    }
+
+    func test_kinshipRole_mapsMentions() {
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my sister"), .sibling)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "mom"), .parent)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my son"), .child)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "wife"), .spouse)
+        XCTAssertNil(PersonResolver.kinshipRole(for: "my manager"))
+    }
+
     func test_resolve_kinshipTerm_skippedThenAssignedThenAutoResolves() {
         let ctx = makeContext()
         // First appearance, no assignment → asked-about, so skipped (not created).

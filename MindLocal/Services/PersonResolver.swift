@@ -39,6 +39,21 @@ enum PersonResolver {
                 if target.isEmpty { continue }   // explicitly skipped / "not a person"
                 let person = findOrCreate(named: target)
                 if !person.matches(name) { person.aliases.append(name) }
+                // A confirmed kinship term ("my sister" → Emma) also becomes a
+                // relationship edge to Me, so the graph fills in as you journal.
+                if let role = kinshipRole(for: name) {
+                    let anchor = me ?? Person.fetchOrCreateMe(in: context)
+                    if anchor !== person {
+                        let linked = relationships.contains { e in
+                            e.type == role &&
+                            ((e.subject === person && e.object === anchor) ||
+                             (e.subject === anchor && e.object === person))
+                        }
+                        if !linked {
+                            context.insert(PersonRelationship(subject: person, type: role, object: anchor))
+                        }
+                    }
+                }
                 add(person)
                 continue
             }
@@ -102,6 +117,16 @@ enum PersonResolver {
         "nephew", "cousin", "godmother", "godfather", "stepmom", "stepdad",
         "mother-in-law", "father-in-law", "sister-in-law", "brother-in-law",
     ]
+
+    /// The graph relationship a kinship mention implies ("my sister" → .sibling),
+    /// scanning each word since `role(forTerm:)` matches only bare terms.
+    static func kinshipRole(for mention: String) -> RelationshipType? {
+        if let role = RelationshipType.role(forTerm: mention) { return role }
+        for word in mention.lowercased().split(whereSeparator: { $0 == " " || $0 == "-" }) {
+            if let role = RelationshipType.role(forTerm: String(word)) { return role }
+        }
+        return nil
+    }
 
     static func isKinshipTerm(_ raw: String) -> Bool {
         let words = Set(raw.lowercased()
