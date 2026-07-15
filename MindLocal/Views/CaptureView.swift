@@ -15,27 +15,13 @@ struct CaptureView: View {
     @State private var locationProvider = CurrentLocationProvider()
     @FocusState private var editorFocused: Bool
 
-    private var me: Person? { people.first { $0.isMe } }
 
     /// Mentions that need a "who is this?" question: role references, bare kinship
     /// terms ("my sister"), and same-name ambiguity. Clear new names, already-known
     /// aliases, and graph-resolved relatives ("mom" with a parent edge) auto-resolve.
     private var peopleToConfirm: [String] {
         guard let draft = viewModel.experienceDraft else { return [] }
-        return draft.people.compactMap { raw in
-            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard PersonResolver.isLikelyPerson(name) else { return nil }
-            let matches = people.filter { $0.matches(name) }
-            if matches.count > 1 { return name }         // ambiguous → ask
-            if matches.count == 1 { return nil }          // already known (name/alias)
-            if PersonResolver.graphResolves(name, me: me, relationships: relationships) {
-                return nil                                // relative resolved via graph
-            }
-            if PersonResolver.isRoleReference(name) || PersonResolver.isKinshipTerm(name) {
-                return name                               // role / bare kinship → ask
-            }
-            return nil                                    // clear new name → auto-add
-        }
+        return PersonResolver.mentionsNeedingConfirmation(draft.people, people: people, relationships: relationships)
     }
 
     var body: some View {
@@ -49,7 +35,7 @@ struct CaptureView: View {
                 case .preview:
                     if viewModel.experienceDraft != nil {
                         if !peopleConfirmed && !peopleToConfirm.isEmpty {
-                            PeopleConfirmView(mentions: peopleToConfirm, viewModel: viewModel) {
+                            PeopleConfirmView(mentions: peopleToConfirm, assignments: $viewModel.peopleAssignments) {
                                 peopleConfirmed = true
                             }
                         } else {

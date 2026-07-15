@@ -26,6 +26,8 @@ final class JournalConversationViewModel {
     var occurredAt: Date = .now
     private(set) var answers: [String] = []
     private(set) var builtExperience: Experience?
+    /// "Who is this?" answers for the confirm step (mention → chosen person name).
+    var peopleAssignments: [String: String] = [:]
 
     let speech: SpeechServicing
     let speaker: SpeechSpeaker

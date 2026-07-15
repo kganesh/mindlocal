@@ -6,7 +6,7 @@ import SwiftData
 /// Answers land in `viewModel.peopleAssignments` for PersonResolver.
 struct PeopleConfirmView: View {
     let mentions: [String]
-    @Bindable var viewModel: CaptureViewModel
+    @Binding var assignments: [String: String]
     let onComplete: () -> Void
 
     @Query(sort: \Person.name) private var people: [Person]
@@ -78,7 +78,7 @@ struct PeopleConfirmView: View {
 
     /// Record the answer (empty = skip) and advance, or finish.
     private func assign(_ name: String) {
-        viewModel.peopleAssignments[current] = name
+        assignments[current] = name
         if index + 1 < mentions.count {
             index += 1
         } else {

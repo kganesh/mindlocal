@@ -6,8 +6,17 @@ import SwiftData
 struct JournalConversationView: View {
     @State private var viewModel = JournalConversationViewModel()
     @State private var didSave = false
+    @State private var peopleConfirmed = false
+    @Query private var people: [Person]
+    @Query private var relationships: [PersonRelationship]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+
+    /// Mentions from the built entry that still need a "who is this?" answer.
+    private var peopleToConfirm: [String] {
+        guard let experience = viewModel.builtExperience else { return [] }
+        return PersonResolver.mentionsNeedingConfirmation(experience.people, people: people, relationships: relationships)
+    }
 
     var body: some View {
         NavigationStack {
@@ -20,7 +29,13 @@ struct JournalConversationView: View {
                 case .processing:
                     ProgressView("Making sense of your day…")
                 case .saved:
-                    savedView
+                    if !peopleConfirmed && !peopleToConfirm.isEmpty {
+                        PeopleConfirmView(mentions: peopleToConfirm, assignments: $viewModel.peopleAssignments) {
+                            peopleConfirmed = true
+                        }
+                    } else {
+                        savedView
+                    }
                 case .error(let message):
                     errorView(message)
                 }
@@ -104,7 +119,11 @@ struct JournalConversationView: View {
         .onAppear {
             if !didSave, let experience = viewModel.builtExperience {
                 modelContext.insert(experience)
-                experience.linkedPeople = PersonResolver.resolve(experience.people, in: modelContext)
+                experience.linkedPeople = PersonResolver.resolve(
+                    experience.people,
+                    assignments: viewModel.peopleAssignments,
+                    in: modelContext
+                )
                 EmbeddingService.embed(experience)
                 didSave = true
             }

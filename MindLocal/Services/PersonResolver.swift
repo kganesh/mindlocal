@@ -120,6 +120,24 @@ enum PersonResolver {
         return personInRole(role, of: me, relationships: relationships) != nil
     }
 
+    /// Mentions that need a "who is this?" question before saving: role references,
+    /// bare kinship terms, and same-name ambiguity. Clear new names, already-known
+    /// aliases, and graph-resolved relatives are left out (they resolve on their own).
+    @MainActor
+    static func mentionsNeedingConfirmation(_ mentions: [String], people: [Person], relationships: [PersonRelationship]) -> [String] {
+        let me = people.first { $0.isMe }
+        return mentions.compactMap { raw in
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard isLikelyPerson(name) else { return nil }
+            let matches = people.filter { $0.matches(name) }
+            if matches.count > 1 { return name }
+            if matches.count == 1 { return nil }
+            if graphResolves(name, me: me, relationships: relationships) { return nil }
+            if isRoleReference(name) || isKinshipTerm(name) { return name }
+            return nil
+        }
+    }
+
     /// Self / generic references that aren't a specific person.
     private static let nonPersonExact: Set<String> = [
         "me", "myself", "self", "i", "we", "us", "everyone", "everybody",
