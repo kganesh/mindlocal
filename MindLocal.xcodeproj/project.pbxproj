@@ -281,11 +281,11 @@
 				DEVELOPMENT_TEAM = DP4GA89733;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes your voice notes on-device.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes your voice notes on-device.";
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -316,11 +316,11 @@
 				DEVELOPMENT_TEAM = DP4GA89733;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes your voice notes on-device.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes your voice notes on-device.";
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

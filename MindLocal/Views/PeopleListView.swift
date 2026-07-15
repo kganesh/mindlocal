@@ -5,36 +5,33 @@ import SwiftData
 struct PeopleListView: View {
     @Query(sort: \Person.name) private var people: [Person]
     @Environment(\.modelContext) private var modelContext
+    @State private var showGraph = false
 
     var body: some View {
         NavigationStack {
-            List {
+            Group {
                 if people.isEmpty {
                     ContentUnavailableView(
                         "No People Yet",
                         systemImage: "person.2",
                         description: Text("People you mention in your entries show up here.")
                     )
+                } else if showGraph {
+                    PeopleGraphView()
                 } else {
-                    ForEach(people) { person in
-                        NavigationLink {
-                            PersonDetailView(person: person)
-                        } label: {
-                            HStack {
-                                Label(person.name, systemImage: person.isMe ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
-                                Spacer()
-                                Text("\(person.experiences.count)")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .onDelete { offsets in
-                        for i in offsets { modelContext.delete(people[i]) }
-                    }
+                    listView
                 }
             }
             .navigationTitle("People")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showGraph.toggle()
+                    } label: {
+                        Image(systemName: showGraph ? "list.bullet" : "point.3.connected.trianglepath.dotted")
+                    }
+                    .accessibilityLabel(showGraph ? "List view" : "Graph view")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         modelContext.insert(Person(name: "New Person"))
@@ -45,6 +42,26 @@ struct PeopleListView: View {
                 }
             }
             .onAppear { _ = Person.fetchOrCreateMe(in: modelContext) }
+        }
+    }
+
+    private var listView: some View {
+        List {
+            ForEach(people) { person in
+                NavigationLink {
+                    PersonDetailView(person: person)
+                } label: {
+                    HStack {
+                        Label(person.name, systemImage: person.isMe ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
+                        Spacer()
+                        Text("\(person.experiences.count)")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .onDelete { offsets in
+                for i in offsets { modelContext.delete(people[i]) }
+            }
         }
     }
 }
