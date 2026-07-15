@@ -7,6 +7,7 @@ struct JournalConversationView: View {
     @State private var viewModel = JournalConversationViewModel()
     @State private var didSave = false
     @State private var peopleConfirmed = false
+    @FocusState private var answerFocused: Bool
     @Query private var people: [Person]
     @Query private var relationships: [PersonRelationship]
     @Environment(\.modelContext) private var modelContext
@@ -57,7 +58,7 @@ struct JournalConversationView: View {
                 .foregroundStyle(.indigo)
             Text("Let's capture your day")
                 .font(.title2.weight(.semibold))
-            Text("I'll ask a few questions. Just talk — tap Next when you're done with each answer.")
+            Text("I'll ask a few questions. Type, paste, or talk — tap Next when you're done with each answer.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Start") { Task { await viewModel.start() } }
@@ -77,17 +78,38 @@ struct JournalConversationView: View {
                 .font(.title3.weight(.semibold))
                 .multilineTextAlignment(.center)
 
-            ScrollView {
-                Text(viewModel.speech.transcript.isEmpty ? "Listening…" : viewModel.speech.transcript)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .foregroundStyle(viewModel.speech.transcript.isEmpty ? .secondary : .primary)
-            }
-            .frame(maxHeight: 220)
+            // Type, paste, or dictate — the mic streams into this field.
+            TextEditor(text: $viewModel.currentAnswer)
+                .frame(minHeight: 140, maxHeight: 240)
+                .padding(8)
+                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+                .focused($answerFocused)
+                .overlay(alignment: .topLeading) {
+                    if viewModel.currentAnswer.isEmpty {
+                        Text(viewModel.speech.isRecording ? "Listening…" : "Type, paste, or tap the mic to speak")
+                            .foregroundStyle(.secondary)
+                            .padding(16)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .onChange(of: viewModel.speech.transcript) { _, newValue in
+                    if viewModel.speech.isRecording { viewModel.currentAnswer = newValue }
+                }
+                .onChange(of: answerFocused) { _, focused in
+                    // Typing shouldn't fight dictation — stop the mic when the user edits.
+                    if focused, viewModel.speech.isRecording { viewModel.stopRecording() }
+                }
 
-            Image(systemName: viewModel.speech.isRecording ? "waveform.circle.fill" : "mic.slash.circle")
-                .font(.system(size: 44))
-                .foregroundStyle(viewModel.speech.isRecording ? .red : .secondary)
-                .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
+            Button {
+                answerFocused = false
+                Task { await viewModel.toggleMic() }
+            } label: {
+                Image(systemName: viewModel.speech.isRecording ? "waveform.circle.fill" : "mic.circle")
+                    .font(.system(size: 44))
+                    .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
+                    .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
+            }
+            .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate answer")
 
             HStack {
                 Button("End now") { Task { await viewModel.endEarly() } }
@@ -100,6 +122,15 @@ struct JournalConversationView: View {
             }
         }
         .padding()
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button { answerFocused = false } label: {
+                    Image(systemName: "checkmark").fontWeight(.semibold)
+                }
+                .accessibilityLabel("Done")
+            }
+        }
     }
 
     private var savedView: some View {

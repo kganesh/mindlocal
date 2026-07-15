@@ -28,6 +28,9 @@ final class JournalConversationViewModel {
     private(set) var builtExperience: Experience?
     /// "Who is this?" answers for the confirm step (mention → chosen person name).
     var peopleAssignments: [String: String] = [:]
+    /// The current question's answer — typed, pasted, or dictated. Speech streams
+    /// into this while recording; the user can also edit it directly.
+    var currentAnswer: String = ""
 
     let speech: SpeechServicing
     let speaker: SpeechSpeaker
@@ -54,12 +57,24 @@ final class JournalConversationViewModel {
     /// Speak a question, then (after it finishes, to avoid echo) start listening.
     private func ask(_ index: Int) async {
         phase = .asking(index)
+        currentAnswer = ""
         speaker.speak(questions[index])
         while speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(120)) }
         if await speech.requestAuthorization() {
             try? await speech.startRecording()
         }
     }
+
+    /// Toggle dictation for the current question (so the user can also just type).
+    func toggleMic() async {
+        if speech.isRecording {
+            speech.stopRecording()
+        } else if await speech.requestAuthorization() {
+            try? await speech.startRecording()
+        }
+    }
+
+    func stopRecording() { speech.stopRecording() }
 
     /// Capture the current answer, then move to the next question or finish.
     func advance() async {
@@ -79,7 +94,9 @@ final class JournalConversationViewModel {
 
     private func captureCurrentAnswer() {
         speech.stopRecording()
-        answers.append(speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines))
+        let typed = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        let spoken = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        answers.append(typed.isEmpty ? spoken : typed)
     }
 
     private func finish() async {
