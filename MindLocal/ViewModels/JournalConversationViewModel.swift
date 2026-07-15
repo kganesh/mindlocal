@@ -107,9 +107,12 @@ final class JournalConversationViewModel {
         }
     }
 
+    /// The user's own words only — the app's scripted questions ("How was your
+    /// day?") are prompts, not part of the entry, so they're excluded from both
+    /// the saved note and what the model extracts from.
     var combinedTranscript: String {
-        zip(questions, answers)
-            .map { question, answer in answer.isEmpty ? "" : "\(question)\n\(answer)" }
+        answers
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
     }
