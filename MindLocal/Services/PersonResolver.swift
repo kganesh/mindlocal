@@ -93,7 +93,7 @@ enum PersonResolver {
     private static let roleWords: Set<String> = [
         "manager", "boss", "engineer", "director", "lead", "colleague", "coworker",
         "co-worker", "teammate", "mentor", "advisor", "adviser", "supervisor",
-        "recruiter", "client", "customer", "coach", "therapist", "doctor", "nurse",
+        "recruiter", "client", "customer", "coach", "therapist", "doctor", "physician", "nurse",
         "teacher", "professor", "principal", "staff", "senior", "junior", "architect",
         "designer", "analyst", "developer", "consultant", "founder", "ceo", "cto",
         "vp", "head", "chief", "assistant", "intern", "partner", "colleague"
@@ -113,16 +113,43 @@ enum PersonResolver {
         "mom", "mum", "mommy", "mother", "dad", "daddy", "father", "parent",
         "sister", "brother", "sibling", "wife", "husband", "spouse", "fiance",
         "fiancee", "son", "daughter", "child", "grandma", "grandmother", "grandpa",
-        "grandfather", "granddad", "granny", "aunt", "auntie", "uncle", "niece",
+        "grandfather", "granddad", "granny", "nana", "grandson", "granddaughter",
+        "grandchild", "grandkid", "aunt", "auntie", "uncle", "niece",
         "nephew", "cousin", "godmother", "godfather", "stepmom", "stepdad",
         "mother-in-law", "father-in-law", "sister-in-law", "brother-in-law",
+        "son-in-law", "daughter-in-law",
     ]
 
-    /// The graph relationship a kinship mention implies ("my sister" → .sibling),
-    /// scanning each word since `role(forTerm:)` matches only bare terms.
+    /// Leading words that qualify a kinship phrase but aren't the relationship
+    /// itself, stripped before matching so "my mother-in-law" resolves on the
+    /// phrase rather than a stray inner word ("mother" → parent).
+    private static let kinshipFillerWords: Set<String> = [
+        "my", "his", "her", "their", "our", "your", "the", "a", "an",
+        "dear", "late", "older", "younger", "elder", "big", "little", "step",
+    ]
+
+    /// The graph relationship a kinship mention implies ("my sister" → .sibling,
+    /// "my mother-in-law" → .parentInLaw), tolerant of possessives and extra words.
     static func kinshipRole(for mention: String) -> RelationshipType? {
-        if let role = RelationshipType.role(forTerm: mention) { return role }
-        for word in mention.lowercased().split(whereSeparator: { $0 == " " || $0 == "-" }) {
+        let lower = mention.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if let role = RelationshipType.role(forTerm: lower) { return role }
+
+        // Strip leading qualifiers and retry the remaining phrase whole, so an
+        // in-law phrase isn't mis-mapped by an inner word.
+        var words = lower.split(whereSeparator: { $0 == " " }).map(String.init)
+        while let first = words.first, kinshipFillerWords.contains(first) { words.removeFirst() }
+        let stripped = words.joined(separator: " ")
+        if stripped != lower, let role = RelationshipType.role(forTerm: stripped) { return role }
+
+        // In-law phrases carrying extra words ("dear mother in law").
+        if stripped.contains("in law") || stripped.contains("in-law") {
+            if stripped.contains("mother") || stripped.contains("father") { return .parentInLaw }
+            if stripped.contains("son") || stripped.contains("daughter") { return .childInLaw }
+            if stripped.contains("brother") || stripped.contains("sister") { return .siblingInLaw }
+        }
+
+        // Fall back to the first individual word that maps ("older sister").
+        for word in stripped.split(whereSeparator: { $0 == " " || $0 == "-" }) {
             if let role = RelationshipType.role(forTerm: String(word)) { return role }
         }
         return nil
@@ -209,7 +236,7 @@ enum PersonResolver {
         for edge in relationships {
             guard let subject = edge.subject, let object = edge.object else { continue }
             switch role {
-            case .spouse, .sibling, .friend, .coworker:
+            case .spouse, .sibling, .cousin, .siblingInLaw, .friend, .coworker:
                 guard edge.type == role else { continue }
                 if subject === anchor { return object }
                 if object === anchor { return subject }
@@ -219,6 +246,26 @@ enum PersonResolver {
             case .child:    // mentioned person is child of anchor
                 if edge.type == .child,  object === anchor { return subject }
                 if edge.type == .parent, subject === anchor { return object }
+            case .grandparent:
+                if edge.type == .grandparent, object === anchor { return subject }
+                if edge.type == .grandchild,  subject === anchor { return object }
+            case .grandchild:
+                if edge.type == .grandchild,  object === anchor { return subject }
+                if edge.type == .grandparent, subject === anchor { return object }
+            case .auntUncle:
+                if edge.type == .auntUncle,   object === anchor { return subject }
+                if edge.type == .nieceNephew, subject === anchor { return object }
+            case .nieceNephew:
+                if edge.type == .nieceNephew, object === anchor { return subject }
+                if edge.type == .auntUncle,   subject === anchor { return object }
+            case .parentInLaw:
+                if edge.type == .parentInLaw, object === anchor { return subject }
+                if edge.type == .childInLaw,  subject === anchor { return object }
+            case .childInLaw:
+                if edge.type == .childInLaw,  object === anchor { return subject }
+                if edge.type == .parentInLaw, subject === anchor { return object }
+            case .physician:
+                if edge.type == .physician, object === anchor { return subject }
             case .other:
                 continue
             }

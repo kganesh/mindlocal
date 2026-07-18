@@ -59,36 +59,82 @@ extension Person {
 /// `parent` of Emma). spouse/sibling/friend/coworker are symmetric; parent/child
 /// are inverses of each other.
 enum RelationshipType: String, Codable, CaseIterable, Identifiable {
-    case spouse, parent, child, sibling, friend, coworker, other
+    case spouse, parent, child, sibling
+    case grandparent, grandchild
+    case auntUncle, nieceNephew
+    case cousin
+    case parentInLaw, childInLaw, siblingInLaw
+    case friend, coworker, physician, other
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .spouse:   "Spouse"
-        case .parent:   "Parent"
-        case .child:    "Child"
-        case .sibling:  "Sibling"
-        case .friend:   "Friend"
-        case .coworker: "Coworker"
-        case .other:    "Related"
+        case .spouse:       "Spouse"
+        case .parent:       "Parent"
+        case .child:        "Child"
+        case .sibling:      "Sibling"
+        case .grandparent:  "Grandparent"
+        case .grandchild:   "Grandchild"
+        case .auntUncle:    "Aunt / Uncle"
+        case .nieceNephew:  "Niece / Nephew"
+        case .cousin:       "Cousin"
+        case .parentInLaw:  "Parent-in-law"
+        case .childInLaw:   "Child-in-law"
+        case .siblingInLaw: "Sibling-in-law"
+        case .friend:       "Friend"
+        case .coworker:     "Coworker"
+        case .physician:    "Physician"
+        case .other:        "Related"
+        }
+    }
+
+    /// Label from the object's side of the edge — the inverse of `label`. Symmetric
+    /// types read the same from both sides.
+    var inverseLabel: String {
+        switch self {
+        case .parent:       "Child"
+        case .child:        "Parent"
+        case .grandparent:  "Grandchild"
+        case .grandchild:   "Grandparent"
+        case .auntUncle:    "Niece / Nephew"
+        case .nieceNephew:  "Aunt / Uncle"
+        case .parentInLaw:  "Child-in-law"
+        case .childInLaw:   "Parent-in-law"
+        case .physician:    "Patient"
+        default:            label
         }
     }
 
     var isSymmetric: Bool {
         switch self {
-        case .spouse, .sibling, .friend, .coworker: true
-        case .parent, .child, .other: false
+        case .spouse, .sibling, .cousin, .siblingInLaw, .friend, .coworker: true
+        case .parent, .child, .grandparent, .grandchild, .auntUncle, .nieceNephew,
+             .parentInLaw, .childInLaw, .physician, .other: false
         }
     }
 
     /// Spoken relationship words → the mentioned person's role relative to "me".
     static func role(forTerm term: String) -> RelationshipType? {
-        switch term.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) {
-        case "wife", "husband", "spouse", "partner":                 .spouse
-        case "mom", "mother", "mum", "mommy", "dad", "father", "papa", "daddy": .parent
-        case "son", "daughter", "kid", "child":                      .child
-        case "sister", "brother", "sibling":                         .sibling
-        default: nil
+        let cleaned = term.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        // Normalise in-law phrasing so "mother in law" matches "mother-in-law".
+        let t = cleaned.replacingOccurrences(of: " in law", with: "-in-law")
+        switch t {
+        case "wife", "husband", "spouse", "partner":                          return .spouse
+        case "mom", "mother", "mum", "mommy", "dad", "father", "papa", "daddy": return .parent
+        case "son", "daughter", "kid", "child":                               return .child
+        case "sister", "brother", "sibling":                                  return .sibling
+        case "grandma", "grandmother", "grandpa", "grandfather", "granddad",
+             "grandad", "granny", "nana", "grandmom", "granddaddy", "grandparent":
+            return .grandparent
+        case "grandson", "granddaughter", "grandchild", "grandkid":           return .grandchild
+        case "aunt", "auntie", "aunty", "uncle":                              return .auntUncle
+        case "niece", "nephew":                                               return .nieceNephew
+        case "cousin":                                                        return .cousin
+        case "mother-in-law", "father-in-law", "parent-in-law", "mil", "fil": return .parentInLaw
+        case "son-in-law", "daughter-in-law", "child-in-law":                 return .childInLaw
+        case "brother-in-law", "sister-in-law", "sibling-in-law", "bil", "sil": return .siblingInLaw
+        case "physician", "doctor", "doc", "gp":                              return .physician
+        default: return nil
         }
     }
 }

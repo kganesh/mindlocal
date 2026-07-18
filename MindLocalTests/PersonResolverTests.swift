@@ -91,6 +91,39 @@ final class PersonResolverTests: XCTestCase {
         XCTAssertNil(PersonResolver.kinshipRole(for: "my manager"))
     }
 
+    func test_kinshipRole_extendedRelations() {
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my uncle"), .auntUncle)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "aunt"), .auntUncle)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my niece"), .nieceNephew)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "nephew"), .nieceNephew)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my cousin"), .cousin)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "grandma"), .grandparent)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my grandson"), .grandchild)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my physician"), .physician)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my doctor"), .physician)
+    }
+
+    func test_kinshipRole_inLaws_notMisMappedToParentOrSibling() {
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my mother-in-law"), .parentInLaw)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "father in law"), .parentInLaw)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my brother-in-law"), .siblingInLaw)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "sister in law"), .siblingInLaw)
+        XCTAssertEqual(PersonResolver.kinshipRole(for: "my son-in-law"), .childInLaw)
+    }
+
+    func test_resolve_inLawAssignment_createsRelationshipEdgeToMe() {
+        let ctx = makeContext()
+        let me = Person(name: "Me", isMe: true)
+        ctx.insert(me)
+
+        _ = PersonResolver.resolve(["my mother-in-law"], assignments: ["my mother-in-law": "Carol"], in: ctx)
+
+        let edges = (try? ctx.fetch(FetchDescriptor<PersonRelationship>())) ?? []
+        XCTAssertEqual(edges.count, 1)
+        XCTAssertEqual(edges.first?.type, .parentInLaw)
+        XCTAssertTrue(edges.first?.subject?.name == "Carol" && edges.first?.object?.isMe == true)
+    }
+
     func test_resolve_kinshipTerm_skippedThenAssignedThenAutoResolves() {
         let ctx = makeContext()
         // First appearance, no assignment → asked-about, so skipped (not created).
