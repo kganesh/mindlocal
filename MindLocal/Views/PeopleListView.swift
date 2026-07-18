@@ -1,11 +1,31 @@
 import SwiftUI
 import SwiftData
 
+/// How the People tab is presented: flat list, 2D graph, or 3D graph.
+enum PeopleViewMode: String, CaseIterable, Identifiable {
+    case list, graph2D, graph3D
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .list: return "List"
+        case .graph2D: return "Graph (2D)"
+        case .graph3D: return "Graph (3D)"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .list: return "list.bullet"
+        case .graph2D: return "point.3.connected.trianglepath.dotted"
+        case .graph3D: return "move.3d"
+        }
+    }
+}
+
 /// Browse the people mentioned across entries — the filter-by-person surface.
 struct PeopleListView: View {
     @Query(sort: \Person.name) private var people: [Person]
     @Environment(\.modelContext) private var modelContext
-    @State private var showGraph = false
+    @State private var mode: PeopleViewMode = .list
 
     var body: some View {
         NavigationStack {
@@ -16,21 +36,27 @@ struct PeopleListView: View {
                         systemImage: "person.2",
                         description: Text("People you mention in your entries show up here.")
                     )
-                } else if showGraph {
-                    PeopleGraphView()
                 } else {
-                    listView
+                    switch mode {
+                    case .list: listView
+                    case .graph2D: PeopleGraphView()
+                    case .graph3D: PeopleGraph3DView()
+                    }
                 }
             }
             .navigationTitle("People")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showGraph.toggle()
+                    Menu {
+                        Picker("View", selection: $mode) {
+                            ForEach(PeopleViewMode.allCases) { m in
+                                Label(m.title, systemImage: m.systemImage).tag(m)
+                            }
+                        }
                     } label: {
-                        Image(systemName: showGraph ? "list.bullet" : "point.3.connected.trianglepath.dotted")
+                        Image(systemName: mode.systemImage)
                     }
-                    .accessibilityLabel(showGraph ? "List view" : "Graph view")
+                    .accessibilityLabel("Change view")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -144,15 +170,11 @@ struct PersonDetailView: View {
         }
     }
 
-    /// The relationship word from this person's side (parent↔child flips).
+    /// The relationship word from this person's side. Inverse pairs (parent↔child,
+    /// grandparent↔grandchild, aunt/uncle↔niece/nephew, in-laws) flip when viewed
+    /// from the object's side; symmetric types read the same both ways.
     private func perspectiveLabel(_ edge: PersonRelationship) -> String {
-        if edge.type == .parent {
-            return (edge.subject === person) ? "Parent" : "Child"
-        }
-        if edge.type == .child {
-            return (edge.subject === person) ? "Child" : "Parent"
-        }
-        return edge.type.label
+        (edge.subject === person) ? edge.type.label : edge.type.inverseLabel
     }
 }
 
