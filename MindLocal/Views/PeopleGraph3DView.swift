@@ -9,13 +9,25 @@ import simd
 struct PeopleGraph3DView: View {
     @Query(sort: \Person.name) private var people: [Person]
     @Query private var relationships: [PersonRelationship]
+    @Query private var conflicts: [Conflict]
     @State private var selectedID: UUID?
 
+    /// Temperatures present in the graph, hottest first — the legend's contents.
+    private var presentTemps: [RelationshipTemperature] {
+        Set(people.filter { !$0.isMe }.map { RelationshipTemperature.of($0, conflicts: conflicts) })
+            .sorted { $0.severity > $1.severity }
+    }
+
     var body: some View {
-        SceneKitGraph(people: people, relationships: relationships) { id in
+        SceneKitGraph(people: people, relationships: relationships, conflicts: conflicts) { id in
             selectedID = id
         }
         .ignoresSafeArea(edges: .bottom)
+        .overlay(alignment: .top) {
+            if !presentTemps.isEmpty {
+                TemperatureLegend(present: presentTemps).padding(.top, 8)
+            }
+        }
         .overlay(alignment: .bottom) {
             Text(relationships.isEmpty ? "Pinch to zoom · drag to orbit · tap a person. Add relationships to connect the graph."
                                         : "Pinch to zoom · drag to orbit · tap a person.")
@@ -39,6 +51,7 @@ struct PeopleGraph3DView: View {
 private struct SceneKitGraph: UIViewRepresentable {
     let people: [Person]
     let relationships: [PersonRelationship]
+    let conflicts: [Conflict]
     let onSelect: (UUID) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onSelect: onSelect) }
@@ -82,6 +95,12 @@ private struct SceneKitGraph: UIViewRepresentable {
         hasher.combine(people.count)
         hasher.combine(relationships.count)
         for p in people { hasher.combine(p.id) }
+        // Rebuild when temperature can change (a conflict added/edited/resolved).
+        hasher.combine(conflicts.count)
+        for c in conflicts {
+            hasher.combine(c.resolutionRaw)
+            hasher.combine(c.withPerson?.id)
+        }
         return hasher.finalize()
     }
 
@@ -99,7 +118,9 @@ private struct SceneKitGraph: UIViewRepresentable {
 
             let sphere = SCNSphere(radius: person.isMe ? 1.4 : 1.0)
             let mat = SCNMaterial()
-            mat.diffuse.contents = person.isMe ? UIColor.systemBlue : UIColor(white: 0.82, alpha: 1)
+            mat.diffuse.contents = person.isMe
+                ? UIColor.systemBlue
+                : RelationshipTemperature.of(person, conflicts: conflicts).uiColor
             sphere.materials = [mat]
             let node = SCNNode(geometry: sphere)
             node.name = "node:\(person.id.uuidString)"
@@ -109,29 +130,63 @@ private struct SceneKitGraph: UIViewRepresentable {
             scene.rootNode.addChildNode(labelNode(for: person, at: pos))
         }
 
-        var vertices: [SCNVector3] = []
+        // Group edge vertices by temperature so each color is one line geometry.
+        var byTemp: [RelationshipTemperature: [SCNVector3]] = [:]
         for edge in relationships {
             guard let a = edge.subject?.id, let b = edge.object?.id,
                   let p1 = positions[a], let p2 = positions[b] else { continue }
-            vertices.append(p1); vertices.append(p2)
+            let temp = RelationshipTemperature.ofEdge(edge, conflicts: conflicts)
+            byTemp[temp, default: []].append(contentsOf: [p1, p2])
         }
-        if !vertices.isEmpty {
-            let source = SCNGeometrySource(vertices: vertices)
-            let indices = (0..<vertices.count).map { UInt32($0) }
+        for (temp, verts) in byTemp where !verts.isEmpty {
+            let source = SCNGeometrySource(vertices: verts)
+            let indices = (0..<verts.count).map { UInt32($0) }
             let element = SCNGeometryElement(indices: indices, primitiveType: .line)
             let geo = SCNGeometry(sources: [source], elements: [element])
             let m = SCNMaterial()
-            m.diffuse.contents = UIColor(white: 0.55, alpha: 0.7)
+            m.diffuse.contents = temp.uiColor.withAlphaComponent(temp == .dormant ? 0.4 : 0.85)
             m.lightingModel = .constant
             geo.materials = [m]
             let edgeNode = SCNNode(geometry: geo)
             edgeNode.name = "edges"
             scene.rootNode.addChildNode(edgeNode)
         }
+
+        // Relationship-type label at each edge's midpoint (e.g. "Spouse", "Parent").
+        for edge in relationships {
+            guard let a = edge.subject?.id, let b = edge.object?.id,
+                  let p1 = positions[a], let p2 = positions[b] else { continue }
+            let mid = SCNVector3((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2)
+            scene.rootNode.addChildNode(edgeLabelNode(text: edge.type.label, at: mid))
+        }
+    }
+
+    /// A small, dim, billboarded text label at an edge's midpoint — same
+    /// approach as `labelNode`, but smaller and muted so it reads as secondary
+    /// to the person names.
+    private func edgeLabelNode(text string: String, at pos: SCNVector3) -> SCNNode {
+        let text = SCNText(string: string, extrusionDepth: 0)
+        text.font = .systemFont(ofSize: 3, weight: .regular)
+        text.flatness = 0.4
+        let tmat = SCNMaterial()
+        tmat.diffuse.contents = UIColor(white: 1, alpha: 0.6)
+        tmat.lightingModel = .constant
+        text.materials = [tmat]
+
+        let label = SCNNode(geometry: text)
+        let bb = text.boundingBox
+        label.pivot = SCNMatrix4MakeTranslation((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, 0)
+        label.scale = SCNVector3(0.32, 0.32, 0.32)
+        label.position = pos
+        let billboard = SCNBillboardConstraint()
+        billboard.freeAxes = .all
+        label.constraints = [billboard]
+        label.name = "label:edge"
+        return label
     }
 
     private func labelNode(for person: Person, at pos: SCNVector3) -> SCNNode {
-        let text = SCNText(string: person.name, extrusionDepth: 0)
+        let text = SCNText(string: person.displayName(among: people), extrusionDepth: 0)
         text.font = .systemFont(ofSize: 4, weight: .medium)
         text.flatness = 0.4
         let tmat = SCNMaterial()

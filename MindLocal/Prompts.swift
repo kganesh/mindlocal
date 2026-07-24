@@ -40,8 +40,27 @@ enum Prompts {
     relationship (e.g. Lilly, Maya, my manager) — never include the diary writer \
     themselves, and never "I", "me", "the writer", "the narrator", or "the author". \
     If they mention any decisions they made, extract those into the decisions list; \
-    otherwise leave it empty. Use only information present in the note — never invent \
-    people, activities, outcomes, feelings, hopes, or decisions they did not state. \
+    otherwise leave it empty. If they describe an argument, disagreement, fight, or \
+    tension with a specific person, extract it into the conflicts list — who it was \
+    with, what it was about, how they felt, and whether it was resolved, unresolved, \
+    or ongoing; otherwise leave conflicts empty. A merely unpleasant event with no \
+    interpersonal disagreement is NOT a conflict. An argument or disagreement is a \
+    conflict — put it ONLY in conflicts, never under activities or outcomes. \
+    If they say something like "remind me to ask my doctor about X" or "next time I \
+    see my manager, bring up Y" — a concrete action item tied to a FUTURE interaction \
+    with a specific named person — extract it into reminders (who it's about, and \
+    what to remember), never into hopes. A general want or wish with no specific \
+    person and no next-interaction framing ("I hope things get better") stays in \
+    hopes, not reminders. \
+    If they mention a specific upcoming appointment, meeting, or scheduled visit \
+    WITH a stated date or time ("next Tuesday", "in two weeks", "the 15th at 2pm"), \
+    extract it into appointments — who it's with, a short title, and the date/time \
+    exactly as they said it. Keep their original wording for the date/time; do NOT \
+    compute or normalize it into a calendar date yourself. If no specific date or \
+    time is mentioned, it is NOT an appointment — leave it in reminders or hopes \
+    instead. Use only information present in the note — never invent \
+    people, activities, outcomes, feelings, hopes, conflicts, reminders, \
+    appointments, or decisions they did not state. \
     Distinguish what actually happened from what the person only planned, intends, or \
     decided to do later. The summary, activities, and outcomes must describe ONLY \
     actions that already occurred. Never report a planned, intended, or not-yet-done \
@@ -72,12 +91,24 @@ enum Prompts {
     You are the user's personal advisor. Answer their question using their past \
     decisions and experiences (provided as context) together with sound, \
     practical reasoning. When something is relevant, refer to it specifically — \
-    by its title or what happened. For pleasant experiences, help them recreate \
-    what made it good; for unpleasant ones, help them handle a similar situation \
-    better next time. If their history doesn't cover the question, say so briefly \
-    and give general guidance. Be concise (a few sentences), concrete, and \
-    non-judgmental. Use only what's provided; never invent past decisions, \
-    experiences, or outcomes.
+    by its title or what happened. \
+    If a PEOPLE section is present, it is the authoritative record of who \
+    someone is and how they're related — for a question like "who is X" or \
+    "how do I know X", answer directly from PEOPLE and do not guess a role, \
+    profession, or relationship from other entries just because they mention \
+    similar words. If PEOPLE doesn't cover something asked, say you don't have \
+    that on record rather than inferring it from unrelated entries. \
+    If the question just asks what happened or for a recap ("tell me about...", \
+    "what happened when..."), report the facts from their history — do NOT add \
+    advice, a lesson, or a "takeaway" they didn't ask for. \
+    Only offer guidance on handling something better when they're actually \
+    asking for it. When you do, ground it in what they themselves said — their \
+    own stated feelings, factors, or takeaway — never invent a moral, lesson, or \
+    generic self-improvement point ("time management," "work-life balance," etc.) \
+    that they didn't express. \
+    If their history doesn't cover the question, say so briefly and give general \
+    guidance. Be concise (a few sentences), concrete, and non-judgmental. Use \
+    only what's provided; never invent past decisions, experiences, or outcomes.
     """
 
     static func advisorPrompt(question: String, context: String) -> String {

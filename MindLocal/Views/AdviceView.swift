@@ -5,6 +5,10 @@ import SwiftData
 struct AdviceView: View {
     @Query(sort: \Decision.createdAt, order: .reverse) private var decisions: [Decision]
     @Query(sort: \Experience.createdAt, order: .reverse) private var experiences: [Experience]
+    @Query(sort: \Reminder.createdAt, order: .reverse) private var reminders: [Reminder]
+    @Query(sort: \Event.date, order: .reverse) private var events: [Event]
+    @Query private var people: [Person]
+    @Query private var relationships: [PersonRelationship]
     @State private var viewModel = AdviceViewModel()
     @State private var speaker = SpeechSpeaker()
     @State private var showingVoiceSettings = false
@@ -49,9 +53,35 @@ struct AdviceView: View {
                             decisions, query: query, k: 8,
                             text: EmbeddingService.decisionText, embedding: { $0.embedding }
                         )
+                        let relevantReminders = SemanticRetriever.topK(
+                            reminders, query: query, k: 6,
+                            text: EmbeddingService.reminderText, embedding: { $0.embedding }
+                        )
+                        let relevantEvents = SemanticRetriever.topK(
+                            events, query: query, k: 6,
+                            text: EmbeddingService.eventText, embedding: { $0.embedding }
+                        )
                         let decisionSummaries = relevantDecisions.map(DecisionSummary.init)
                         let experienceSummaries = relevantExperiences.map(ExperienceSummary.init)
-                        Task { await viewModel.ask(decisions: decisionSummaries, experiences: experienceSummaries) }
+                        let reminderSummaries = relevantReminders.map(ReminderSummary.init)
+                        let eventSummaries = relevantEvents.map(EventSummary.init)
+                        // Anyone named in the question gets their actual People-graph
+                        // profile included as ground truth, not just whatever text
+                        // happens to rank as semantically similar.
+                        let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
+                        let peopleSummaries = mentionedPeople.map {
+                            PersonProfileSummary(
+                                id: $0.id,
+                                text: PersonContextBuilder.profile(for: $0, relationships: relationships)
+                            )
+                        }
+                        Task {
+                            await viewModel.ask(
+                                decisions: decisionSummaries, experiences: experienceSummaries,
+                                reminders: reminderSummaries, events: eventSummaries,
+                                people: peopleSummaries
+                            )
+                        }
                     } label: {
                         Label("Ask", systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
@@ -63,7 +93,7 @@ struct AdviceView: View {
 
                     Spacer(minLength: 0)
 
-                    Text("Grounded in your \(decisions.count) decision\(decisions.count == 1 ? "" : "s") and \(experiences.count) experience\(experiences.count == 1 ? "" : "s"). Runs on-device.")
+                    Text("Grounded in your \(decisions.count) decision\(decisions.count == 1 ? "" : "s"), \(experiences.count) experience\(experiences.count == 1 ? "" : "s"), \(reminders.count) reminder\(reminders.count == 1 ? "" : "s"), and \(events.count) event\(events.count == 1 ? "" : "s"). Runs on-device.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)

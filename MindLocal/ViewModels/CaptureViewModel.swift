@@ -18,6 +18,10 @@ final class CaptureViewModel {
     var phase: Phase = .input
     var typedText: String = ""
     var experienceDraft: ExperienceDraft?
+    /// Appointments detected with a resolved date, shown as "Add to Events" cards
+    /// in review. Removed from this list once added or dismissed; never affects
+    /// the saved Experience directly (appointments become standalone `Event`s).
+    var appointmentCandidates: [AppointmentCandidate] = []
     /// When the experience happened (editable in review).
     var occurredAt: Date = .now
     /// Role mentions the user identified in review → chosen person name.
@@ -57,6 +61,7 @@ final class CaptureViewModel {
             let extracted = try await extractWithRetry(transcript: transcript)
             if extracted.isExperience {
                 experienceDraft = extracted
+                appointmentCandidates = AppointmentCandidate.candidates(from: extracted.appointments)
                 phase = .preview
             } else {
                 phase = .nothingFound
@@ -130,7 +135,8 @@ final class CaptureViewModel {
             title: Self.derivedTitle(from: transcript),
             summary: transcript, feelings: "", tone: "mixed", factors: "",
             response: "", learning: "", tags: [], domain: "other",
-            people: [], activities: [], outcomes: [], hopes: [], decisions: []
+            people: [], activities: [], outcomes: [], hopes: [],
+            conflicts: [], reminders: [], appointments: [], decisions: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
         applyLocation(to: experience)
@@ -159,6 +165,7 @@ final class CaptureViewModel {
     private func reset() {
         typedText = ""
         experienceDraft = nil
+        appointmentCandidates = []
         occurredAt = .now
         peopleAssignments = [:]
         location = ""

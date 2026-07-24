@@ -53,6 +53,7 @@ final class CalendarImportService {
                 match.title = title
                 match.date = date
                 if match.location.isEmpty, let loc = ek.location { match.location = loc }
+                EmbeddingService.embed(match)
                 updated += 1
             } else {
                 let event = Event(
@@ -63,6 +64,7 @@ final class CalendarImportService {
                     externalId: identifier
                 )
                 context.insert(event)
+                EmbeddingService.embed(event)
                 new += 1
             }
         }

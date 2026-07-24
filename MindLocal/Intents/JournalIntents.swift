@@ -28,19 +28,35 @@ struct LogJournalEntryIntent: AppIntent {
 
         // Structure it on-device if possible; otherwise save the raw note.
         let experience: Experience
+        var appointmentCandidates: [AppointmentCandidate] = []
         if let draft = try? await ExtractionService().extractExperience(from: text), draft.isExperience {
             experience = draft.toExperience(rawText: text, occurredAt: .now)
             experience.decisions = draft.decisions
                 .filter { $0.isDecision }
                 .map { $0.toDecision(rawTranscript: text, occurredAt: .now) }
+            appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
         } else {
             experience = Experience(title: String(text.prefix(48)), summary: text, rawText: text, occurredAt: .now)
         }
 
         context.insert(experience)
-        experience.linkedPeople = PersonResolver.resolve(experience.people, in: context)
+        PersonResolver.linkPeople(to: experience, in: context)
         EmbeddingService.embed(experience)
         try? context.save()
+
+        let peopleWithReminders = Set(experience.reminders.compactMap(\.person?.id))
+        if !peopleWithReminders.isEmpty {
+            let events = (try? context.fetch(FetchDescriptor<Event>())) ?? []
+            for person in experience.linkedPeople where peopleWithReminders.contains(person.id) {
+                await EventReminderNotificationService.rescheduleAll(for: person, events: events)
+            }
+        }
+
+        // No interactive review screen on this path, so a detected appointment
+        // can only be surfaced as a notification, not an in-app "Add" card.
+        for candidate in appointmentCandidates {
+            await EventReminderNotificationService.promptToAddAppointment(candidate)
+        }
 
         return .result(dialog: "Saved your journal for today.")
     }

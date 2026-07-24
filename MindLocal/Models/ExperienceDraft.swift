@@ -36,14 +36,23 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "Specific individuals involved, by name or a specific relationship (e.g. 'Sam', 'my manager', 'Mom'). Do NOT include groups or plurals ('the team', 'senior engineers', 'colleagues'), generic job titles, or the writer themselves ('me', 'self'). Empty if none. Never invent.")
     var people: [String]
 
-    @Guide(description: "Concrete activities or actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Empty if none. Never invent.")
+    @Guide(description: "Concrete activities or actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Do NOT include arguments, disagreements, fights, or conflicts — those belong in conflicts, never here. Empty if none. Never invent.")
     var activities: [String]
 
-    @Guide(description: "Results or outcomes of things that ACTUALLY happened — how they turned out. Each a short phrase. Do NOT include planned, intended, or not-yet-done actions (e.g. 'will buy', 'plan to visit'). Empty if none stated.")
+    @Guide(description: "Results or outcomes of things that ACTUALLY happened — how they turned out. Each a short phrase. Do NOT include planned, intended, or not-yet-done actions (e.g. 'will buy', 'plan to visit'), and do NOT include arguments or conflicts (those belong in conflicts). Empty if none stated.")
     var outcomes: [String]
 
     @Guide(description: "Forward-looking wants, wishes, or hopes the person expressed (e.g. 'wants to travel more', 'hopes the interview goes well'). Empty if none. Never invent.")
     var hopes: [String]
+
+    @Guide(description: "Any interpersonal conflicts, arguments, disagreements, or tension the writer describes having with a specific person, as structured records. Empty array if there was no real conflict. Never invent a conflict.")
+    var conflicts: [ConflictDraft]
+
+    @Guide(description: "Any action items the writer wants to remember for a future interaction with a specific person — things to ask, bring up, or follow up on next time they see that person (e.g. 'ask my doctor about the referral'). Empty array if none. Never invent a reminder.")
+    var reminders: [ReminderDraft]
+
+    @Guide(description: "Any specific upcoming appointments, meetings, or scheduled visits the writer mentions, WITH a stated or clearly implied date/time. Empty array if none, or if something is mentioned with no specific date/time (that belongs in reminders or hopes instead, not here). Never invent an appointment.")
+    var appointments: [AppointmentDraft]
 
     @Guide(description: "Any decisions the person mentions having made in this note, as structured records. Empty array if they did not mention deciding anything. Never invent a decision.")
     var decisions: [DecisionDraft]
@@ -55,7 +64,7 @@ extension ExperienceDraft {
     }
 
     func toExperience(rawText: String?, occurredAt: Date?) -> Experience {
-        Experience(
+        let experience = Experience(
             title: title.isEmpty ? String(summary.prefix(48)) : title,
             summary: summary,
             feelings: feelings,
@@ -72,6 +81,11 @@ extension ExperienceDraft {
             outcomes: ExperienceDraft.cleaned(outcomes),
             hopes: ExperienceDraft.cleaned(hopes)
         )
+        // Conflicts and reminders carry no transcript/date dependency, so build them
+        // here; each one's person link is set at save time by PersonResolver.linkPeople.
+        experience.conflicts = conflicts.filter { $0.isConflict }.map { $0.toConflict() }
+        experience.reminders = reminders.filter { $0.isReminder }.map { $0.toReminder() }
+        return experience
     }
 
     static func cleaned(_ items: [String]) -> [String] {

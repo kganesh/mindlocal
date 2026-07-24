@@ -26,6 +26,14 @@ final class JournalConversationViewModel {
     var occurredAt: Date = .now
     private(set) var answers: [String] = []
     private(set) var builtExperience: Experience?
+    /// Appointments detected with a resolved date, offered as "Add to Events"
+    /// cards on the saved screen. Never affects the saved Experience directly.
+    /// Mutable so the view can remove a candidate once added or dismissed.
+    var appointmentCandidates: [AppointmentCandidate] = []
+    /// True when the entry was saved from the raw words because AI extraction
+    /// failed (e.g. a safety-filter refusal on a heavy entry) — so the check-in
+    /// never loses what the user said. Drives a note on the saved screen.
+    private(set) var savedWithoutAI = false
     /// "Who is this?" answers for the confirm step (mention → chosen person name).
     var peopleAssignments: [String: String] = [:]
     /// The current question's answer — typed, pasted, or dictated. Speech streams
@@ -118,12 +126,36 @@ final class JournalConversationViewModel {
                 .filter { $0.isDecision }
                 .map { $0.toDecision(rawTranscript: transcript, occurredAt: occurredAt) }
             builtExperience = experience
+            appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
+            savedWithoutAI = false
             phase = .saved
-        } catch ExtractionError.modelUnavailable {
-            phase = .error("Apple Intelligence isn't available right now.")
         } catch {
-            phase = .error("Couldn't process your day. Please try again.")
+            // Extraction failed — a safety-filter refusal, an unavailable model, or
+            // a transient error. Never drop the user's words: save them as a plain
+            // entry and let the saved screen explain it wasn't auto-summarized.
+            builtExperience = Self.rawExperience(from: transcript, occurredAt: occurredAt)
+            savedWithoutAI = true
+            phase = .saved
         }
+    }
+
+    /// A plain journal entry straight from the transcript, used when AI extraction
+    /// can't run so the check-in still preserves what was said.
+    private static func rawExperience(from transcript: String, occurredAt: Date) -> Experience {
+        let draft = ExperienceDraft(
+            title: derivedTitle(from: transcript),
+            summary: transcript, feelings: "", tone: "mixed", factors: "",
+            response: "", learning: "", tags: [], domain: "other",
+            people: [], activities: [], outcomes: [], hopes: [],
+            conflicts: [], reminders: [], appointments: [], decisions: []
+        )
+        return draft.toExperience(rawText: transcript, occurredAt: occurredAt)
+    }
+
+    private static func derivedTitle(from text: String) -> String {
+        let firstLine = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
+        let words = firstLine.split(separator: " ").prefix(6).joined(separator: " ")
+        return words.isEmpty ? "Journal entry" : words
     }
 
     /// The user's own words only — the app's scripted questions ("How was your

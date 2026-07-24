@@ -25,6 +25,12 @@ final class Event {
     /// EventKit identifier when imported from the iPhone Calendar (nil for
     /// events created in the app). Used to de-duplicate on re-import.
     var externalId: String?
+    /// Who this event is with, if set — drives the same-day reminder notification
+    /// (any open `Reminder`s about this person get bundled into it).
+    @Relationship var person: Person?
+    /// On-device sentence embedding for semantic retrieval in Advise. Empty until
+    /// computed at save time (mirrors `Experience.embedding`/`Decision.embedding`).
+    var embedding: [Float] = []
 
     var domain: Domain {
         get { Domain(rawValue: domainRaw) ?? .other }
@@ -44,7 +50,9 @@ final class Event {
         domain: Domain = .other,
         generatedAdvice: String? = nil,
         adviceGeneratedAt: Date? = nil,
-        externalId: String? = nil
+        externalId: String? = nil,
+        person: Person? = nil,
+        embedding: [Float] = []
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -56,6 +64,8 @@ final class Event {
         self.longitude = longitude
         self.isOutdoor = isOutdoor
         self.domainRaw = domain.rawValue
+        self.person = person
+        self.embedding = embedding
         self.generatedAdvice = generatedAdvice
         self.adviceGeneratedAt = adviceGeneratedAt
         self.externalId = externalId

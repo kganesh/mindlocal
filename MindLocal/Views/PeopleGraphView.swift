@@ -7,9 +7,30 @@ import SwiftData
 struct PeopleGraphView: View {
     @Query(sort: \Person.name) private var people: [Person]
     @Query private var relationships: [PersonRelationship]
+    @Query private var conflicts: [Conflict]
 
     @State private var positions: [UUID: CGPoint] = [:]
     @State private var laidOut = false
+
+    /// Each person's relationship temperature, computed from their conflicts.
+    private var personTemps: [UUID: RelationshipTemperature] {
+        Dictionary(uniqueKeysWithValues: people.map {
+            ($0.id, RelationshipTemperature.of($0, conflicts: conflicts))
+        })
+    }
+
+    /// Each edge's temperature (the hotter of its endpoints).
+    private var edgeTemps: [UUID: RelationshipTemperature] {
+        Dictionary(uniqueKeysWithValues: relationships.map {
+            ($0.id, RelationshipTemperature.ofEdge($0, conflicts: conflicts))
+        })
+    }
+
+    /// Temperatures present in the graph, hottest first — the legend's contents.
+    private var presentTemps: [RelationshipTemperature] {
+        Set(people.filter { !$0.isMe }.map { personTemps[$0.id] ?? .warm })
+            .sorted { $0.severity > $1.severity }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -25,6 +46,11 @@ struct PeopleGraphView: View {
                 }
             }
         }
+        .overlay(alignment: .top) {
+            if !presentTemps.isEmpty {
+                TemperatureLegend(present: presentTemps).padding(.top, 8)
+            }
+        }
         .overlay(alignment: .bottom) {
             if relationships.isEmpty && !people.isEmpty {
                 Text("Add relationships from a person's page to connect the graph.")
@@ -38,16 +64,31 @@ struct PeopleGraphView: View {
     }
 
     private var edgeLayer: some View {
-        Canvas { ctx, _ in
+        let temps = edgeTemps
+        return Canvas { ctx, _ in
             for edge in relationships {
                 guard let a = edge.subject?.id, let b = edge.object?.id,
                       let p1 = positions[a], let p2 = positions[b] else { continue }
+                let temp = temps[edge.id] ?? .warm
                 var path = Path()
                 path.move(to: p1)
                 path.addLine(to: p2)
-                ctx.stroke(path, with: .color(.gray.opacity(0.5)), lineWidth: 1.2)
+                ctx.stroke(path, with: .color(temp.color.opacity(temp == .dormant ? 0.35 : 0.9)), lineWidth: 2)
+
+                // A background plate behind the label so it reads against any
+                // edge color or crossing line, instead of plain text sitting
+                // directly on top of the stroke.
                 let mid = CGPoint(x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2)
-                ctx.draw(Text(edge.type.label).font(.caption2).foregroundStyle(.secondary), at: mid)
+                let label = Text(edge.type.label).font(.caption2.weight(.medium)).foregroundStyle(.primary)
+                let resolved = ctx.resolve(label)
+                let size = resolved.measure(in: CGSize(width: 160, height: 20))
+                let padH: CGFloat = 5, padV: CGFloat = 2
+                let plate = CGRect(
+                    x: mid.x - size.width / 2 - padH, y: mid.y - size.height / 2 - padV,
+                    width: size.width + padH * 2, height: size.height + padV * 2
+                )
+                ctx.fill(Path(roundedRect: plate, cornerRadius: 5), with: .color(Color(.systemBackground).opacity(0.85)))
+                ctx.draw(label, at: mid)
             }
         }
     }
@@ -69,17 +110,18 @@ struct PeopleGraphView: View {
     }
 
     private func nodeLabel(_ person: Person) -> some View {
-        VStack(spacing: 4) {
+        let ringColor = person.isMe ? Color.accentColor : (personTemps[person.id] ?? .warm).color
+        return VStack(spacing: 4) {
             ZStack {
                 Circle()
                     .fill(person.isMe ? Color.accentColor : Color(.secondarySystemBackground))
-                    .overlay(Circle().stroke(person.isMe ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: 1.5))
+                    .overlay(Circle().stroke(ringColor, lineWidth: person.isMe ? 1.5 : 2.5))
                     .frame(width: 46, height: 46)
                 Text(initials(person.name))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(person.isMe ? .white : .primary)
             }
-            Text(person.name)
+            Text(person.displayName(among: people))
                 .font(.caption2)
                 .lineLimit(1)
         }

@@ -160,7 +160,9 @@ struct CalendarView: View {
     private func delete(_ offsets: IndexSet, from list: [TimelineItem]) {
         for index in offsets where list.indices.contains(index) {
             switch list[index] {
-            case .event(let e):      modelContext.delete(e)
+            case .event(let e):
+                EventReminderNotificationService.cancel(for: e)
+                modelContext.delete(e)
             case .decision(let d):   modelContext.delete(d)
             case .experience(let x): modelContext.delete(x)
             }
@@ -255,6 +257,7 @@ private struct TimelineRow: View {
 struct EventFormView: View {
     let onSave: (Event) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Person.name) private var people: [Person]
 
     @State private var title = ""
     @State private var date = Date.now
@@ -265,6 +268,11 @@ struct EventFormView: View {
     @State private var longitude: Double?
     @State private var isOutdoor = false
     @State private var pickingLocation = false
+    @State private var personId: PersistentIdentifier?
+
+    private var selectedPerson: Person? {
+        people.first { $0.persistentModelID == personId }
+    }
 
     var body: some View {
         NavigationStack {
@@ -276,6 +284,12 @@ struct EventFormView: View {
                         ForEach(Domain.allCases) { Text($0.label).tag($0) }
                     }
                     TextField("Notes (optional)", text: $notes, axis: .vertical)
+                    Picker("Who's this with?", selection: $personId) {
+                        Text("Nobody in particular").tag(PersistentIdentifier?.none)
+                        ForEach(people) { p in
+                            Text(p.isMe ? "Me" : p.displayName(among: people)).tag(Optional(p.persistentModelID))
+                        }
+                    }
                 }
                 Section {
                     Toggle("Outdoor event", isOn: $isOutdoor)
@@ -313,9 +327,12 @@ struct EventFormView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        onSave(Event(title: title, notes: notes, date: date,
-                                     location: location, latitude: latitude, longitude: longitude,
-                                     isOutdoor: isOutdoor, domain: domain))
+                        let event = Event(title: title, notes: notes, date: date,
+                                           location: location, latitude: latitude, longitude: longitude,
+                                           isOutdoor: isOutdoor, domain: domain, person: selectedPerson)
+                        EmbeddingService.embed(event)
+                        onSave(event)
+                        Task { await EventReminderNotificationService.reschedule(for: event) }
                         dismiss()
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

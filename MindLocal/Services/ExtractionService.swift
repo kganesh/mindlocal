@@ -115,6 +115,9 @@ final class MockExtractionService: ExtractionServicing {
             activities: ["morning run", "watched the sunrise"],
             outcomes: ["felt energized all day"],
             hopes: ["wants to run three mornings a week"],
+            conflicts: [],
+            reminders: [],
+            appointments: [],
             decisions: [
                 DecisionDraft(title: "Run before work", statement: "I decided to run before work instead of after.",
                               context: "", options: [], rationale: "Mornings are quieter and set up my day.",

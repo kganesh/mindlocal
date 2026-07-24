@@ -87,6 +87,33 @@ enum PersonResolver {
         return result
     }
 
+    /// Resolves an entry's people to graph nodes and wires the graph: sets
+    /// `linkedPeople` (including anyone named only in a conflict or reminder) and
+    /// points each conflict/reminder at the `Person` it's about. One call replaces
+    /// a bare `resolve(experience.people, …)` at every save site.
+    @MainActor
+    static func linkPeople(to experience: Experience, assignments: [String: String] = [:], in context: ModelContext) {
+        let conflictNames = experience.conflicts
+            .map { $0.personName.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let reminderNames = experience.reminders
+            .map { $0.personName.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        experience.linkedPeople = resolve(experience.people + conflictNames + reminderNames, assignments: assignments, in: context)
+        for conflict in experience.conflicts {
+            let name = conflict.personName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            // resolve is idempotent for an already-known name, so re-resolving a
+            // single participant returns the same node without duplicating.
+            conflict.withPerson = resolve([name], assignments: assignments, in: context).first
+        }
+        for reminder in experience.reminders {
+            let name = reminder.personName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            reminder.person = resolve([name], assignments: assignments, in: context).first
+        }
+    }
+
     /// Role/title/generic-descriptor words. A mention containing one is a role
     /// reference ("my manager", "principal engineer") that should be tied to a
     /// specific person rather than becoming its own node.
@@ -94,6 +121,9 @@ enum PersonResolver {
         "manager", "boss", "engineer", "director", "lead", "colleague", "coworker",
         "co-worker", "teammate", "mentor", "advisor", "adviser", "supervisor",
         "recruiter", "client", "customer", "coach", "therapist", "doctor", "physician", "nurse",
+        "dentist", "surgeon", "specialist", "optometrist", "dermatologist", "psychiatrist",
+        "psychologist", "pharmacist", "chiropractor", "vet", "veterinarian",
+        "lawyer", "attorney", "accountant", "realtor", "landlord", "roommate", "trainer",
         "teacher", "professor", "principal", "staff", "senior", "junior", "architect",
         "designer", "analyst", "developer", "consultant", "founder", "ceo", "cto",
         "vp", "head", "chief", "assistant", "intern", "partner", "colleague"
@@ -112,7 +142,9 @@ enum PersonResolver {
     private static let kinshipWords: Set<String> = [
         "mom", "mum", "mommy", "mother", "dad", "daddy", "father", "parent",
         "sister", "brother", "sibling", "wife", "husband", "spouse", "fiance",
-        "fiancee", "son", "daughter", "child", "grandma", "grandmother", "grandpa",
+        "fiancee", "son", "daughter", "child", "little one", "my little one",
+        "little guy", "my little guy", "little girl", "my little girl",
+        "grandma", "grandmother", "grandpa",
         "grandfather", "granddad", "granny", "nana", "grandson", "granddaughter",
         "grandchild", "grandkid", "aunt", "auntie", "uncle", "niece",
         "nephew", "cousin", "godmother", "godfather", "stepmom", "stepdad",

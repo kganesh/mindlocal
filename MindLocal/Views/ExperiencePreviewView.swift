@@ -6,6 +6,7 @@ struct ExperiencePreviewView: View {
     @Bindable var viewModel: CaptureViewModel
     let onSave: () -> Void
     @Query private var pastDecisions: [Decision]
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         if viewModel.experienceDraft != nil {
@@ -48,6 +49,53 @@ struct ExperiencePreviewView: View {
                         Text("Extracted from what you said. Edit, or swipe to remove any that aren't right.")
                     }
                 }
+                if let conflicts = viewModel.experienceDraft?.conflicts, !conflicts.isEmpty {
+                    Section {
+                        ForEach(conflicts.indices, id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("With", text: conflictBinding(index, \.with))
+                                TextField("What it was about", text: conflictBinding(index, \.about), axis: .vertical)
+                                Picker("Status", selection: conflictResolutionBinding(index)) {
+                                    ForEach(ConflictResolution.allCases) { Text($0.label).tag($0.rawValue) }
+                                }
+                                .font(.callout)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        .onDelete { viewModel.experienceDraft?.conflicts.remove(atOffsets: $0) }
+                    } header: {
+                        Label("Conflicts detected", systemImage: "person.crop.circle.badge.exclamationmark")
+                    } footer: {
+                        Text("Arguments or tension with someone. Edit, or swipe to remove any that aren't right.")
+                    }
+                }
+                if !viewModel.appointmentCandidates.isEmpty {
+                    Section {
+                        ForEach(viewModel.appointmentCandidates) { candidate in
+                            appointmentRow(candidate)
+                        }
+                    } header: {
+                        Label("Appointment detected", systemImage: "calendar.badge.clock")
+                    } footer: {
+                        Text("Parsed from what you said. Add it to your calendar, or dismiss if it's not really an appointment.")
+                    }
+                }
+                if let reminders = viewModel.experienceDraft?.reminders, !reminders.isEmpty {
+                    Section {
+                        ForEach(reminders.indices, id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("With", text: reminderBinding(index, \.with))
+                                TextField("What to remember", text: reminderBinding(index, \.about), axis: .vertical)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        .onDelete { viewModel.experienceDraft?.reminders.remove(atOffsets: $0) }
+                    } header: {
+                        Label("Reminders detected", systemImage: "bell.badge")
+                    } footer: {
+                        Text("Things to remember next time you see someone. Edit, or swipe to remove any that aren't right.")
+                    }
+                }
                 if let draft = viewModel.experienceDraft, draftHasDetails(draft) {
                     Section {
                         detectedRow("People", draft.people, systemImage: "person.2")
@@ -78,6 +126,36 @@ struct ExperiencePreviewView: View {
             }
             .navigationTitle("Review")
         }
+    }
+
+    @ViewBuilder
+    private func appointmentRow(_ candidate: AppointmentCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.title).font(.subheadline.weight(.semibold))
+                if !candidate.personName.isEmpty {
+                    Text("with \(candidate.personName)").font(.caption).foregroundStyle(.secondary)
+                }
+                Text(candidate.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            HStack {
+                Button("Add to Events") {
+                    Task {
+                        await AppointmentEventBuilder.createEvent(from: candidate, in: modelContext)
+                        viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
+                    }
+                }
+                .font(.callout.weight(.semibold))
+                Spacer()
+                Button("Not an appointment", role: .cancel) {
+                    viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
     }
 
     private var toneIsPleasant: Bool {
@@ -171,6 +249,51 @@ struct ExperiencePreviewView: View {
         Binding(
             get: { viewModel.experienceDraft?[keyPath: keyPath] ?? "" },
             set: { viewModel.experienceDraft?[keyPath: keyPath] = $0 }
+        )
+    }
+
+    private func conflictBinding(_ index: Int, _ keyPath: WritableKeyPath<ConflictDraft, String>) -> Binding<String> {
+        Binding(
+            get: {
+                guard let conflicts = viewModel.experienceDraft?.conflicts,
+                      conflicts.indices.contains(index) else { return "" }
+                return conflicts[index][keyPath: keyPath]
+            },
+            set: {
+                guard viewModel.experienceDraft?.conflicts.indices.contains(index) == true else { return }
+                viewModel.experienceDraft?.conflicts[index][keyPath: keyPath] = $0
+            }
+        )
+    }
+
+    /// Normalizes the model's resolution string to a valid case so the picker shows
+    /// a selection instead of blank.
+    private func conflictResolutionBinding(_ index: Int) -> Binding<String> {
+        Binding(
+            get: {
+                guard let conflicts = viewModel.experienceDraft?.conflicts,
+                      conflicts.indices.contains(index) else { return ConflictResolution.unresolved.rawValue }
+                let raw = conflicts[index].resolution.lowercased()
+                return ConflictResolution(rawValue: raw)?.rawValue ?? ConflictResolution.unresolved.rawValue
+            },
+            set: {
+                guard viewModel.experienceDraft?.conflicts.indices.contains(index) == true else { return }
+                viewModel.experienceDraft?.conflicts[index].resolution = $0
+            }
+        )
+    }
+
+    private func reminderBinding(_ index: Int, _ keyPath: WritableKeyPath<ReminderDraft, String>) -> Binding<String> {
+        Binding(
+            get: {
+                guard let reminders = viewModel.experienceDraft?.reminders,
+                      reminders.indices.contains(index) else { return "" }
+                return reminders[index][keyPath: keyPath]
+            },
+            set: {
+                guard viewModel.experienceDraft?.reminders.indices.contains(index) == true else { return }
+                viewModel.experienceDraft?.reminders[index][keyPath: keyPath] = $0
+            }
         )
     }
 

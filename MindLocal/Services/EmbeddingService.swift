@@ -29,22 +29,45 @@ enum EmbeddingService {
 }
 
 extension EmbeddingService {
-    /// Representative text for an entry (what it's "about").
+    /// Representative text for an entry (what it's "about"). Includes hopes and
+    /// activities so a question about either can retrieve this entry — they were
+    /// previously dropped from both the embedding and the advisor context.
     static func experienceText(_ e: Experience) -> String {
-        ([e.title, e.summary, e.feelings, e.learning] + e.tags + e.people)
+        ([e.title, e.summary, e.feelings, e.learning] + e.tags + e.people + e.activities + e.hopes)
             .filter { !$0.isEmpty }.joined(separator: ". ")
     }
     static func decisionText(_ d: Decision) -> String {
         [d.title, d.statement, d.rationale].filter { !$0.isEmpty }.joined(separator: ". ")
     }
+    static func reminderText(_ r: Reminder) -> String {
+        let who = r.person?.name ?? r.personName
+        return ([r.text] + (who.isEmpty ? [] : ["with \(who)"])).joined(separator: ". ")
+    }
+    static func eventText(_ e: Event) -> String {
+        let who = e.person.map { "with \($0.name)" }
+        return ([e.title, e.notes] + (who.map { [$0] } ?? []) + [e.domain.label])
+            .filter { !$0.isEmpty }.joined(separator: ". ")
+    }
 
-    /// Computes and stores embeddings for an entry and its decisions on save.
+    /// Computes and stores embeddings for an entry, its decisions, and its
+    /// reminders on save.
     @MainActor
     static func embed(_ experience: Experience) {
         experience.embedding = vector(for: experienceText(experience)) ?? []
         for decision in experience.decisions {
             decision.embedding = vector(for: decisionText(decision)) ?? []
         }
+        for reminder in experience.reminders {
+            reminder.embedding = vector(for: reminderText(reminder)) ?? []
+        }
+    }
+
+    /// Computes and stores an embedding for a standalone event (not tied to an
+    /// Experience) — created directly, imported from Calendar, or from a
+    /// detected appointment.
+    @MainActor
+    static func embed(_ event: Event) {
+        event.embedding = vector(for: eventText(event)) ?? []
     }
 }
 

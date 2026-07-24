@@ -10,6 +10,7 @@ struct JournalConversationView: View {
     @FocusState private var answerFocused: Bool
     @Query private var people: [Person]
     @Query private var relationships: [PersonRelationship]
+    @Query private var events: [Event]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -140,8 +141,18 @@ struct JournalConversationView: View {
                 .foregroundStyle(.green)
             Text("Saved your day")
                 .font(.title2.weight(.semibold))
-            Text("You can review or edit it in your Journal.")
+            Text(viewModel.savedWithoutAI
+                 ? "I couldn't auto-summarize this one, so I saved your words as a plain entry. You can review or edit it in your Journal."
+                 : "You can review or edit it in your Journal.")
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if !viewModel.appointmentCandidates.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.appointmentCandidates) { candidate in
+                        appointmentCard(candidate)
+                    }
+                }
+            }
             Button("Done") { dismiss() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -150,15 +161,54 @@ struct JournalConversationView: View {
         .onAppear {
             if !didSave, let experience = viewModel.builtExperience {
                 modelContext.insert(experience)
-                experience.linkedPeople = PersonResolver.resolve(
-                    experience.people,
+                PersonResolver.linkPeople(
+                    to: experience,
                     assignments: viewModel.peopleAssignments,
                     in: modelContext
                 )
                 EmbeddingService.embed(experience)
+                let peopleWithReminders = Set(experience.reminders.compactMap(\.person?.id))
+                Task {
+                    for person in experience.linkedPeople where peopleWithReminders.contains(person.id) {
+                        await EventReminderNotificationService.rescheduleAll(for: person, events: events)
+                    }
+                }
                 didSave = true
             }
         }
+    }
+
+    @ViewBuilder
+    private func appointmentCard(_ candidate: AppointmentCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
+                Text(candidate.title).font(.subheadline.weight(.semibold))
+            }
+            if !candidate.personName.isEmpty {
+                Text("with \(candidate.personName)").font(.caption).foregroundStyle(.secondary)
+            }
+            Text(candidate.date.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Add to Events") {
+                    Task {
+                        await AppointmentEventBuilder.createEvent(from: candidate, in: modelContext)
+                        viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
+                    }
+                }
+                .font(.callout.weight(.semibold))
+                Spacer()
+                Button("Not an appointment", role: .cancel) {
+                    viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func errorView(_ message: String) -> some View {

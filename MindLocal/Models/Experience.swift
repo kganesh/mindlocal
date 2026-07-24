@@ -46,6 +46,14 @@ final class Experience {
     /// Decisions the person mentioned within this experience (extracted by AI).
     @Relationship(deleteRule: .cascade, inverse: \Decision.experience)
     var decisions: [Decision] = []
+    /// Interpersonal conflicts/arguments mentioned in this entry (extracted by AI),
+    /// each optionally linked to the `Person` it was with.
+    @Relationship(deleteRule: .cascade, inverse: \Conflict.experience)
+    var conflicts: [Conflict] = []
+    /// Action items tied to a future interaction with someone, mentioned in this
+    /// entry (extracted by AI), each optionally linked to the `Person` it's about.
+    @Relationship(deleteRule: .cascade, inverse: \Reminder.experience)
+    var reminders: [Reminder] = []
     /// People mentioned in this entry, resolved to graph nodes (inverse defined
     /// on `Person.experiences`). The raw `people` strings stay as-is.
     @Relationship var linkedPeople: [Person] = []

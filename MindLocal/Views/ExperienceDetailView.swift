@@ -3,6 +3,7 @@ import SwiftData
 
 struct ExperienceDetailView: View {
     @Bindable var experience: Experience
+    @Query private var events: [Event]
     @State private var pickingLocation = false
 
     var body: some View {
@@ -44,6 +45,59 @@ struct ExperienceDetailView: View {
                                 }
                             }
                         }
+                    }
+                }
+            }
+            if !experience.reminders.isEmpty {
+                Section("Reminders") {
+                    ForEach(experience.reminders) { reminder in
+                        Button {
+                            reminder.isDone ? reminder.markNotDone() : reminder.markDone()
+                            if let person = reminder.person {
+                                Task { await EventReminderNotificationService.rescheduleAll(for: person, events: events) }
+                            }
+                        } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: reminder.isDone ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(reminder.isDone ? Color.accentColor : .secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(reminder.text)
+                                        .strikethrough(reminder.isDone)
+                                        .foregroundStyle(reminder.isDone ? .secondary : .primary)
+                                    let withName = reminder.person?.fullDisplayName ?? reminder.personName
+                                    if !withName.isEmpty {
+                                        Text("with \(withName)").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            if !experience.conflicts.isEmpty {
+                Section("Conflicts") {
+                    ForEach(experience.conflicts) { conflict in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Label(conflictName(conflict),
+                                      systemImage: "person.crop.circle.badge.exclamationmark")
+                                    .font(.subheadline)
+                                Spacer()
+                                Label(conflict.resolution.label, systemImage: conflict.resolution.symbol)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .labelStyle(.titleAndIcon)
+                            }
+                            if !conflict.summary.isEmpty {
+                                Text(conflict.summary).font(.callout)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            if !conflict.feelings.isEmpty {
+                                Text(conflict.feelings).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 2)
                     }
                 }
             }
@@ -93,6 +147,13 @@ struct ExperienceDetailView: View {
                 experience.longitude = lon
             }
         }
+    }
+
+    /// Who a conflict was with: the linked person's name, else the raw text, else
+    /// a neutral fallback.
+    private func conflictName(_ conflict: Conflict) -> String {
+        if let name = conflict.withPerson?.fullDisplayName, !name.isEmpty { return name }
+        return conflict.personName.isEmpty ? "Someone" : conflict.personName
     }
 
     private var hasJournalDetails: Bool {

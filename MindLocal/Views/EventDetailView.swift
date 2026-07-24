@@ -9,6 +9,14 @@ struct EventDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var decisions: [Decision]
     @Query private var experiences: [Experience]
+    @Query(sort: \Person.name) private var people: [Person]
+
+    private var personBinding: Binding<PersistentIdentifier?> {
+        Binding(
+            get: { event.person?.persistentModelID },
+            set: { id in event.person = people.first { $0.persistentModelID == id } }
+        )
+    }
 
     @State private var phase: Phase = .idle
     @State private var weatherStatus: WeatherStatus = .none
@@ -35,6 +43,12 @@ struct EventDetailView: View {
                     ForEach(Domain.allCases) { Text($0.label).tag($0.rawValue) }
                 }
                 TextField("Notes", text: $event.notes, axis: .vertical)
+                Picker("Who's this with?", selection: personBinding) {
+                    Text("Nobody in particular").tag(PersistentIdentifier?.none)
+                    ForEach(people) { p in
+                        Text(p.isMe ? "Me" : p.displayName(among: people)).tag(Optional(p.persistentModelID))
+                    }
+                }
             }
 
             Section("Setting") {
@@ -81,7 +95,11 @@ struct EventDetailView: View {
         .navigationTitle("Event")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadIfNeeded() }
-        .onDisappear { speaker.stop() }
+        .onDisappear {
+            speaker.stop()
+            EmbeddingService.embed(event)
+            Task { await EventReminderNotificationService.reschedule(for: event) }
+        }
         .sheet(isPresented: $pickingLocation) {
             LocationPickerView { name, lat, lon in
                 event.location = name

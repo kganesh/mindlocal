@@ -10,6 +10,7 @@ struct CaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var people: [Person]
     @Query private var relationships: [PersonRelationship]
+    @Query private var events: [Event]
     @State private var peopleConfirmed = false
     @State private var pickingLocation = false
     @State private var locationProvider = CurrentLocationProvider()
@@ -231,14 +232,20 @@ struct CaptureView: View {
         let assignments = viewModel.peopleAssignments
         if let experience = viewModel.finalizeEntry() {
             modelContext.insert(experience)
-            experience.linkedPeople = PersonResolver.resolve(
-                experience.people,
-                assignments: assignments,
-                in: modelContext
-            )
+            PersonResolver.linkPeople(to: experience, assignments: assignments, in: modelContext)
             EmbeddingService.embed(experience)
             Task { await HealthService.shared.enrich(experience) }
+            Task { await refreshReminderNotifications(for: experience) }
         }
         dismiss()
+    }
+
+    /// New reminders can affect an event already scheduled with that person, so
+    /// their notification (if any) needs to reflect the current open list.
+    private func refreshReminderNotifications(for experience: Experience) async {
+        let peopleWithReminders = Set(experience.reminders.compactMap(\.person?.id))
+        for person in experience.linkedPeople where peopleWithReminders.contains(person.id) {
+            await EventReminderNotificationService.rescheduleAll(for: person, events: events)
+        }
     }
 }

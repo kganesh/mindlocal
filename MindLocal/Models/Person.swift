@@ -11,7 +11,14 @@ import SwiftData
 @Model
 final class Person {
     var id: UUID
+    /// The first name / primary label — what a diary mention usually says ("Sam").
     var name: String
+    /// Optional last name, set lazily — only when needed to tell same-first-name
+    /// people apart. Empty for most mentions. Additive; defaults keep records migrating.
+    var lastName: String = ""
+    /// Optional free-form context that distinguishes same-named people the way a
+    /// diary does ("work", "gym", "cousin"). Shown in parentheses. Additive.
+    var qualifier: String = ""
     /// Other ways this person is referred to (nicknames, relationship terms).
     var aliases: [String]
     /// The journaler themselves — the anchor for relative terms (wife/mom/…).
@@ -20,18 +27,29 @@ final class Person {
 
     @Relationship(inverse: \Experience.linkedPeople)
     var experiences: [Experience] = []
+    /// Reminders about this person, e.g. "things to ask my doctor". Inverse of
+    /// `Reminder.person` — lets services (not just views) read the open list
+    /// directly, unlike `Conflict` which is only ever queried from a view.
+    @Relationship(inverse: \Reminder.person)
+    var reminders: [Reminder] = []
 
-    init(id: UUID = UUID(), name: String, aliases: [String] = [], isMe: Bool = false, createdAt: Date = .now) {
+    init(id: UUID = UUID(), name: String, lastName: String = "", qualifier: String = "", aliases: [String] = [], isMe: Bool = false, createdAt: Date = .now) {
         self.id = id
         self.name = name
+        self.lastName = lastName
+        self.qualifier = qualifier
         self.aliases = aliases
         self.isMe = isMe
         self.createdAt = createdAt
     }
 
-    /// Every label this person answers to, normalized for matching.
+    /// Every label this person answers to, normalized for matching. Includes the
+    /// full "first last" form so a mention that spells out the surname resolves.
     var normalizedNames: [String] {
-        ([name] + aliases)
+        var forms = [name] + aliases
+        let last = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !last.isEmpty { forms.append("\(name) \(last)") }
+        return forms
             .map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
@@ -39,6 +57,32 @@ final class Person {
     func matches(_ query: String) -> Bool {
         let q = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         return !q.isEmpty && normalizedNames.contains(q)
+    }
+
+    // MARK: - Display (progressive disclosure)
+
+    /// The short distinguisher used when a bare first name is ambiguous: the last
+    /// name if set, otherwise the context qualifier in parentheses. Empty if neither.
+    var distinguisher: String {
+        let last = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !last.isEmpty { return last }
+        let q = qualifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        return q.isEmpty ? "" : "(\(q))"
+    }
+
+    /// First name plus distinguisher when one exists ("Sam Peterson", "Sam (work)");
+    /// the bare name otherwise.
+    var fullDisplayName: String {
+        distinguisher.isEmpty ? name : "\(name) \(distinguisher)"
+    }
+
+    /// Progressive display: the bare first name unless another person shares it,
+    /// in which case the distinguisher is appended so the two can be told apart.
+    func displayName(among people: [Person]) -> String {
+        let ambiguous = people.contains {
+            $0 !== self && $0.name.caseInsensitiveCompare(name) == .orderedSame
+        }
+        return ambiguous ? fullDisplayName : name
     }
 }
 
@@ -121,7 +165,8 @@ enum RelationshipType: String, Codable, CaseIterable, Identifiable {
         switch t {
         case "wife", "husband", "spouse", "partner":                          return .spouse
         case "mom", "mother", "mum", "mommy", "dad", "father", "papa", "daddy": return .parent
-        case "son", "daughter", "kid", "child":                               return .child
+        case "son", "daughter", "kid", "child", "little one", "little guy", "little girl":
+            return .child
         case "sister", "brother", "sibling":                                  return .sibling
         case "grandma", "grandmother", "grandpa", "grandfather", "granddad",
              "grandad", "granny", "nana", "grandmom", "granddaddy", "grandparent":
