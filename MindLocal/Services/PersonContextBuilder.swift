@@ -33,12 +33,23 @@ enum PersonContextBuilder {
         }
     }
 
+    /// A person's display name, with an explicit "(this is you)" tag when they're
+    /// the Me anchor — the graph can hold a separate node for the same real
+    /// person as their own full name (e.g. a "Me" anchor plus a "Ganesh Kolekar"
+    /// node created from a third-person mention), and without this tag the
+    /// advisor has no way to know they're the same individual, so it reasons
+    /// about "the author" as someone distinct from a graph person named after
+    /// them.
+    private static func identifiedName(_ person: Person) -> String {
+        person.isMe ? "\(person.fullDisplayName) (this is you, the diary's author)" : person.fullDisplayName
+    }
+
     /// A natural-language profile for one person: their aliases and every
     /// relationship edge they're part of, rendered from their own perspective —
     /// the same "subject is <type> of object" convention used on their People page.
     @MainActor
     static func profile(for person: Person, relationships: [PersonRelationship]) -> String {
-        var lines = ["\(person.fullDisplayName):"]
+        var lines = ["\(identifiedName(person)):"]
         if !person.aliases.isEmpty {
             lines.append("  Also called: \(person.aliases.joined(separator: ", "))")
         }
@@ -49,7 +60,7 @@ enum PersonContextBuilder {
             for edge in edges {
                 let isSubject = edge.subject === person
                 let label = isSubject ? edge.type.label : edge.type.inverseLabel
-                let other = (isSubject ? edge.object : edge.subject)?.fullDisplayName ?? "someone"
+                let other = (isSubject ? edge.object : edge.subject).map(identifiedName) ?? "someone"
                 lines.append("  \(person.name) is \(label) of \(other).")
             }
         }

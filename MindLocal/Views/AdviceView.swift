@@ -42,40 +42,68 @@ struct AdviceView: View {
 
                     Button {
                         isQuestionFocused = false
-                        // Retrieve the entries most relevant to the question (semantic),
-                        // not just the most recent.
                         let query = viewModel.question
-                        let relevantExperiences = SemanticRetriever.topK(
-                            experiences, query: query, k: 10,
-                            text: EmbeddingService.experienceText, embedding: { $0.embedding }
-                        )
-                        let relevantDecisions = SemanticRetriever.topK(
-                            decisions, query: query, k: 8,
-                            text: EmbeddingService.decisionText, embedding: { $0.embedding }
-                        )
-                        let relevantReminders = SemanticRetriever.topK(
-                            reminders, query: query, k: 6,
-                            text: EmbeddingService.reminderText, embedding: { $0.embedding }
-                        )
-                        let relevantEvents = SemanticRetriever.topK(
-                            events, query: query, k: 6,
-                            text: EmbeddingService.eventText, embedding: { $0.embedding }
-                        )
-                        let decisionSummaries = relevantDecisions.map(DecisionSummary.init)
-                        let experienceSummaries = relevantExperiences.map(ExperienceSummary.init)
-                        let reminderSummaries = relevantReminders.map(ReminderSummary.init)
-                        let eventSummaries = relevantEvents.map(EventSummary.init)
-                        // Anyone named in the question gets their actual People-graph
-                        // profile included as ground truth, not just whatever text
-                        // happens to rank as semantically similar.
-                        let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
-                        let peopleSummaries = mentionedPeople.map {
-                            PersonProfileSummary(
-                                id: $0.id,
-                                text: PersonContextBuilder.profile(for: $0, relationships: relationships)
-                            )
-                        }
                         Task {
+                            // What is this question asking FOR — a tone, topic,
+                            // count, sort? Read once, up front, so both the
+                            // structured and semantic passes can use it.
+                            let intent = await viewModel.extractIntent(for: query)
+
+                            // Deterministic, guaranteed-correct matches for
+                            // whatever structure was found (e.g. "3 unpleasant
+                            // experiences recently") — empty when the question
+                            // has no such structure.
+                            let structuredExperiences = intent.hasStructure
+                                ? StructuredQueryRetriever.matchedExperiences(intent: intent, among: experiences)
+                                : []
+                            let structuredDecisions = intent.hasStructure
+                                ? StructuredQueryRetriever.matchedDecisions(intent: intent, among: decisions)
+                                : []
+                            let structuredEvents = intent.hasStructure
+                                ? StructuredQueryRetriever.matchedEvents(intent: intent, among: events)
+                                : []
+
+                            // Retrieve the entries most relevant to the question
+                            // (semantic), not just the most recent.
+                            let relevantExperiences = SemanticRetriever.topK(
+                                experiences, query: query, k: 10,
+                                text: EmbeddingService.experienceText, embedding: { $0.embedding }
+                            )
+                            let relevantDecisions = SemanticRetriever.topK(
+                                decisions, query: query, k: 8,
+                                text: EmbeddingService.decisionText, embedding: { $0.embedding }
+                            )
+                            let relevantReminders = SemanticRetriever.topK(
+                                reminders, query: query, k: 6,
+                                text: EmbeddingService.reminderText, embedding: { $0.embedding }
+                            )
+                            let relevantEvents = SemanticRetriever.topK(
+                                events, query: query, k: 6,
+                                text: EmbeddingService.eventText, embedding: { $0.embedding }
+                            )
+
+                            // Structured matches lead (they're the definitive
+                            // answer to the question's specific filter), then
+                            // semantic hits fill in general context, deduped.
+                            let mergedExperiences = mergeUnique(structuredExperiences, relevantExperiences, id: \.id)
+                            let mergedDecisions = mergeUnique(structuredDecisions, relevantDecisions, id: \.id)
+                            let mergedEvents = mergeUnique(structuredEvents, relevantEvents, id: \.id)
+
+                            let decisionSummaries = mergedDecisions.map(DecisionSummary.init)
+                            let experienceSummaries = mergedExperiences.map(ExperienceSummary.init)
+                            let reminderSummaries = relevantReminders.map(ReminderSummary.init)
+                            let eventSummaries = mergedEvents.map(EventSummary.init)
+                            // Anyone named in the question gets their actual
+                            // People-graph profile included as ground truth, not
+                            // just whatever text happens to rank as similar.
+                            let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
+                            let peopleSummaries = mentionedPeople.map {
+                                PersonProfileSummary(
+                                    id: $0.id,
+                                    text: PersonContextBuilder.profile(for: $0, relationships: relationships)
+                                )
+                            }
+
                             await viewModel.ask(
                                 decisions: decisionSummaries, experiences: experienceSummaries,
                                 reminders: reminderSummaries, events: eventSummaries,
@@ -181,5 +209,18 @@ struct AdviceView: View {
             .font(.callout)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Combines the structured (definitive) and semantic (general-context)
+    /// matches, keeping `primary`'s order and dropping anything from
+    /// `secondary` already present.
+    private func mergeUnique<T, ID: Hashable>(_ primary: [T], _ secondary: [T], id: (T) -> ID) -> [T] {
+        var seen = Set<ID>()
+        var result: [T] = []
+        for item in primary + secondary {
+            let key = id(item)
+            if seen.insert(key).inserted { result.append(item) }
+        }
+        return result
     }
 }

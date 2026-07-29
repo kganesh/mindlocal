@@ -39,8 +39,8 @@ struct MainTabView: View {
     var body: some View {
         @Bindable var router = checkInRouter
         TabView {
-            Tab("Timeline", systemImage: "calendar") {
-                CalendarView()
+            Tab("Today", systemImage: "book.pages") {
+                TodayDiaryView()
             }
             Tab("Journal", systemImage: "book") {
                 ExperienceListView()

@@ -1,18 +1,31 @@
 import SwiftUI
+import SwiftData
 
 /// The visual of a single diary page — warm paper, a dated header, and the
 /// narrative set in handwriting. Used both standalone (DiaryPageView) and as a
 /// page inside the flip-through reader (JournalReaderView).
 struct DiaryPageContent: View {
     @Bindable var experience: Experience
+    @Query(sort: \Person.name) private var allPeople: [Person]
 
     private let paper = Color(red: 0.98, green: 0.96, blue: 0.89)
     private let ink   = Color(red: 0.20, green: 0.16, blue: 0.12)
+    private let noteBackground = Color(red: 0.92, green: 0.86, blue: 0.70).opacity(0.35)
 
     /// The narrative to read — the original note if we have it, else the summary.
-    private var body_text: String {
+    private var bodyText: String {
         let raw = experience.rawText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return raw.isEmpty ? experience.summary : raw
+    }
+
+    private var hasEnrichment: Bool {
+        !experience.linkedPeople.isEmpty
+            || !experience.activities.isEmpty
+            || !experience.outcomes.isEmpty
+            || !experience.hopes.isEmpty
+            || !experience.decisions.isEmpty
+            || !experience.reminders.isEmpty
+            || !experience.conflicts.isEmpty
     }
 
     var body: some View {
@@ -35,15 +48,15 @@ struct DiaryPageContent: View {
                     .fill(ink.opacity(0.15))
                     .frame(height: 1)
 
-                Text(body_text)
-                    .font(.custom("Caveat-Regular", size: 30))
-                    .lineSpacing(6)
-                    .foregroundStyle(ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+                EnrichedDiaryBody(
+                    text: bodyText,
+                    linkedPeople: experience.linkedPeople,
+                    allPeople: allPeople,
+                    ink: ink
+                )
 
                 if !experience.learning.isEmpty {
-                    Text("— \(experience.learning)")
+                    Text("- \(experience.learning)")
                         .font(.custom("Caveat-Bold", size: 26))
                         .foregroundStyle(ink.opacity(0.8))
                         .padding(.top, 4)
@@ -72,6 +85,10 @@ struct DiaryPageContent: View {
                     .font(.custom("Caveat-Regular", size: 18))
                     .foregroundStyle(ink.opacity(0.5))
                 }
+
+                if hasEnrichment {
+                    enrichmentNotes
+                }
             }
             .padding(28)
             .frame(maxWidth: .infinity, minHeight: 480, alignment: .topLeading)
@@ -85,6 +102,258 @@ struct DiaryPageContent: View {
             Image(systemName: symbol)
             Text(text)
         }
+    }
+
+    private var enrichmentNotes: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("MindLocal noticed", systemImage: "sparkles")
+                .font(.custom("Caveat-Bold", size: 24))
+                .foregroundStyle(ink.opacity(0.72))
+
+            if !experience.linkedPeople.isEmpty {
+                enrichmentGroup("People", systemImage: "person.2") {
+                    ForEach(experience.linkedPeople) { person in
+                        NavigationLink {
+                            PersonDetailView(person: person)
+                        } label: {
+                            Label(person.displayName(among: allPeople), systemImage: "person.crop.circle")
+                        }
+                    }
+                }
+            }
+
+            if !experience.activities.isEmpty {
+                enrichmentGroup("Activities", systemImage: "figure.walk") {
+                    ForEach(cleaned(experience.activities), id: \.self) { Text($0) }
+                }
+            }
+
+            if !experience.outcomes.isEmpty {
+                enrichmentGroup("Outcomes", systemImage: "arrow.right.circle") {
+                    ForEach(cleaned(experience.outcomes), id: \.self) { Text($0) }
+                }
+            }
+
+            if !experience.hopes.isEmpty {
+                enrichmentGroup("Hopes", systemImage: "sparkles") {
+                    ForEach(cleaned(experience.hopes), id: \.self) { Text($0) }
+                }
+            }
+
+            if !experience.decisions.isEmpty {
+                enrichmentGroup("Decisions", systemImage: "checklist") {
+                    ForEach(experience.decisions) { decision in
+                        NavigationLink {
+                            DecisionDetailView(decision: decision)
+                        } label: {
+                            Text(decision.title)
+                        }
+                    }
+                }
+            }
+
+            if !experience.reminders.isEmpty {
+                enrichmentGroup("Reminders", systemImage: "bell.badge") {
+                    ForEach(experience.reminders) { reminder in
+                        HStack(spacing: 5) {
+                            Image(systemName: reminder.isDone ? "checkmark.circle.fill" : "circle")
+                            Text(reminder.text)
+                        }
+                    }
+                }
+            }
+
+            if !experience.conflicts.isEmpty {
+                enrichmentGroup("Conflicts", systemImage: "person.crop.circle.badge.exclamationmark") {
+                    ForEach(experience.conflicts) { conflict in
+                        HStack(spacing: 5) {
+                            Image(systemName: conflict.resolution.symbol)
+                            Text(conflict.summary.isEmpty ? "Disagreement" : conflict.summary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(noteBackground, in: RoundedRectangle(cornerRadius: 8))
+        .padding(.top, 8)
+    }
+
+    private func enrichmentGroup<Content: View>(
+        _ title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(ink.opacity(0.58))
+            FlowTagLayout {
+                content()
+            }
+            .font(.callout)
+            .foregroundStyle(ink.opacity(0.78))
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func cleaned(_ values: [String]) -> [String] {
+        values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+}
+
+/// Handwritten diary text that turns resolved person names into tappable links
+/// after extraction has linked the entry to graph nodes.
+private struct EnrichedDiaryBody: View {
+    let text: String
+    let linkedPeople: [Person]
+    let allPeople: [Person]
+    let ink: Color
+
+    private var paragraphs: [String] {
+        text.components(separatedBy: .newlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                if paragraph.isEmpty {
+                    Color.clear.frame(height: 10)
+                } else {
+                    FlowTagLayout(horizontalSpacing: 0, verticalSpacing: 4) {
+                        ForEach(tokens(in: paragraph)) { token in
+                            switch token.kind {
+                            case .plain:
+                                Text(token.text)
+                                    .foregroundStyle(ink)
+                            case .person(let person):
+                                NavigationLink {
+                                    PersonDetailView(person: person)
+                                } label: {
+                                    Text(token.text)
+                                        .foregroundStyle(Color.accentColor)
+                                        .underline(true, color: Color.accentColor.opacity(0.45))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(person.displayName(among: allPeople))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .font(.custom("Caveat-Regular", size: 30))
+        .lineSpacing(6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func tokens(in paragraph: String) -> [DiaryTextToken] {
+        var result: [DiaryTextToken] = []
+        var current = paragraph.startIndex
+        while current < paragraph.endIndex {
+            if paragraph[current].isLetter || paragraph[current].isNumber {
+                let start = current
+                while current < paragraph.endIndex,
+                      paragraph[current].isLetter || paragraph[current].isNumber || paragraph[current] == "'" {
+                    current = paragraph.index(after: current)
+                }
+                let word = String(paragraph[start..<current])
+                if let person = linkedPeople.first(where: { $0.matches(word) }) {
+                    result.append(DiaryTextToken(text: word, kind: .person(person)))
+                } else {
+                    result.append(DiaryTextToken(text: word, kind: .plain))
+                }
+            } else {
+                let start = current
+                while current < paragraph.endIndex,
+                      !(paragraph[current].isLetter || paragraph[current].isNumber) {
+                    current = paragraph.index(after: current)
+                }
+                result.append(DiaryTextToken(text: String(paragraph[start..<current]), kind: .plain))
+            }
+        }
+        return result
+    }
+}
+
+private struct DiaryTextToken: Identifiable {
+    let id = UUID()
+    let text: String
+    let kind: Kind
+
+    enum Kind {
+        case plain
+        case person(Person)
+    }
+}
+
+/// A compact wrapping layout for handwritten tokens and extraction chips.
+private struct FlowTagLayout: Layout {
+    var horizontalSpacing: CGFloat = 8
+    var verticalSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? 320
+        let rows = rows(for: subviews, maxWidth: maxWidth)
+        let height = rows.reduce(CGFloat.zero) { partial, row in
+            partial + row.height
+        } + CGFloat(max(rows.count - 1, 0)) * verticalSpacing
+        return CGSize(width: maxWidth, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = rows(for: subviews, maxWidth: bounds.width)
+        var y = bounds.minY
+        for row in rows {
+            var x = bounds.minX
+            for item in row.items {
+                subviews[item.index].place(
+                    at: CGPoint(x: x, y: y),
+                    proposal: ProposedViewSize(item.size)
+                )
+                x += item.size.width + horizontalSpacing
+            }
+            y += row.height + verticalSpacing
+        }
+    }
+
+    private func rows(for subviews: Subviews, maxWidth: CGFloat) -> [FlowRow] {
+        var rows: [FlowRow] = []
+        var currentItems: [FlowItem] = []
+        var currentWidth: CGFloat = 0
+        var currentHeight: CGFloat = 0
+
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let spacing = currentItems.isEmpty ? CGFloat.zero : horizontalSpacing
+            if !currentItems.isEmpty, currentWidth + spacing + size.width > maxWidth {
+                rows.append(FlowRow(items: currentItems, height: currentHeight))
+                currentItems = []
+                currentWidth = 0
+                currentHeight = 0
+            }
+            currentItems.append(FlowItem(index: index, size: size))
+            currentWidth += (currentItems.count == 1 ? 0 : horizontalSpacing) + size.width
+            currentHeight = max(currentHeight, size.height)
+        }
+
+        if !currentItems.isEmpty {
+            rows.append(FlowRow(items: currentItems, height: currentHeight))
+        }
+        return rows
+    }
+
+    private struct FlowRow {
+        let items: [FlowItem]
+        let height: CGFloat
+    }
+
+    private struct FlowItem {
+        let index: Int
+        let size: CGSize
     }
 }
 

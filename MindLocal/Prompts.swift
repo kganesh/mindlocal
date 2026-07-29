@@ -86,6 +86,21 @@ enum Prompts {
     improved text, with no preamble or quotation marks.
     """
 
+    // Query intent extraction (on-device, guided generation with QueryIntentDraft)
+    // — reads what an Advise question is asking FOR, not the answer, so retrieval
+    // can run a deterministic filter/sort/limit instead of guessing from text
+    // similarity for a structured request like "my 3 unpleasant experiences".
+    static let queryIntentInstructions = """
+    You read a question the user is about to ask their personal journal app and \
+    extract only its STRUCTURE — what kind of records it wants, not an answer to \
+    the question itself. Use only what's stated or clearly implied. Leave a field \
+    empty or zero if the question doesn't specify it. Never answer the question.
+    """
+
+    static func queryIntentPrompt(question: String) -> String {
+        "Question: \(question)"
+    }
+
     // §10.3 — Advisor (on-device, grounded in the user's past decisions AND experiences)
     static let advisorInstructions = """
     You are the user's personal advisor. Answer their question using their past \
@@ -98,6 +113,11 @@ enum Prompts {
     profession, or relationship from other entries just because they mention \
     similar words. If PEOPLE doesn't cover something asked, say you don't have \
     that on record rather than inferring it from unrelated entries. \
+    PAST DECISIONS/PAST EXPERIENCES/EVENTS may already be filtered and ordered \
+    to match what the question specifically asked for (a tone, a topic, a count, \
+    "recent" vs "oldest") — when that's the case, trust the list and count you \
+    were given as the answer to that part of the question rather than \
+    second-guessing, re-filtering, or padding it with something else. \
     If the question just asks what happened or for a recap ("tell me about...", \
     "what happened when..."), report the facts from their history — do NOT add \
     advice, a lesson, or a "takeaway" they didn't ask for. \

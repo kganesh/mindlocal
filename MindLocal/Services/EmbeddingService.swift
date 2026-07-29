@@ -29,11 +29,12 @@ enum EmbeddingService {
 }
 
 extension EmbeddingService {
-    /// Representative text for an entry (what it's "about"). Includes hopes and
-    /// activities so a question about either can retrieve this entry — they were
-    /// previously dropped from both the embedding and the advisor context.
+    /// Representative text for an entry (what it's "about"). Includes hopes,
+    /// activities, and outcomes so a question about any of them can retrieve
+    /// this entry — they were previously dropped from both the embedding and
+    /// the advisor context.
     static func experienceText(_ e: Experience) -> String {
-        ([e.title, e.summary, e.feelings, e.learning] + e.tags + e.people + e.activities + e.hopes)
+        ([e.title, e.summary, e.feelings, e.learning] + e.tags + e.people + e.activities + e.hopes + e.outcomes)
             .filter { !$0.isEmpty }.joined(separator: ". ")
     }
     static func decisionText(_ d: Decision) -> String {

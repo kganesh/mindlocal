@@ -26,6 +26,7 @@ struct ExperienceSummary: Sendable, Identifiable {
     let learning: String
     let domain: String
     let tags: [String]
+    let outcomes: [String]
 }
 
 /// A compact, Sendable snapshot of a saved reminder for advisor context.
@@ -73,6 +74,12 @@ protocol AdvisingServicing: Sendable {
                      weather: String?,
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String
+
+    /// Reads the STRUCTURE of a question (a tone/topic/count/sort it implies),
+    /// not an answer — used to drive a deterministic retrieval pass alongside
+    /// semantic search. Never throws to the caller in practice; extraction
+    /// failure just means no structured match is attempted.
+    func extractIntent(from question: String) async throws -> QueryIntentDraft
 }
 
 enum AdviceError: Error {
@@ -81,9 +88,29 @@ enum AdviceError: Error {
 }
 
 /// On-device advisor (spec §10.3) via Foundation Models, grounded in past
-/// decisions passed as context. (Semantic retrieval via `Decision.embedding`
-/// is a later milestone; for now the most recent decisions are used.)
+/// decisions/experiences retrieved by semantic similarity (`SemanticRetriever`,
+/// via `Decision.embedding`/`Experience.embedding`) plus, when a question implies
+/// a structured filter, a deterministic pass (`StructuredQueryRetriever`).
 final class AdviceService: AdvisingServicing {
+    /// Same permissive-guardrails rationale as extraction elsewhere — this only
+    /// reads the user's own question, so shouldn't refuse on ordinary topics.
+    private static let intentModel = SystemLanguageModel(
+        useCase: .general,
+        guardrails: .permissiveContentTransformations
+    )
+
+    func extractIntent(from question: String) async throws -> QueryIntentDraft {
+        guard Self.intentModel.isAvailable else { throw AdviceError.modelUnavailable }
+        let session = LanguageModelSession(
+            model: Self.intentModel,
+            instructions: Prompts.queryIntentInstructions
+        )
+        let response = try await session.respond(
+            to: Prompts.queryIntentPrompt(question: question),
+            generating: QueryIntentDraft.self
+        )
+        return response.content
+    }
 
     func advise(question: String,
                 decisions: [DecisionSummary],
@@ -175,6 +202,7 @@ final class AdviceService: AdvisingServicing {
             let lines = recent.enumerated().map { index, e -> String in
                 var parts = ["\(index + 1). [\(e.tone), \(e.domain), \(formatter.string(from: e.createdAt))] \(e.title)"]
                 if !e.summary.isEmpty { parts.append("   Happened: \(clip(e.summary))") }
+                if !e.outcomes.isEmpty { parts.append("   Outcomes: \(clip(e.outcomes.joined(separator: "; ")))") }
                 if !e.factors.isEmpty { parts.append("   Because: \(clip(e.factors))") }
                 if !e.learning.isEmpty { parts.append("   Takeaway: \(clip(e.learning))") }
                 return parts.joined(separator: "\n")
@@ -225,6 +253,10 @@ final class MockAdviceService: AdvisingServicing {
         return "Drawing on your history — the choices you've made and what you've lived through — I'd lean this way."
     }
 
+    func extractIntent(from question: String) async throws -> QueryIntentDraft {
+        QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
+    }
+
     func eventAdvice(event: String,
                      when: Date,
                      weather: String?,
@@ -247,7 +279,8 @@ extension ExperienceSummary {
             factors: experience.factors,
             learning: experience.learning,
             domain: experience.domain.label,
-            tags: experience.tags
+            tags: experience.tags,
+            outcomes: experience.outcomes
         )
     }
 }

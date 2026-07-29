@@ -34,6 +34,16 @@ final class AdviceViewModel {
         return nil
     }
 
+    /// Reads the structure of `question` (a tone/topic/count/sort it implies) so
+    /// the caller can run a deterministic retrieval pass before asking. Falls
+    /// back to "no structure" on any failure — that's a safe degradation, since
+    /// it just means retrieval relies on semantic search alone, same as before
+    /// this existed.
+    func extractIntent(for question: String) async -> QueryIntentDraft {
+        (try? await advisor.extractIntent(from: question))
+            ?? QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
+    }
+
     func ask(decisions: [DecisionSummary], experiences: [ExperienceSummary],
              reminders: [ReminderSummary] = [], events: [EventSummary] = [],
              people: [PersonProfileSummary] = []) async {
