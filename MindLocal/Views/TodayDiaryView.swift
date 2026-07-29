@@ -30,11 +30,20 @@ struct TodayDiaryView: View {
     private let paperShadow = Color(red: 0.36, green: 0.28, blue: 0.18).opacity(0.18)
     private let ink = Color(red: 0.20, green: 0.16, blue: 0.12)
     private let rule = Color(red: 0.50, green: 0.42, blue: 0.30).opacity(0.18)
+    private let table = Color(red: 0.93, green: 0.89, blue: 0.79)
 
-    private var todayExperiences: [Experience] {
+    private var todayEntries: [Experience] {
         experiences
             .filter { Calendar.current.isDateInToday($0.timelineDate) }
             .sorted { $0.timelineDate > $1.timelineDate }
+    }
+
+    private var todayDailyLogs: [Experience] {
+        todayEntries.filter { $0.kind == .dailyLog }
+    }
+
+    private var todayExperiences: [Experience] {
+        todayEntries.filter { $0.kind == .experience }
     }
 
     private var todayEvents: [Event] {
@@ -58,7 +67,7 @@ struct TodayDiaryView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(table.ignoresSafeArea())
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -67,22 +76,6 @@ struct TodayDiaryView: View {
                         Image(systemName: "calendar")
                     }
                     .accessibilityLabel("Timeline")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button { addSheet = .experience } label: {
-                            Label("Experience Entry", systemImage: "square.and.pencil")
-                        }
-                        Button { addSheet = .event } label: {
-                            Label("Event", systemImage: "calendar.badge.plus")
-                        }
-                        Button { addSheet = .conversation } label: {
-                            Label("Voice Check-In", systemImage: "moon.stars")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add")
                 }
             }
             .sheet(item: $addSheet) { sheet in
@@ -152,15 +145,14 @@ struct TodayDiaryView: View {
                 }
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button {
                     Task { await toggleMic() }
                 } label: {
-                    Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                        .font(.system(size: 34))
-                        .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
+                    Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.fill")
                         .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
                 }
+                .modifier(PageIconButtonStyle(tint: viewModel.speech.isRecording ? .red : .accentColor))
                 .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate diary log")
 
                 Button {
@@ -168,7 +160,7 @@ struct TodayDiaryView: View {
                 } label: {
                     Label("Ask", systemImage: "sparkles")
                 }
-                .buttonStyle(.bordered)
+                .modifier(PageTextButtonStyle())
 
                 Spacer()
 
@@ -179,7 +171,7 @@ struct TodayDiaryView: View {
                 } label: {
                     Label(saveButtonTitle, systemImage: "checkmark.circle")
                 }
-                .buttonStyle(.borderedProminent)
+                .modifier(PageTextButtonStyle(prominent: true))
                 .disabled(!canSubmit)
             }
         }
@@ -199,42 +191,86 @@ struct TodayDiaryView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
-                .font(.custom("Caveat-Bold", size: 30))
-                .foregroundStyle(ink.opacity(0.75))
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
+                    .font(.custom("Caveat-Bold", size: 30))
+                    .foregroundStyle(ink.opacity(0.75))
 
-            Button {
-                pickingLocation = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "mappin.and.ellipse")
-                    Text(contextLine)
-                        .lineLimit(2)
-                    if loadingWeather {
-                        ProgressView()
-                            .controlSize(.mini)
+                Button {
+                    pickingLocation = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: weatherSymbol)
+                        Text(contextLine)
+                            .lineLimit(2)
+                        if loadingWeather {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
                     }
+                    .font(.custom("Caveat-Regular", size: 21))
+                    .foregroundStyle(ink.opacity(0.55))
                 }
-                .font(.custom("Caveat-Regular", size: 21))
-                .foregroundStyle(ink.opacity(0.55))
+                .buttonStyle(.plain)
+                .accessibilityLabel("Location and weather")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Location and weather")
+            Spacer(minLength: 8)
+            addMenu
         }
+    }
+
+    private var addMenu: some View {
+        Menu {
+            Button { addSheet = .experience } label: {
+                Label("Experience Entry", systemImage: "square.and.pencil")
+            }
+            Button { addSheet = .event } label: {
+                Label("Event", systemImage: "calendar.badge.plus")
+            }
+            Button { addSheet = .conversation } label: {
+                Label("Voice Check-In", systemImage: "moon.stars")
+            }
+        } label: {
+            Image(systemName: "plus")
+        }
+        .modifier(PageIconButtonStyle(tint: ink.opacity(0.74)))
+        .accessibilityLabel("Add")
     }
 
     private var todayMemoryStack: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if todayExperiences.isEmpty && todayEvents.isEmpty {
-                Text("Saved memories for today will appear here after you write, add an experience, or create an event.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 4)
+            if todayEntries.isEmpty && todayEvents.isEmpty {
+                EmptyTodayIndex()
             } else {
+                HStack {
+                    Label("Today's pages", systemImage: "book.closed")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(todayEntries.count + todayEvents.count)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.thinMaterial, in: Capsule())
+                }
+                .padding(.horizontal, 4)
+
+                if !todayDailyLogs.isEmpty {
+                    memorySection("Daily Log", systemImage: ExperienceKind.dailyLog.symbol, count: todayDailyLogs.count) {
+                        ForEach(todayDailyLogs) { experience in
+                            NavigationLink {
+                                DiaryPageView(experience: experience)
+                            } label: {
+                                ExperienceMemoryCard(experience: experience, people: people)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
                 if !todayExperiences.isEmpty {
-                    memorySection("Entries", systemImage: "book.closed", count: todayExperiences.count) {
+                    memorySection("Experiences", systemImage: ExperienceKind.experience.symbol, count: todayExperiences.count) {
                         ForEach(todayExperiences) { experience in
                             NavigationLink {
                                 DiaryPageView(experience: experience)
@@ -285,6 +321,17 @@ struct TodayDiaryView: View {
         return location
     }
 
+    private var weatherSymbol: String {
+        guard let weatherSummary else { return "mappin.and.ellipse" }
+        let condition = weatherSummary.condition.lowercased()
+        if condition.contains("rain") || condition.contains("drizzle") { return "cloud.rain" }
+        if condition.contains("snow") { return "snowflake" }
+        if condition.contains("cloud") { return "cloud" }
+        if condition.contains("sun") || condition.contains("clear") { return "sun.max" }
+        if condition.contains("wind") { return "wind" }
+        return "cloud.sun"
+    }
+
     private var canSubmit: Bool {
         !viewModel.typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && viewModel.phase != .extracting
@@ -330,7 +377,7 @@ struct TodayDiaryView: View {
     }
 
     private func useSavedLocationForToday() {
-        if let experience = todayExperiences.first(where: { $0.hasLocation }) {
+        if let experience = todayEntries.first(where: { $0.hasLocation }) {
             pageLocation = experience.location
             pageLatitude = experience.latitude
             pageLongitude = experience.longitude
@@ -376,6 +423,7 @@ struct TodayDiaryView: View {
     private func saveExtractedEntry() {
         let assignments = viewModel.peopleAssignments
         if let experience = viewModel.finalizeEntry() {
+            experience.kind = .dailyLog
             modelContext.insert(experience)
             PersonResolver.linkPeople(to: experience, assignments: assignments, in: modelContext)
             EmbeddingService.embed(experience)
@@ -387,6 +435,7 @@ struct TodayDiaryView: View {
 
     private func saveRawEntry() {
         let experience = viewModel.finalizeRawEntry()
+        experience.kind = .dailyLog
         modelContext.insert(experience)
         EmbeddingService.embed(experience)
         Task { await HealthService.shared.enrich(experience) }
@@ -478,6 +527,54 @@ private struct TodayCaptureReviewSheet: View {
                 }
             }
         }
+    }
+}
+
+private struct PageIconButtonStyle: ViewModifier {
+    var tint: Color
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 36, height: 36)
+            .background(Color.white.opacity(0.36), in: Circle())
+            .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+    }
+}
+
+private struct PageTextButtonStyle: ViewModifier {
+    var prominent = false
+
+    func body(content: Content) -> some View {
+        content
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(prominent ? Color.accentColor : Color.white.opacity(0.36), in: Capsule())
+            .overlay {
+                if !prominent {
+                    Capsule().stroke(Color.black.opacity(0.06), lineWidth: 1)
+                }
+            }
+    }
+}
+
+private struct EmptyTodayIndex: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "bookmark")
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            Text("Saved memories for today will appear here after you write, add an experience, or create an event.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 

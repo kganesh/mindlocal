@@ -209,7 +209,7 @@ enum TimelineItem: Identifiable {
         switch self {
         case .event:      "Event"
         case .decision:   "Decision"
-        case .experience: "Experience"
+        case .experience(let x): x.kind.label
         }
     }
 
@@ -217,7 +217,7 @@ enum TimelineItem: Identifiable {
         switch self {
         case .event:            "calendar"
         case .decision:         "checklist"
-        case .experience(let x): x.tone.symbol
+        case .experience(let x): x.kind == .dailyLog ? x.kind.symbol : x.tone.symbol
         }
     }
 

@@ -111,6 +111,11 @@ struct ExperienceDetailView: View {
                 }
             }
             Section("Classification") {
+                Picker("Kind", selection: $experience.kindRaw) {
+                    ForEach(ExperienceKind.allCases) { kind in
+                        Label(kind.label, systemImage: kind.symbol).tag(kind.rawValue)
+                    }
+                }
                 DatePicker(
                     "When it happened",
                     selection: Binding(

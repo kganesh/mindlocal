@@ -122,6 +122,7 @@ final class JournalConversationViewModel {
                 return
             }
             let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
+            experience.kind = .dailyLog
             experience.decisions = draft.decisions
                 .filter { $0.isDecision }
                 .map { $0.toDecision(rawTranscript: transcript, occurredAt: occurredAt) }
@@ -149,7 +150,9 @@ final class JournalConversationViewModel {
             people: [], activities: [], outcomes: [], hopes: [],
             conflicts: [], reminders: [], appointments: [], decisions: []
         )
-        return draft.toExperience(rawText: transcript, occurredAt: occurredAt)
+        let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
+        experience.kind = .dailyLog
+        return experience
     }
 
     private static func derivedTitle(from text: String) -> String {

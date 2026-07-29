@@ -7,6 +7,7 @@ import SwiftData
 struct DiaryPageContent: View {
     @Bindable var experience: Experience
     @Query(sort: \Person.name) private var allPeople: [Person]
+    @State private var showingPeopleMap = false
 
     private let paper = Color(red: 0.98, green: 0.96, blue: 0.89)
     private let ink   = Color(red: 0.20, green: 0.16, blue: 0.12)
@@ -119,6 +120,11 @@ struct DiaryPageContent: View {
                             Label(person.displayName(among: allPeople), systemImage: "person.crop.circle")
                         }
                     }
+                    Button {
+                        showingPeopleMap = true
+                    } label: {
+                        Label("People Map", systemImage: "point.3.connected.trianglepath.dotted")
+                    }
                 }
             }
 
@@ -178,6 +184,14 @@ struct DiaryPageContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(noteBackground, in: RoundedRectangle(cornerRadius: 8))
         .padding(.top, 8)
+        .sheet(isPresented: $showingPeopleMap) {
+            PeopleGraphSheet(focusName: diaryMapFocusName)
+        }
+    }
+
+    private var diaryMapFocusName: String? {
+        guard experience.linkedPeople.count == 1, let person = experience.linkedPeople.first else { return nil }
+        return person.fullDisplayName
     }
 
     private func enrichmentGroup<Content: View>(
@@ -224,16 +238,16 @@ private struct EnrichedDiaryBody: View {
                     Color.clear.frame(height: 10)
                 } else {
                     FlowTagLayout(horizontalSpacing: 0, verticalSpacing: 4) {
-                        ForEach(tokens(in: paragraph)) { token in
-                            switch token.kind {
+                        ForEach(segments(in: paragraph)) { segment in
+                            switch segment.kind {
                             case .plain:
-                                Text(token.text)
+                                Text(segment.text)
                                     .foregroundStyle(ink)
                             case .person(let person):
                                 NavigationLink {
                                     PersonDetailView(person: person)
                                 } label: {
-                                    Text(token.text)
+                                    Text(segment.text)
                                         .foregroundStyle(Color.accentColor)
                                         .underline(true, color: Color.accentColor.opacity(0.45))
                                 }
@@ -250,36 +264,88 @@ private struct EnrichedDiaryBody: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func tokens(in paragraph: String) -> [DiaryTextToken] {
-        var result: [DiaryTextToken] = []
-        var current = paragraph.startIndex
-        while current < paragraph.endIndex {
-            if paragraph[current].isLetter || paragraph[current].isNumber {
-                let start = current
-                while current < paragraph.endIndex,
-                      paragraph[current].isLetter || paragraph[current].isNumber || paragraph[current] == "'" {
-                    current = paragraph.index(after: current)
-                }
-                let word = String(paragraph[start..<current])
-                if let person = linkedPeople.first(where: { $0.matches(word) }) {
-                    result.append(DiaryTextToken(text: word, kind: .person(person)))
-                } else {
-                    result.append(DiaryTextToken(text: word, kind: .plain))
-                }
-            } else {
-                let start = current
-                while current < paragraph.endIndex,
-                      !(paragraph[current].isLetter || paragraph[current].isNumber) {
-                    current = paragraph.index(after: current)
-                }
-                result.append(DiaryTextToken(text: String(paragraph[start..<current]), kind: .plain))
+    private var matchCandidates: [PersonMatchCandidate] {
+        var seen = Set<String>()
+        var candidates: [PersonMatchCandidate] = []
+        for person in linkedPeople {
+            for name in person.normalizedNames {
+                let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                guard !normalized.isEmpty, seen.insert("\(person.id)-\(normalized)").inserted else { continue }
+                candidates.append(PersonMatchCandidate(person: person, phrase: normalized))
             }
+        }
+        return candidates.sorted {
+            if $0.phrase.count == $1.phrase.count {
+                return $0.phrase < $1.phrase
+            }
+            return $0.phrase.count > $1.phrase.count
+        }
+    }
+
+    private func segments(in paragraph: String) -> [DiaryTextSegment] {
+        let candidates = matchCandidates
+        var result: [DiaryTextSegment] = []
+        var plainStart = paragraph.startIndex
+        var current = paragraph.startIndex
+
+        while current < paragraph.endIndex {
+            if let match = firstMatch(in: paragraph, at: current, candidates: candidates) {
+                if plainStart < current {
+                    result.append(DiaryTextSegment(text: String(paragraph[plainStart..<current]), kind: .plain))
+                }
+                result.append(DiaryTextSegment(text: String(paragraph[current..<match.end]), kind: .person(match.person)))
+                current = match.end
+                plainStart = current
+            } else {
+                current = paragraph.index(after: current)
+            }
+        }
+        if plainStart < paragraph.endIndex {
+            result.append(DiaryTextSegment(text: String(paragraph[plainStart..<paragraph.endIndex]), kind: .plain))
         }
         return result
     }
+
+    private func firstMatch(
+        in paragraph: String,
+        at start: String.Index,
+        candidates: [PersonMatchCandidate]
+    ) -> (person: Person, end: String.Index)? {
+        guard isBoundaryBefore(start, in: paragraph) else { return nil }
+        for candidate in candidates {
+            guard let end = paragraph.index(start, offsetBy: candidate.phrase.count, limitedBy: paragraph.endIndex) else {
+                continue
+            }
+            guard isBoundaryAfter(end, in: paragraph) else { continue }
+            if String(paragraph[start..<end]).lowercased() == candidate.phrase {
+                return (candidate.person, end)
+            }
+        }
+        return nil
+    }
+
+    private func isBoundaryBefore(_ index: String.Index, in text: String) -> Bool {
+        guard index > text.startIndex else { return true }
+        let previous = text[text.index(before: index)]
+        return !isNameCharacter(previous)
+    }
+
+    private func isBoundaryAfter(_ index: String.Index, in text: String) -> Bool {
+        guard index < text.endIndex else { return true }
+        return !isNameCharacter(text[index])
+    }
+
+    private func isNameCharacter(_ character: Character) -> Bool {
+        character.isLetter || character.isNumber || character == "'"
+    }
 }
 
-private struct DiaryTextToken: Identifiable {
+private struct PersonMatchCandidate {
+    let person: Person
+    let phrase: String
+}
+
+private struct DiaryTextSegment: Identifiable {
     let id = UUID()
     let text: String
     let kind: Kind

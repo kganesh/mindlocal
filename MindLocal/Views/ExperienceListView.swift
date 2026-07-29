@@ -85,6 +85,8 @@ struct ExperienceRow: View {
             Text(experience.summary).font(.subheadline).lineLimit(2)
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
+                Text(experience.kind.label)
+                Text("·")
                 Text(experience.tone.label)
                 Text("·")
                 Text(experience.domain.label)

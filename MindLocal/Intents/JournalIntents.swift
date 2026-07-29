@@ -31,12 +31,13 @@ struct LogJournalEntryIntent: AppIntent {
         var appointmentCandidates: [AppointmentCandidate] = []
         if let draft = try? await ExtractionService().extractExperience(from: text), draft.isExperience {
             experience = draft.toExperience(rawText: text, occurredAt: .now)
+            experience.kind = .dailyLog
             experience.decisions = draft.decisions
                 .filter { $0.isDecision }
                 .map { $0.toDecision(rawTranscript: text, occurredAt: .now) }
             appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
         } else {
-            experience = Experience(title: String(text.prefix(48)), summary: text, rawText: text, occurredAt: .now)
+            experience = Experience(title: String(text.prefix(48)), summary: text, kind: .dailyLog, rawText: text, occurredAt: .now)
         }
 
         context.insert(experience)

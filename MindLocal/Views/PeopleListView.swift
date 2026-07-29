@@ -113,6 +113,7 @@ struct PersonDetailView: View {
     @Query(sort: \Person.name) private var allPeople: [Person]
     @State private var addingRelationship = false
     @State private var mergingPerson = false
+    @State private var showingPeopleMap = false
     @State private var newNickname = ""
 
     /// Whether another person shares this person's first name — the moment a
@@ -296,11 +297,24 @@ struct PersonDetailView: View {
         }
         .navigationTitle(person.fullDisplayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingPeopleMap = true
+                } label: {
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                }
+                .accessibilityLabel("People map")
+            }
+        }
         .sheet(isPresented: $addingRelationship) {
             AddRelationshipSheet(person: person)
         }
         .sheet(isPresented: $mergingPerson) {
             MergePersonSheet(survivor: person)
+        }
+        .sheet(isPresented: $showingPeopleMap) {
+            PeopleGraphSheet(focusName: person.fullDisplayName)
         }
     }
 
@@ -321,6 +335,53 @@ struct PersonDetailView: View {
     /// from the object's side; symmetric types read the same both ways.
     private func perspectiveLabel(_ edge: PersonRelationship) -> String {
         (edge.subject === person) ? edge.type.label : edge.type.inverseLabel
+    }
+}
+
+/// A focused graph browser that can be opened from a diary page or person page,
+/// instead of requiring a detour through the People tab.
+struct PeopleGraphSheet: View {
+    let focusName: String?
+    @State private var mode: PeopleViewMode = .graph3D
+    @Environment(\.dismiss) private var dismiss
+
+    init(focusName: String? = nil) {
+        self.focusName = focusName
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("Map", selection: $mode) {
+                    Label("2D", systemImage: PeopleViewMode.graph2D.systemImage).tag(PeopleViewMode.graph2D)
+                    Label("3D", systemImage: PeopleViewMode.graph3D.systemImage).tag(PeopleViewMode.graph3D)
+                }
+                .pickerStyle(.segmented)
+                .padding([.horizontal, .top])
+
+                if let focusName {
+                    Label(focusName, systemImage: "scope")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                }
+
+                Group {
+                    if mode == .graph2D {
+                        PeopleGraphView()
+                    } else {
+                        PeopleGraph3DView()
+                    }
+                }
+            }
+            .navigationTitle("People Map")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

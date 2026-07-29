@@ -1,6 +1,29 @@
 import Foundation
 import SwiftData
 
+/// The intent of an entry. Daily logs are broad reflections for a day; experience
+/// entries are specific moments that happened within that day.
+enum ExperienceKind: String, Codable, CaseIterable, Identifiable {
+    case dailyLog
+    case experience
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .dailyLog: "Daily Log"
+        case .experience: "Experience"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .dailyLog: "book.pages"
+        case .experience: "text.book.closed"
+        }
+    }
+}
+
 /// A lived experience (distinct from a Decision): something that happened to the
 /// user, stored as-is plus extracted content. Pleasant experiences help the user
 /// recreate them; unpleasant ones help them handle similar situations better.
@@ -24,6 +47,9 @@ final class Experience {
     var domainRaw: String
     var rawText: String?
     var embedding: [Float]
+    /// Whether this entry is the broad daily reflection or a specific experience.
+    /// Empty/default values from older stores read as `.experience`.
+    var kindRaw: String = ExperienceKind.experience.rawValue
     /// When the experience actually happened (for the timeline). Optional so
     /// existing records migrate cleanly; falls back to `createdAt`.
     var occurredAt: Date?
@@ -66,6 +92,10 @@ final class Experience {
         get { Domain(rawValue: domainRaw) ?? .other }
         set { domainRaw = newValue.rawValue }
     }
+    var kind: ExperienceKind {
+        get { ExperienceKind(rawValue: kindRaw) ?? .experience }
+        set { kindRaw = newValue.rawValue }
+    }
     /// Chronological anchor for the timeline.
     var timelineDate: Date { occurredAt ?? createdAt }
     /// Whether any HealthKit context is attached to this entry.
@@ -85,6 +115,7 @@ final class Experience {
         learning: String = "",
         tags: [String] = [],
         domain: Domain = .other,
+        kind: ExperienceKind = .experience,
         rawText: String? = nil,
         embedding: [Float] = [],
         occurredAt: Date? = nil,
@@ -105,6 +136,7 @@ final class Experience {
         self.learning = learning
         self.tags = tags
         self.domainRaw = domain.rawValue
+        self.kindRaw = kind.rawValue
         self.rawText = rawText
         self.embedding = embedding
         self.people = people
