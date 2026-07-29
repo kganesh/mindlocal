@@ -223,6 +223,7 @@ struct CaptureView: View {
         let experience = viewModel.finalizeRawEntry()
         modelContext.insert(experience)
         EmbeddingService.embed(experience)
+        MemoryGraphStore.rebuildAndPersist(in: modelContext)
         Task { await HealthService.shared.enrich(experience) }
         dismiss()
     }
@@ -234,6 +235,7 @@ struct CaptureView: View {
             modelContext.insert(experience)
             PersonResolver.linkPeople(to: experience, assignments: assignments, in: modelContext)
             EmbeddingService.embed(experience)
+            MemoryGraphStore.rebuildAndPersist(in: modelContext)
             Task { await HealthService.shared.enrich(experience) }
             Task { await refreshReminderNotifications(for: experience) }
         }

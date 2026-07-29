@@ -61,6 +61,7 @@ struct PeopleListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         modelContext.insert(Person(name: "New Person"))
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -430,6 +431,7 @@ struct AddRelationshipSheet: View {
     private func save() {
         guard let otherId, let other = allPeople.first(where: { $0.persistentModelID == otherId }) else { return }
         modelContext.insert(PersonRelationship(subject: person, type: type, object: other))
+        MemoryGraphStore.rebuildAndPersist(in: modelContext)
         dismiss()
     }
 }
@@ -512,6 +514,7 @@ struct MergePersonSheet: View {
     private func performMerge() {
         guard let selected else { return }
         PersonMerger.merge(selected, into: survivor, in: modelContext)
+        MemoryGraphStore.rebuildAndPersist(in: modelContext)
         dismiss()
     }
 }

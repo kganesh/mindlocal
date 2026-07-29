@@ -142,6 +142,7 @@ struct ExperienceDetailView: View {
                         experience.location = ""
                         experience.latitude = nil
                         experience.longitude = nil
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
                     }
                 }
             }
@@ -179,6 +180,7 @@ struct ExperienceDetailView: View {
                 experience.location = name
                 experience.latitude = lat
                 experience.longitude = lon
+                MemoryGraphStore.rebuildAndPersist(in: modelContext)
             }
         }
     }
@@ -215,6 +217,7 @@ struct ExperienceDetailView: View {
             draft.apply(to: experience, in: modelContext)
             PersonResolver.linkPeople(to: experience, in: modelContext)
             EmbeddingService.embed(experience)
+            MemoryGraphStore.rebuildAndPersist(in: modelContext)
         } catch {
             extractionError = CaptureViewModel.friendlyMessage(for: error)
         }

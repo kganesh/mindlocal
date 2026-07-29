@@ -1,5 +1,6 @@
 import SwiftUI
 import FoundationModels
+import SwiftData
 
 /// Availability gate (spec §8) + tab shell (spec §4).
 struct RootView: View {
@@ -35,6 +36,7 @@ struct RootView: View {
 
 struct MainTabView: View {
     @Environment(NightlyCheckInRouter.self) private var checkInRouter
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         @Bindable var router = checkInRouter
@@ -55,6 +57,9 @@ struct MainTabView: View {
         // Tapping the nightly reminder opens the voice check-in.
         .fullScreenCover(isPresented: $router.isActive) {
             JournalConversationView()
+        }
+        .task {
+            MemoryGraphStore.rebuildAndPersist(in: modelContext)
         }
     }
 }

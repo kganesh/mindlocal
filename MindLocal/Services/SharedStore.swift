@@ -7,7 +7,7 @@ enum SharedStore {
     static let schema = Schema([
         Decision.self, OptionConsidered.self, Outcome.self,
         Experience.self, Event.self, Person.self, PersonRelationship.self,
-        Conflict.self, Reminder.self, Principle.self
+        Conflict.self, Reminder.self, Principle.self, MemoryGraphSnapshot.self
     ])
 
     /// True when running under XCTest — use a throwaway in-memory store so tests

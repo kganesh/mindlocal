@@ -85,6 +85,7 @@ struct DecisionDetailView: View {
 /// One-tap outcome entry (spec §4 — outcome loop).
 struct OutcomeEntryView: View {
     @Bindable var decision: Decision
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var result: OutcomeResult = .workedOut
     @State private var notes = ""
@@ -104,6 +105,7 @@ struct OutcomeEntryView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         decision.outcome = Outcome(result: result, notes: notes)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
                         dismiss()
                     }
                 }

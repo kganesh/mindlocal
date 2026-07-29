@@ -167,6 +167,7 @@ struct JournalConversationView: View {
                     in: modelContext
                 )
                 EmbeddingService.embed(experience)
+                MemoryGraphStore.rebuildAndPersist(in: modelContext)
                 let peopleWithReminders = Set(experience.reminders.compactMap(\.person?.id))
                 Task {
                     for person in experience.linkedPeople where peopleWithReminders.contains(person.id) {
@@ -194,6 +195,7 @@ struct JournalConversationView: View {
                 Button("Add to Events") {
                     Task {
                         await AppointmentEventBuilder.createEvent(from: candidate, in: modelContext)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
                         viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
                     }
                 }

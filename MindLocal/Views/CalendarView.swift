@@ -111,7 +111,11 @@ struct CalendarView: View {
                 switch sheet {
                 case .conversation: JournalConversationView()
                 case .entry: CaptureView()
-                case .event: EventFormView { modelContext.insert($0) }
+                case .event:
+                    EventFormView {
+                        modelContext.insert($0)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
+                    }
                 }
             }
         }
@@ -122,6 +126,7 @@ struct CalendarView: View {
         case .denied:
             importMessage = "MindLocal needs Calendar access. Enable it in Settings › MindLocal."
         case .imported(let new, let updated):
+            MemoryGraphStore.rebuildAndPersist(in: modelContext)
             if new == 0 && updated == 0 {
                 importMessage = "No upcoming events found in your calendar."
             } else {

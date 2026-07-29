@@ -143,6 +143,7 @@ struct ExperiencePreviewView: View {
                 Button("Add to Events") {
                     Task {
                         await AppointmentEventBuilder.createEvent(from: candidate, in: modelContext)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
                         viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
                     }
                 }

@@ -91,6 +91,7 @@ struct SettingsView: View {
         deleteAll(Event.self)
         deleteAll(PersonRelationship.self)
         deleteAll(Person.self)
+        deleteAll(MemoryGraphSnapshot.self)
         try? modelContext.save()
     }
 

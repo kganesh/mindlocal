@@ -43,6 +43,7 @@ struct LogJournalEntryIntent: AppIntent {
         context.insert(experience)
         PersonResolver.linkPeople(to: experience, in: context)
         EmbeddingService.embed(experience)
+        MemoryGraphStore.rebuildAndPersist(in: context)
         try? context.save()
 
         let peopleWithReminders = Set(experience.reminders.compactMap(\.person?.id))

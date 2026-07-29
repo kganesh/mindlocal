@@ -83,7 +83,10 @@ struct TodayDiaryView: View {
                 case .experience:
                     CaptureView()
                 case .event:
-                    EventFormView { modelContext.insert($0) }
+                    EventFormView {
+                        modelContext.insert($0)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
+                    }
                 case .conversation:
                     JournalConversationView()
                 }
@@ -427,6 +430,7 @@ struct TodayDiaryView: View {
             modelContext.insert(experience)
             PersonResolver.linkPeople(to: experience, assignments: assignments, in: modelContext)
             EmbeddingService.embed(experience)
+            MemoryGraphStore.rebuildAndPersist(in: modelContext)
             Task { await HealthService.shared.enrich(experience) }
             Task { await refreshReminderNotifications(for: experience) }
         }
@@ -438,6 +442,7 @@ struct TodayDiaryView: View {
         experience.kind = .dailyLog
         modelContext.insert(experience)
         EmbeddingService.embed(experience)
+        MemoryGraphStore.rebuildAndPersist(in: modelContext)
         Task { await HealthService.shared.enrich(experience) }
         peopleConfirmed = false
     }
