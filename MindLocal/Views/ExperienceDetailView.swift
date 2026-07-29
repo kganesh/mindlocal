@@ -3,8 +3,17 @@ import SwiftData
 
 struct ExperienceDetailView: View {
     @Bindable var experience: Experience
+    let extraction: ExtractionServicing
     @Query private var events: [Event]
+    @Environment(\.modelContext) private var modelContext
     @State private var pickingLocation = false
+    @State private var isReExtracting = false
+    @State private var extractionError: String?
+
+    init(experience: Experience, extraction: ExtractionServicing = ExtractionService()) {
+        self.experience = experience
+        self.extraction = extraction
+    }
 
     var body: some View {
         Form {
@@ -132,10 +141,30 @@ struct ExperienceDetailView: View {
                 }
             }
 
-            if let raw = experience.rawText, !raw.isEmpty {
-                Section("Original note") {
-                    Text(raw).font(.callout).foregroundStyle(.secondary)
+            Section {
+                TextEditor(text: rawTextBinding)
+                    .font(.callout)
+                    .frame(minHeight: 120)
+                Button {
+                    Task { await rerunExtraction() }
+                } label: {
+                    if isReExtracting {
+                        HStack {
+                            ProgressView()
+                            Text("Re-running extraction…")
+                        }
+                    } else {
+                        Label("Re-run AI Extraction", systemImage: "sparkles")
+                    }
                 }
+                .disabled(isReExtracting || rawTextBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                if let extractionError {
+                    Text(extractionError).font(.caption).foregroundStyle(.red)
+                }
+            } header: {
+                Text("Original note")
+            } footer: {
+                Text("Fix a typo here, then re-run extraction to refresh the fields above from the corrected note. This replaces the previously extracted details, decisions, conflicts, and reminders.")
             }
         }
         .navigationTitle(experience.title)
@@ -154,6 +183,36 @@ struct ExperienceDetailView: View {
     private func conflictName(_ conflict: Conflict) -> String {
         if let name = conflict.withPerson?.fullDisplayName, !name.isEmpty { return name }
         return conflict.personName.isEmpty ? "Someone" : conflict.personName
+    }
+
+    private var rawTextBinding: Binding<String> {
+        Binding(
+            get: { experience.rawText ?? "" },
+            set: { experience.rawText = $0 }
+        )
+    }
+
+    /// Re-extracts from the (possibly just-edited) original note and overwrites
+    /// the experience's AI-generated fields in place — the fix for a typo in the
+    /// note otherwise never reaching the extracted summary/decisions/etc.
+    private func rerunExtraction() async {
+        let transcript = rawTextBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !transcript.isEmpty else { return }
+        isReExtracting = true
+        extractionError = nil
+        defer { isReExtracting = false }
+        do {
+            let draft = try await extraction.extractExperience(from: transcript)
+            guard draft.isExperience else {
+                extractionError = "The note no longer describes an experience — nothing to extract."
+                return
+            }
+            draft.apply(to: experience, in: modelContext)
+            PersonResolver.linkPeople(to: experience, in: modelContext)
+            EmbeddingService.embed(experience)
+        } catch {
+            extractionError = CaptureViewModel.friendlyMessage(for: error)
+        }
     }
 
     private var hasJournalDetails: Bool {
