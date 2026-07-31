@@ -4,7 +4,7 @@ import Foundation
 /// block for the advisor prompt. The retriever decides what is relevant; this
 /// packer keeps the LLM payload readable and bounded.
 enum MemoryGraphContextPacker {
-    static func pack(_ result: MemoryGraphRetrievalResult, maxNodes: Int = 14, maxEdges: Int = 18) -> String {
+    static func pack(_ result: MemoryGraphRetrievalResult, maxNodes: Int = 10, maxEdges: Int = 12) -> String {
         let evidence = Array(result.evidenceNodes
             .sorted(by: sortEvidence)
             .prefix(maxNodes))

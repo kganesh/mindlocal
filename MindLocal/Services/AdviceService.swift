@@ -260,32 +260,43 @@ final class AdviceService: AdvisingServicing {
     /// The blocks above are built independently, each already capped to at most
     /// 12 items — but 12 decisions + 12 experiences + reminders + events + a full
     /// People profile + graph context routinely add up to several thousand
-    /// characters once a journal has any real history (18 decisions/32
-    /// experiences was enough to push a single request past the on-device
-    /// model's 4096-token window with zero room left to generate a response —
-    /// a hard failure, not a quality tradeoff). Assemble blocks in priority
-    /// order (People and the graph context are ground truth and usually small;
-    /// Decisions/Experiences are the bulky, lower-precision fallback) and keep
-    /// only what fits a conservative character budget, so a heavy journal
-    /// degrades to its most relevant context instead of throwing.
-    private static let contextCharacterBudget = 6_000
+    /// characters once a journal has any real history, pushing a single request
+    /// past the on-device model's 4096-token window with zero room left to
+    /// generate a response — a hard failure, not a quality tradeoff.
+    ///
+    /// This budget was first calibrated assuming ~4 characters/token, at 6,000
+    /// characters — and still overflowed (a 6,000-char context + ~900-char
+    /// instructions measured at 4,091 tokens on-device, i.e. ~1.7 chars/token
+    /// for this content: dense structured graph lines, dates, and property
+    /// key/value pairs tokenize far less efficiently than plain English prose).
+    /// Recalibrated from that real failure, with real margin below it rather
+    /// than just barely under.
+    private static let contextCharacterBudget = 3_000
 
+    /// Assembles blocks in priority order (People and the graph context are
+    /// ground truth and usually small; Decisions/Experiences are the bulky,
+    /// lower-precision fallback), keeping only what fits the budget. Unlike a
+    /// skip-if-it-doesn't-fit approach, the first block that would exceed the
+    /// remaining budget is TRUNCATED to fill exactly what's left, not skipped
+    /// whole — a single oversized block (the graph context, in practice) must
+    /// never be able to silently consume the entire budget on its own while
+    /// contributing nothing, and the total must never exceed the budget
+    /// regardless of how large any individual block grows.
     private static func fitToBudget(_ blocks: [String]) -> String {
         guard !blocks.isEmpty else { return "(no past decisions or experiences on record)" }
         var kept: [String] = []
-        var used = 0
+        var remaining = contextCharacterBudget
         for block in blocks {
-            let cost = block.count + 2   // "\n\n" separator
-            guard used + cost <= contextCharacterBudget else { continue }
-            kept.append(block)
-            used += cost
-        }
-        // Every block already fits the budget individually via its own 12-item
-        // cap, so an empty `kept` here would mean even the smallest (People)
-        // block alone exceeded it — fall back to it truncated rather than
-        // sending nothing.
-        if kept.isEmpty, let first = blocks.first {
-            return String(first.prefix(contextCharacterBudget))
+            let separatorCost = kept.isEmpty ? 0 : 2   // "\n\n"
+            let available = remaining - separatorCost
+            guard available > 0 else { break }
+            if block.count <= available {
+                kept.append(block)
+                remaining -= (block.count + separatorCost)
+            } else {
+                kept.append(String(block.prefix(available)) + "…")
+                remaining = 0
+            }
         }
         return kept.joined(separator: "\n\n")
     }

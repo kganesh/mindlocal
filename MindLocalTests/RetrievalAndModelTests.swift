@@ -508,10 +508,31 @@ final class RetrievalAndModelTests: XCTestCase {
             decisions: decisions, experiences: experiences, people: people
         )
 
-        XCTAssertLessThanOrEqual(context.count, 6_100,
+        XCTAssertLessThanOrEqual(context.count, 3_100,
             "Assembled context must stay within the safe on-device character budget regardless of journal size")
         XCTAssertTrue(context.contains("Akhil"),
             "The small, high-priority People block must survive even when the bulky Decisions/Experiences blocks are trimmed")
+    }
+
+    /// Regression: the character budget itself was recalibrated after a real
+    /// on-device failure — a 6,000-char budget still measured 4,091 tokens
+    /// (dense structured content tokenizes far less efficiently than the
+    /// ~4-chars/token assumption it was based on). This guards the actual
+    /// invariant that matters regardless of any future recalibration: a single
+    /// oversized block (in practice, MEMORY GRAPH CONTEXT with a lot of graph
+    /// data) must be TRUNCATED to fit, never skipped whole while leaving room
+    /// unused, and the total must never exceed the budget no matter how large
+    /// any one block is.
+    func test_advisorContext_oversizedSingleBlock_isTruncatedNotSkipped_andNeverExceedsBudget() {
+        let hugeGraphContext = String(repeating: "1. [entry, 2026-07-15] Something happened. ", count: 500)
+        let context = AdviceService.context(
+            decisions: [], experiences: [], graphContext: hugeGraphContext
+        )
+
+        XCTAssertLessThanOrEqual(context.count, 3_100,
+            "A single oversized block must never be allowed to blow past the budget")
+        XCTAssertTrue(context.contains("MEMORY GRAPH CONTEXT"),
+            "The oversized block should be truncated into the budget, not dropped entirely")
     }
 
     @MainActor
