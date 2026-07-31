@@ -131,6 +131,24 @@ struct PersonDetailView: View {
         newNickname.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Only month/day matter for birthday-event derivation, so the year picked
+    /// when first turning this on is arbitrary — the DatePicker still needs
+    /// some starting value once toggled on, and clearing it back to nil on
+    /// toggle-off is what stops the auto-derivation from running for them.
+    private var birthdateToggleBinding: Binding<Bool> {
+        Binding(
+            get: { person.birthdate != nil },
+            set: { isOn in person.birthdate = isOn ? (person.birthdate ?? .now) : nil }
+        )
+    }
+
+    private var birthdateBinding: Binding<Date> {
+        Binding(
+            get: { person.birthdate ?? .now },
+            set: { person.birthdate = $0 }
+        )
+    }
+
     /// Adds the typed nickname as an alias so future entries using it resolve to
     /// this person. Skips blanks and any spelling this person already answers to.
     private func addNickname() {
@@ -188,6 +206,19 @@ struct PersonDetailView: View {
                 if sharesFirstName && person.distinguisher.isEmpty {
                     Label("Someone else is also named \(person.name). Add a last name or context to tell them apart.",
                           systemImage: "person.2.fill")
+                }
+            }
+            Section {
+                TextField("Occupation (optional)", text: $person.occupation)
+                Toggle("Birthday", isOn: birthdateToggleBinding)
+                if person.birthdate != nil {
+                    DatePicker("Birthdate", selection: birthdateBinding, displayedComponents: .date)
+                }
+            } header: {
+                Text("Details")
+            } footer: {
+                if person.birthdate != nil {
+                    Text("An upcoming birthday event is added automatically each year.")
                 }
             }
             Section {

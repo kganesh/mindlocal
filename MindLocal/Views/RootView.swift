@@ -59,6 +59,7 @@ struct MainTabView: View {
             JournalConversationView()
         }
         .task {
+            await BirthdayEventDeriver.ensureUpcomingEvents(in: modelContext)
             MemoryGraphStore.rebuildAndPersist(in: modelContext)
         }
     }

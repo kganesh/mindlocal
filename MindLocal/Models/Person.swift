@@ -24,6 +24,12 @@ final class Person {
     /// The journaler themselves — the anchor for relative terms (wife/mom/…).
     var isMe: Bool
     var createdAt: Date
+    /// Month/day (and, incidentally, year) of birth. Only month/day are used for
+    /// birthday-event derivation — the year isn't assumed accurate for anyone
+    /// whose exact birth year isn't known. Nil if not recorded. Additive.
+    var birthdate: Date? = nil
+    /// Free-form job/role text ("Software Engineer", "Retired"). Additive.
+    var occupation: String = ""
 
     @Relationship(inverse: \Experience.linkedPeople)
     var experiences: [Experience] = []
@@ -33,7 +39,11 @@ final class Person {
     @Relationship(inverse: \Reminder.person)
     var reminders: [Reminder] = []
 
-    init(id: UUID = UUID(), name: String, lastName: String = "", qualifier: String = "", aliases: [String] = [], isMe: Bool = false, createdAt: Date = .now) {
+    init(
+        id: UUID = UUID(), name: String, lastName: String = "", qualifier: String = "",
+        aliases: [String] = [], isMe: Bool = false, createdAt: Date = .now,
+        birthdate: Date? = nil, occupation: String = ""
+    ) {
         self.id = id
         self.name = name
         self.lastName = lastName
@@ -41,6 +51,8 @@ final class Person {
         self.aliases = aliases
         self.isMe = isMe
         self.createdAt = createdAt
+        self.birthdate = birthdate
+        self.occupation = occupation
     }
 
     /// Every label this person answers to, normalized for matching. Includes the
