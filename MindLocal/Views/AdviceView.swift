@@ -7,6 +7,7 @@ struct AdviceView: View {
     @Query(sort: \Experience.createdAt, order: .reverse) private var experiences: [Experience]
     @Query(sort: \Reminder.createdAt, order: .reverse) private var reminders: [Reminder]
     @Query(sort: \Event.date, order: .reverse) private var events: [Event]
+    @Query(sort: \MemoryGraphSnapshot.builtAt, order: .reverse) private var graphSnapshots: [MemoryGraphSnapshot]
     @Query private var people: [Person]
     @Query private var relationships: [PersonRelationship]
     @State private var viewModel = AdviceViewModel()
@@ -42,7 +43,8 @@ struct AdviceView: View {
 
                     Button {
                         isQuestionFocused = false
-                        let query = viewModel.question
+                        guard let request = viewModel.beginAsk() else { return }
+                        let query = request.question
                         Task {
                             // What is this question asking FOR — a tone, topic,
                             // count, sort? Read once, up front, so both the
@@ -103,11 +105,22 @@ struct AdviceView: View {
                                     text: PersonContextBuilder.profile(for: $0, relationships: relationships)
                                 )
                             }
+                            let graph = graphSnapshots.first?.graph ?? .empty
+                            let graphResult = MemoryGraphRetriever.retrieve(
+                                query: query,
+                                graph: graph,
+                                people: people,
+                                relationships: relationships,
+                                now: .now,
+                                limit: 24
+                            )
+                            let graphContext = MemoryGraphContextPacker.pack(graphResult)
 
                             await viewModel.ask(
+                                requestID: request.id, question: query,
                                 decisions: decisionSummaries, experiences: experienceSummaries,
                                 reminders: reminderSummaries, events: eventSummaries,
-                                people: peopleSummaries
+                                people: peopleSummaries, graphContext: graphContext
                             )
                         }
                     } label: {

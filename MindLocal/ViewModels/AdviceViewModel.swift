@@ -18,6 +18,7 @@ final class AdviceViewModel {
 
     private let advisor: AdvisingServicing
     let speech: SpeechServicing
+    private var activeRequestID: UUID?
 
     init(advisor: AdvisingServicing = AdviceService(),
          speech: SpeechServicing = SpeechService()) {
@@ -34,6 +35,15 @@ final class AdviceViewModel {
         return nil
     }
 
+    func beginAsk() -> (id: UUID, question: String)? {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return nil }
+        let id = UUID()
+        activeRequestID = id
+        phase = .thinking
+        return (id, q)
+    }
+
     /// Reads the structure of `question` (a tone/topic/count/sort it implies) so
     /// the caller can run a deterministic retrieval pass before asking. Falls
     /// back to "no structure" on any failure — that's a safe degradation, since
@@ -44,26 +54,39 @@ final class AdviceViewModel {
             ?? QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
     }
 
-    func ask(decisions: [DecisionSummary], experiences: [ExperienceSummary],
+    func ask(requestID: UUID, question submittedQuestion: String,
+             decisions: [DecisionSummary], experiences: [ExperienceSummary],
              reminders: [ReminderSummary] = [], events: [EventSummary] = [],
-             people: [PersonProfileSummary] = []) async {
-        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return }
-        phase = .thinking
+             people: [PersonProfileSummary] = [], graphContext: String = "") async {
+        guard activeRequestID == requestID else { return }
+        let q = submittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else {
+            activeRequestID = nil
+            return
+        }
         do {
-            phase = .answer(try await advisor.advise(
+            let answer = try await advisor.advise(
                 question: q, decisions: decisions, experiences: experiences,
-                reminders: reminders, events: events, people: people
-            ))
+                reminders: reminders, events: events, people: people,
+                graphContext: graphContext
+            )
+            guard activeRequestID == requestID else { return }
+            activeRequestID = nil
+            phase = .answer(answer)
         } catch AdviceError.modelUnavailable {
+            guard activeRequestID == requestID else { return }
+            activeRequestID = nil
             phase = .error("Apple Intelligence isn't available right now. Please try again later.")
         } catch {
-            phase = .error("Couldn't get an answer. Please try again.")
+            guard activeRequestID == requestID else { return }
+            activeRequestID = nil
+            phase = .error("\(ModelErrorReason.debugAnnotated(error)) Please try again.")
         }
     }
 
     func clear() {
         question = ""
+        activeRequestID = nil
         phase = .idle
     }
 }

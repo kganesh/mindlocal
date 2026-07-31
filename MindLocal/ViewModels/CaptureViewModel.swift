@@ -87,27 +87,26 @@ final class CaptureViewModel {
         }
     }
 
-    /// Turns the underlying error into an actionable message. Matches on the
-    /// error text so we don't hard-code FoundationModels' case names, and shows
-    /// the raw reason in DEBUG so device testing reveals the exact cause.
+    /// Turns the underlying error into an actionable message, via the reason
+    /// shared with other on-device generation call sites plus a capture-specific
+    /// action ("your note is saved as a draft" — this flow never loses input).
     static func friendlyMessage(for error: Error) -> String {
         let detail = String(describing: error).lowercased()
-        let base: String
+        let action: String
         if detail.contains("refus") || detail.contains("guardrail")
             || detail.contains("sensitive") || detail.contains("safety") {
-            base = "Apple's on-device safety filter flagged this note and wouldn't process it. "
-                + "You can save it as a plain entry below, or reword the flagged part and try again."
+            action = " You can save it as a plain entry below, or reword the flagged part and try again."
         } else if detail.contains("exceededcontextwindow") || detail.contains("context window") {
-            base = "This entry is a bit long for on-device processing. Try splitting it into two shorter moments."
+            action = " Try splitting it into two shorter moments."
         } else if detail.contains("decod") || detail.contains("parse") {
-            base = "The model couldn't structure this note cleanly — tap Try Again."
+            action = " Tap Try Again."
         } else {
-            base = "Couldn't process the note."
+            action = ""
         }
         #if DEBUG
-        return "\(base)\n\n[\(error)]\n\nYour note is saved as a draft."
+        return "\(ModelErrorReason.describe(error))\(action)\n\n[\(error)]\n\nYour note is saved as a draft."
         #else
-        return "\(base) Your note is saved as a draft."
+        return "\(ModelErrorReason.describe(error))\(action) Your note is saved as a draft."
         #endif
     }
 

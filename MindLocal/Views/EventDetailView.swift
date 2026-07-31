@@ -211,7 +211,7 @@ struct EventDetailView: View {
         } catch AdviceError.modelUnavailable {
             phase = .error("Apple Intelligence isn't available right now.")
         } catch {
-            phase = .error("Couldn't generate advice.")
+            phase = .error(ModelErrorReason.debugAnnotated(error))
         }
     }
 }

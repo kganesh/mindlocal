@@ -207,4 +207,233 @@ final class RetrievalAndModelTests: XCTestCase {
         let without = Prompts.eventAdvisorPrompt(event: "Meeting", when: "Mon", weather: nil, context: "ctx")
         XCTAssertFalse(without.lowercased().contains("weather forecast"))
     }
+
+    // MARK: - Memory graph retrieval and packing
+
+    @MainActor
+    func test_memoryQueryResolver_resolvesRelationshipPhraseThroughPeopleGraph() {
+        let me = Person(name: "Me", isMe: true)
+        let spouse = Person(name: "Lilly")
+        let relationship = PersonRelationship(subject: spouse, type: .spouse, object: me)
+
+        let intent = MemoryQueryResolver.resolve(
+            query: "What should I ask my wife before dinner?",
+            people: [me, spouse],
+            relationships: [relationship]
+        )
+
+        XCTAssertEqual(intent.mentionedPeople.first?.personID, spouse.id)
+        XCTAssertEqual(intent.mentionedPeople.first?.matchKind, .relationship)
+        XCTAssertTrue(intent.wantsReminders)
+    }
+
+    @MainActor
+    func test_memoryGraphRetriever_expandsResolvedPersonToRelevantEvidence() {
+        let me = Person(name: "Me", isMe: true)
+        let spouse = Person(name: "Lilly")
+        let relationship = PersonRelationship(subject: spouse, type: .spouse, object: me)
+        let spouseNodeID = MemoryGraphBuilder.personNodeID(spouse)
+        let entryNodeID = MemoryNodeID(rawValue: "entry:family-dinner")
+        let graph = MemoryGraph(
+            builtAt: .now,
+            nodes: [
+                MemoryNode(id: spouseNodeID, kind: .person, title: "Lilly"),
+                MemoryNode(
+                    id: entryNodeID,
+                    kind: .entry,
+                    title: "Dinner plan",
+                    summary: "Remember to ask Lilly about the school form.",
+                    date: .now,
+                    properties: ["domain": "family", "entryKind": "dailyLog"]
+                )
+            ],
+            edges: [
+                MemoryEdge(from: spouseNodeID, to: entryNodeID, kind: .mentions, label: "mentioned")
+            ],
+            sourceFingerprint: "test"
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "What should I ask my wife?",
+            graph: graph,
+            people: [me, spouse],
+            relationships: [relationship],
+            limit: 8
+        )
+
+        XCTAssertTrue(result.seedNodes.contains { $0.id == spouseNodeID })
+        XCTAssertTrue(result.evidenceNodes.contains { $0.id == entryNodeID })
+        XCTAssertTrue(result.edges.contains { $0.from == spouseNodeID && $0.to == entryNodeID })
+    }
+
+    func test_memoryGraphContextPacker_andAdvisorContext_includeGraphEvidence() {
+        let entryNode = MemoryNode(
+            id: MemoryNodeID(rawValue: "entry:test"),
+            kind: .entry,
+            title: "School form",
+            summary: "Ask Lilly whether the form was submitted.",
+            date: Date(timeIntervalSince1970: 1_000_000),
+            properties: ["domain": "family", "entryKind": "dailyLog"]
+        )
+        let result = MemoryGraphRetrievalResult(
+            intent: .empty(query: "What should I ask Lilly?"),
+            seedNodes: [entryNode],
+            expandedNodes: [entryNode],
+            edges: []
+        )
+
+        let graphContext = MemoryGraphContextPacker.pack(result)
+        XCTAssertTrue(graphContext.contains("School form"))
+        XCTAssertTrue(graphContext.contains("dailyLog"))
+
+        let advisorContext = AdviceService.context(
+            decisions: [],
+            experiences: [],
+            graphContext: graphContext
+        )
+        XCTAssertTrue(advisorContext.contains("MEMORY GRAPH CONTEXT"))
+        XCTAssertTrue(advisorContext.contains("School form"))
+    }
+
+    /// Regression: "who is X and when did I last meet them" answers only had
+    /// month-level dates ("July 2026") available in two independent ways —
+    /// ExperienceSummary/DecisionSummary took the record's raw `createdAt`
+    /// (when it was typed into the app) instead of `timelineDate` (occurredAt,
+    /// the actual event date — wrong whenever an entry is backfilled or logged
+    /// a day late), and the advisor context formatted whatever date it did get
+    /// as "yyyy-MM", discarding the day entirely regardless. Both made a
+    /// precise "when" answer physically impossible even when the model
+    /// reasoned correctly. Verify a backfilled entry (occurredAt distinct from
+    /// createdAt) surfaces its real event date, at day precision, in context.
+    @MainActor
+    func test_advisorContext_usesEventDateNotRecordCreationDate_atDayPrecision() {
+        let loggedLate = Date(timeIntervalSince1970: 1_785_000_000)   // when it was typed in
+        let actualEvent = Date(timeIntervalSince1970: 1_752_000_000)  // the real, earlier event date
+        let experience = Experience(
+            createdAt: loggedLate, title: "Coffee with David", summary: "Caught up after a long time.",
+            occurredAt: actualEvent
+        )
+        let decision = Decision(
+            createdAt: loggedLate, title: "Switched banks", statement: "Moved to a new bank.",
+            occurredAt: actualEvent
+        )
+
+        let experienceSummary = ExperienceSummary(experience)
+        let decisionSummary = DecisionSummary(decision)
+        XCTAssertEqual(experienceSummary.createdAt, actualEvent,
+            "Advisor context must use the experience's actual event date, not when it was logged")
+        XCTAssertEqual(decisionSummary.createdAt, actualEvent,
+            "Advisor context must use the decision's actual event date, not when it was logged")
+
+        let context = AdviceService.context(decisions: [decisionSummary], experiences: [experienceSummary])
+        let expectedDayString: String = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: actualEvent)
+        }()
+        XCTAssertTrue(context.contains(expectedDayString),
+            "Context must render the full event date (day precision), not just year-month")
+    }
+
+    /// Regression: 18 decisions + 32 experiences (an ordinary amount of history
+    /// for an active user, each capped to 12 but with every field populated) plus
+    /// a People profile and graph context measured at 4094 tokens on-device — over
+    /// the FoundationModels session's 4096-token window, with the request failing
+    /// outright (GenerationError.exceededContextWindowSize) since that left no
+    /// room to generate a response. The People/graph blocks are ground truth and
+    /// usually small; Decisions/Experiences are the bulky, lower-precision
+    /// fallback — verify a heavy journal keeps the small, high-priority blocks
+    /// and drops enough of the bulky ones to stay within a safe character budget,
+    /// rather than assembling an unbounded string.
+    func test_advisorContext_withHeavyHistory_staysWithinCharacterBudget() {
+        let longText = String(repeating: "Detailed context about what happened and why it mattered. ", count: 6)
+        let decisions = (0..<18).map { i in
+            DecisionSummary(
+                id: UUID(), createdAt: Date(timeIntervalSince1970: TimeInterval(i) * 86_400),
+                title: "Decision \(i)", statement: longText, rationale: longText,
+                domain: "family", stakes: "medium", outcome: longText
+            )
+        }
+        let experiences = (0..<32).map { i in
+            ExperienceSummary(
+                id: UUID(), createdAt: Date(timeIntervalSince1970: TimeInterval(i) * 86_400),
+                title: "Experience \(i)", summary: longText, feelings: longText,
+                tone: "pleasant", factors: longText, learning: longText,
+                domain: "family", tags: [], outcomes: [longText]
+            )
+        }
+        let people = [PersonProfileSummary(id: UUID(), text: "Akhil: no recorded relationship to anyone else in People.")]
+
+        let context = AdviceService.context(
+            decisions: decisions, experiences: experiences, people: people
+        )
+
+        XCTAssertLessThanOrEqual(context.count, 6_100,
+            "Assembled context must stay within the safe on-device character budget regardless of journal size")
+        XCTAssertTrue(context.contains("Akhil"),
+            "The small, high-priority People block must survive even when the bulky Decisions/Experiences blocks are trimmed")
+    }
+
+    @MainActor
+    func test_adviceViewModel_ignoresStaleRequestCompletions() async {
+        let service = SequencedAdviceService()
+        let viewModel = AdviceViewModel(advisor: service, speech: MockSpeechService())
+
+        viewModel.question = "old question"
+        let old = viewModel.beginAsk()!
+        viewModel.question = "new question"
+        let new = viewModel.beginAsk()!
+
+        await viewModel.ask(
+            requestID: new.id,
+            question: new.question,
+            decisions: [],
+            experiences: []
+        )
+        await viewModel.ask(
+            requestID: old.id,
+            question: old.question,
+            decisions: [],
+            experiences: []
+        )
+
+        XCTAssertEqual(viewModel.phase, .answer("answer for new question"))
+    }
+}
+
+private final class SequencedAdviceService: AdvisingServicing {
+    func advise(
+        question: String,
+        decisions: [DecisionSummary],
+        experiences: [ExperienceSummary],
+        reminders: [ReminderSummary],
+        events: [EventSummary],
+        people: [PersonProfileSummary],
+        graphContext: String
+    ) async throws -> String {
+        "answer for \(question)"
+    }
+
+    func eventAdvice(
+        event: String,
+        when: Date,
+        weather: String?,
+        decisions: [DecisionSummary],
+        experiences: [ExperienceSummary]
+    ) async throws -> String {
+        ""
+    }
+
+    func extractIntent(from question: String) async throws -> QueryIntentDraft {
+        QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
+    }
+}
+
+private final class MockSpeechService: SpeechServicing {
+    var transcript: String = ""
+    var isRecording: Bool = false
+
+    func requestAuthorization() async -> Bool { true }
+    func startRecording() async throws { isRecording = true }
+    func stopRecording() { isRecording = false }
 }

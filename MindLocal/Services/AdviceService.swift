@@ -64,7 +64,8 @@ protocol AdvisingServicing: Sendable {
                 experiences: [ExperienceSummary],
                 reminders: [ReminderSummary],
                 events: [EventSummary],
-                people: [PersonProfileSummary]) async throws -> String
+                people: [PersonProfileSummary],
+                graphContext: String) async throws -> String
 
     /// Proactive preparation advice for an upcoming event, grounded in the
     /// (already-filtered, relevant) decisions and experiences, optionally
@@ -99,6 +100,16 @@ final class AdviceService: AdvisingServicing {
         guardrails: .permissiveContentTransformations
     )
 
+    /// The default model's guardrails false-positive on the exact thing this
+    /// app is for: answering questions grounded in the user's own journaled
+    /// decisions/experiences, which routinely name real people the user knows
+    /// (e.g. "Who is Akhil") — the default filter treats that as a request for
+    /// info about a named individual and refuses outright.
+    private static let answerModel = SystemLanguageModel(
+        useCase: .general,
+        guardrails: .permissiveContentTransformations
+    )
+
     func extractIntent(from question: String) async throws -> QueryIntentDraft {
         guard Self.intentModel.isAvailable else { throw AdviceError.modelUnavailable }
         let session = LanguageModelSession(
@@ -117,13 +128,14 @@ final class AdviceService: AdvisingServicing {
                 experiences: [ExperienceSummary],
                 reminders: [ReminderSummary],
                 events: [EventSummary],
-                people: [PersonProfileSummary]) async throws -> String {
+                people: [PersonProfileSummary],
+                graphContext: String = "") async throws -> String {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { throw AdviceError.noQuestion }
-        guard SystemLanguageModel.default.isAvailable else { throw AdviceError.modelUnavailable }
+        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
 
         let session = LanguageModelSession(
-            model: .default,
+            model: Self.answerModel,
             instructions: Prompts.advisorInstructions
         )
         let response = try await session.respond(
@@ -131,7 +143,8 @@ final class AdviceService: AdvisingServicing {
                 question: q,
                 context: Self.context(
                     decisions: decisions, experiences: experiences,
-                    reminders: reminders, events: events, people: people
+                    reminders: reminders, events: events, people: people,
+                    graphContext: graphContext
                 )
             )
         )
@@ -143,10 +156,10 @@ final class AdviceService: AdvisingServicing {
                      weather: String?,
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String {
-        guard SystemLanguageModel.default.isAvailable else { throw AdviceError.modelUnavailable }
+        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
 
         let session = LanguageModelSession(
-            model: .default,
+            model: Self.answerModel,
             instructions: Prompts.eventAdvisorInstructions
         )
         let formatter = DateFormatter()
@@ -171,10 +184,15 @@ final class AdviceService: AdvisingServicing {
         experiences: [ExperienceSummary],
         reminders: [ReminderSummary] = [],
         events: [EventSummary] = [],
-        people: [PersonProfileSummary] = []
+        people: [PersonProfileSummary] = [],
+        graphContext: String = ""
     ) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
+        // Day-level, not month-level — a question like "when did I last meet
+        // X" needs the actual date, and truncating to "yyyy-MM" made that
+        // physically impossible to answer precisely regardless of how the
+        // model reasoned over the rest of the context.
+        formatter.dateFormat = "yyyy-MM-dd"
         var blocks: [String] = []
 
         // People go first — this is ground truth from the graph, not text
@@ -183,6 +201,11 @@ final class AdviceService: AdvisingServicing {
         if !people.isEmpty {
             blocks.append("PEOPLE (authoritative — use this, not inference from other entries, for who someone is or how they're related):\n"
                 + people.map(\.text).joined(separator: "\n\n"))
+        }
+
+        if !graphContext.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            blocks.append("MEMORY GRAPH CONTEXT (retrieved from linked entries, people, events, reminders, decisions, and relationships):\n"
+                + graphContext)
         }
 
         if !decisions.isEmpty {
@@ -231,7 +254,40 @@ final class AdviceService: AdvisingServicing {
             blocks.append("EVENTS (scheduled or past):\n" + lines.joined(separator: "\n"))
         }
 
-        return blocks.isEmpty ? "(no past decisions or experiences on record)" : blocks.joined(separator: "\n\n")
+        return fitToBudget(blocks)
+    }
+
+    /// The blocks above are built independently, each already capped to at most
+    /// 12 items — but 12 decisions + 12 experiences + reminders + events + a full
+    /// People profile + graph context routinely add up to several thousand
+    /// characters once a journal has any real history (18 decisions/32
+    /// experiences was enough to push a single request past the on-device
+    /// model's 4096-token window with zero room left to generate a response —
+    /// a hard failure, not a quality tradeoff). Assemble blocks in priority
+    /// order (People and the graph context are ground truth and usually small;
+    /// Decisions/Experiences are the bulky, lower-precision fallback) and keep
+    /// only what fits a conservative character budget, so a heavy journal
+    /// degrades to its most relevant context instead of throwing.
+    private static let contextCharacterBudget = 6_000
+
+    private static func fitToBudget(_ blocks: [String]) -> String {
+        guard !blocks.isEmpty else { return "(no past decisions or experiences on record)" }
+        var kept: [String] = []
+        var used = 0
+        for block in blocks {
+            let cost = block.count + 2   // "\n\n" separator
+            guard used + cost <= contextCharacterBudget else { continue }
+            kept.append(block)
+            used += cost
+        }
+        // Every block already fits the budget individually via its own 12-item
+        // cap, so an empty `kept` here would mean even the smallest (People)
+        // block alone exceeded it — fall back to it truncated rather than
+        // sending nothing.
+        if kept.isEmpty, let first = blocks.first {
+            return String(first.prefix(contextCharacterBudget))
+        }
+        return kept.joined(separator: "\n\n")
     }
 
     private static func clip(_ text: String, max: Int = 240) -> String {
@@ -246,8 +302,10 @@ final class MockAdviceService: AdvisingServicing {
                 experiences: [ExperienceSummary],
                 reminders: [ReminderSummary],
                 events: [EventSummary],
-                people: [PersonProfileSummary]) async throws -> String {
-        if decisions.isEmpty && experiences.isEmpty && reminders.isEmpty && events.isEmpty && people.isEmpty {
+                people: [PersonProfileSummary],
+                graphContext: String = "") async throws -> String {
+        if decisions.isEmpty && experiences.isEmpty && reminders.isEmpty && events.isEmpty && people.isEmpty
+            && graphContext.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "You don't have any saved decisions or experiences yet, so I can only offer general guidance."
         }
         return "Drawing on your history — the choices you've made and what you've lived through — I'd lean this way."
@@ -271,7 +329,11 @@ extension ExperienceSummary {
     init(_ experience: Experience) {
         self.init(
             id: experience.id,
-            createdAt: experience.createdAt,
+            // timelineDate (occurredAt, falling back to createdAt) is when the
+            // moment actually happened — createdAt alone is only when it was
+            // typed into the app, which is wrong for "when did X happen"
+            // questions whenever an entry is backfilled or logged a day late.
+            createdAt: experience.timelineDate,
             title: experience.title,
             summary: experience.summary,
             feelings: experience.feelings,
@@ -290,7 +352,9 @@ extension DecisionSummary {
     init(_ decision: Decision) {
         self.init(
             id: decision.id,
-            createdAt: decision.createdAt,
+            // Same rationale as ExperienceSummary — the decision's actual
+            // timelineDate, not the record's raw createdAt.
+            createdAt: decision.timelineDate,
             title: decision.title,
             statement: decision.statement,
             rationale: decision.rationale,
