@@ -142,7 +142,7 @@ final class CaptureViewModel {
             response: "", learning: "", tags: [], domain: "other",
             people: [], activities: [], outcomes: [], hopes: [],
             conflicts: [], reminders: [], appointments: [], decisions: [],
-            activityEvents: []
+            activityEvents: [], personOccupations: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
         applyLocation(to: experience)

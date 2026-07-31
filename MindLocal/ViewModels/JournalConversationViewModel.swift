@@ -35,6 +35,9 @@ final class JournalConversationViewModel {
     /// "who did you spend time with?" is exactly the multi-activity daily-log
     /// case this is for.
     var activityEventCandidates: [ActivityEventCandidate] = []
+    /// Occupations mentioned for specific named people, applied to their Person
+    /// records at save time (only ever fills a currently-blank occupation).
+    private(set) var personOccupations: [PersonOccupationDraft] = []
     /// True when the entry was saved from the raw words because AI extraction
     /// failed (e.g. a safety-filter refusal on a heavy entry) — so the check-in
     /// never loses what the user said. Drives a note on the saved screen.
@@ -134,6 +137,7 @@ final class JournalConversationViewModel {
             builtExperience = experience
             appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
             activityEventCandidates = ActivityEventCandidate.candidates(from: draft.activityEvents, day: occurredAt)
+            personOccupations = draft.personOccupations
             savedWithoutAI = false
             phase = .saved
         } catch {
@@ -155,7 +159,7 @@ final class JournalConversationViewModel {
             response: "", learning: "", tags: [], domain: "other",
             people: [], activities: [], outcomes: [], hopes: [],
             conflicts: [], reminders: [], appointments: [], decisions: [],
-            activityEvents: []
+            activityEvents: [], personOccupations: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
         experience.kind = .dailyLog

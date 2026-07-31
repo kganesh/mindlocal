@@ -124,7 +124,7 @@ final class MockExtractionService: ExtractionServicing {
                               valuesPrioritized: ["energy"], valuesTradedOff: ["sleep-in"],
                               domain: "health", stakes: "low")
             ],
-            activityEvents: []
+            activityEvents: [], personOccupations: []
         )
     }
 

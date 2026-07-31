@@ -171,6 +171,7 @@ struct JournalConversationView: View {
                 PersonResolver.linkPeople(
                     to: experience,
                     assignments: viewModel.peopleAssignments,
+                    personOccupations: viewModel.personOccupations,
                     in: modelContext
                 )
                 EmbeddingService.embed(experience)

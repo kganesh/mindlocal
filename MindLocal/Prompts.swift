@@ -65,9 +65,15 @@ enum Prompts {
     happened exactly as they said it (empty if no time was mentioned). Do NOT \
     include an activity done alone or with an unnamed group ("the team", \
     "friends") — those stay in activities only, never in activityEvents. \
+    If they explicitly state a specific named person's occupation or job title \
+    ("David, a nurse, ...", "my manager Sarah is a director at..."), extract it \
+    into personOccupations — the person and their occupation exactly as stated. \
+    Do NOT infer or guess an occupation from context (a role reference like \
+    "my manager" is a relationship, not necessarily their job title unless the \
+    note itself says so) — only what's explicitly stated. \
     Use only information present in the note — never invent \
     people, activities, outcomes, feelings, hopes, conflicts, reminders, \
-    appointments, activityEvents, or decisions they did not state. \
+    appointments, activityEvents, personOccupations, or decisions they did not state. \
     Distinguish what actually happened from what the person only planned, intends, or \
     decided to do later. The summary, activities, and outcomes must describe ONLY \
     actions that already occurred. Never report a planned, intended, or not-yet-done \

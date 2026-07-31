@@ -215,7 +215,7 @@ struct ExperienceDetailView: View {
                 return
             }
             draft.apply(to: experience, in: modelContext)
-            PersonResolver.linkPeople(to: experience, in: modelContext)
+            PersonResolver.linkPeople(to: experience, personOccupations: draft.personOccupations, in: modelContext)
             EmbeddingService.embed(experience)
             MemoryGraphStore.rebuildAndPersist(in: modelContext)
         } catch {

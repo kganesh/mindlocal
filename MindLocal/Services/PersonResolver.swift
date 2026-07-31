@@ -92,7 +92,10 @@ enum PersonResolver {
     /// points each conflict/reminder at the `Person` it's about. One call replaces
     /// a bare `resolve(experience.people, …)` at every save site.
     @MainActor
-    static func linkPeople(to experience: Experience, assignments: [String: String] = [:], in context: ModelContext) {
+    static func linkPeople(
+        to experience: Experience, assignments: [String: String] = [:],
+        personOccupations: [PersonOccupationDraft] = [], in context: ModelContext
+    ) {
         let conflictNames = experience.conflicts
             .map { $0.personName.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -111,6 +114,15 @@ enum PersonResolver {
             let name = reminder.personName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { continue }
             reminder.person = resolve([name], assignments: assignments, in: context).first
+        }
+        // Only fills a blank occupation — never overwrites one the user already
+        // set (by hand, or from an earlier entry), since a single stray mention
+        // shouldn't clobber a value someone deliberately edited.
+        for draft in personOccupations where draft.isPersonOccupation {
+            guard let person = resolve([draft.name], assignments: assignments, in: context).first,
+                  person.occupation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { continue }
+            person.occupation = draft.occupation.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
 

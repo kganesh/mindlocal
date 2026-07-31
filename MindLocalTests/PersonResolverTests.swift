@@ -140,6 +140,56 @@ final class PersonResolverTests: XCTestCase {
         XCTAssertEqual(later.map(\.name), ["Emma"])
     }
 
+    // MARK: - linkPeople / personOccupations
+
+    func test_linkPeople_fillsBlankOccupationFromExtractedDraft() {
+        let ctx = makeContext()
+        let experience = Experience(title: "Coffee", summary: "Met David, a nurse, for coffee.", people: ["David"])
+        ctx.insert(experience)
+
+        PersonResolver.linkPeople(
+            to: experience,
+            personOccupations: [PersonOccupationDraft(name: "David", occupation: "nurse")],
+            in: ctx
+        )
+
+        let people = (try? ctx.fetch(FetchDescriptor<Person>())) ?? []
+        XCTAssertEqual(people.first { $0.name == "David" }?.occupation, "nurse")
+    }
+
+    /// Regression: a single stray or later-inaccurate mention must not clobber
+    /// an occupation the user already set (by hand, or from an earlier entry).
+    func test_linkPeople_neverOverwritesAnExistingOccupation() {
+        let ctx = makeContext()
+        let david = Person(name: "David", occupation: "software engineer")
+        ctx.insert(david)
+        let experience = Experience(title: "Coffee", summary: "Met David for coffee.", people: ["David"])
+        ctx.insert(experience)
+
+        PersonResolver.linkPeople(
+            to: experience,
+            personOccupations: [PersonOccupationDraft(name: "David", occupation: "nurse")],
+            in: ctx
+        )
+
+        XCTAssertEqual(david.occupation, "software engineer")
+    }
+
+    func test_linkPeople_ignoresIncompleteOccupationDrafts() {
+        let ctx = makeContext()
+        let experience = Experience(title: "Coffee", summary: "Met David for coffee.", people: ["David"])
+        ctx.insert(experience)
+
+        PersonResolver.linkPeople(
+            to: experience,
+            personOccupations: [PersonOccupationDraft(name: "David", occupation: ""), PersonOccupationDraft(name: "", occupation: "nurse")],
+            in: ctx
+        )
+
+        let people = (try? ctx.fetch(FetchDescriptor<Person>())) ?? []
+        XCTAssertEqual(people.first { $0.name == "David" }?.occupation, "")
+    }
+
     // MARK: - resolve
 
     func test_resolve_createsProperNames_skipsPluralsAndRoles() {

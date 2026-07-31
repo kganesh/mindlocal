@@ -60,6 +60,9 @@ struct ExperienceDraft: Equatable {
 
     @Guide(description: "Any activities that ALREADY happened with a specific named person (e.g. 'met David for coffee', 'took Mom to her appointment'), as structured records — a candidate to add as a calendar Event. Do NOT include activities done alone or with an unnamed group ('the team', 'friends') — those belong only in activities, never here. Empty array if none. Never invent one.")
     var activityEvents: [ActivityEventDraft]
+
+    @Guide(description: "Any specific named person's occupation or job title, if explicitly stated in the note (e.g. 'David, a nurse, ...', 'my manager Sarah is a director at...'). Empty array if no one's occupation is stated. Never invent one.")
+    var personOccupations: [PersonOccupationDraft]
 }
 
 extension ExperienceDraft {
