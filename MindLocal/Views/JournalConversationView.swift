@@ -153,6 +153,13 @@ struct JournalConversationView: View {
                     }
                 }
             }
+            if !viewModel.activityEventCandidates.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.activityEventCandidates) { candidate in
+                        activityEventCard(candidate)
+                    }
+                }
+            }
             Button("Done") { dismiss() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -203,6 +210,42 @@ struct JournalConversationView: View {
                 Spacer()
                 Button("Not an appointment", role: .cancel) {
                     viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private func activityEventCard(_ candidate: ActivityEventCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar.badge.plus").foregroundStyle(.secondary)
+                Text(candidate.title).font(.subheadline.weight(.semibold))
+            }
+            if !candidate.personName.isEmpty {
+                Text("with \(candidate.personName)").font(.caption).foregroundStyle(.secondary)
+            }
+            Text(candidate.isApproximateTime
+                 ? candidate.date.formatted(date: .abbreviated, time: .omitted) + " · approximate time"
+                 : candidate.date.formatted(date: .abbreviated, time: .shortened))
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Add to Events") {
+                    Task {
+                        await ActivityEventBuilder.createEvent(from: candidate, in: modelContext)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
+                        viewModel.activityEventCandidates.removeAll { $0.id == candidate.id }
+                    }
+                }
+                .font(.callout.weight(.semibold))
+                Spacer()
+                Button("Not an event", role: .cancel) {
+                    viewModel.activityEventCandidates.removeAll { $0.id == candidate.id }
                 }
                 .font(.callout)
                 .foregroundStyle(.secondary)

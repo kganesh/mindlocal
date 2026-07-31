@@ -10,7 +10,7 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "Short title for the experience, max 8 words. Empty if the note describes no experience.")
     var title: String
 
-    @Guide(description: "What actually happened, in a sentence or two, in the person's words. Describe only events that already occurred — not planned or future actions. Empty if the note describes no experience.")
+    @Guide(description: "What actually happened, in a sentence or two, in the person's words. Describe only events that already occurred — not planned or future actions. If a specific or approximate time of day is stated (e.g. '4 o'clock', '4pm', 'in the afternoon'), keep it in the summary. Empty if the note describes no experience.")
     var summary: String
 
     @Guide(description: "The emotions the person expressed about it. Empty if none stated.")
@@ -57,6 +57,9 @@ struct ExperienceDraft: Equatable {
 
     @Guide(description: "Any decisions the person mentions having made in this note, as structured records. Empty array if they did not mention deciding anything. Never invent a decision.")
     var decisions: [DecisionDraft]
+
+    @Guide(description: "Any activities that ALREADY happened with a specific named person (e.g. 'met David for coffee', 'took Mom to her appointment'), as structured records — a candidate to add as a calendar Event. Do NOT include activities done alone or with an unnamed group ('the team', 'friends') — those belong only in activities, never here. Empty array if none. Never invent one.")
+    var activityEvents: [ActivityEventDraft]
 }
 
 extension ExperienceDraft {

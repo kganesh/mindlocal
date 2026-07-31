@@ -19,6 +19,12 @@ final class Event {
     var longitude: Double?
     /// Whether it's an outdoor event — weather only factors in for outdoor ones.
     var isOutdoor: Bool = false
+    /// True when `date`'s time-of-day is a guess (e.g. "in the afternoon" mapped
+    /// to a representative hour, or no time was stated at all), not a time the
+    /// user actually stated — so the UI can show "Afternoon" instead of a
+    /// falsely-precise clock time, and this event doesn't outrank an exact-time
+    /// one if two ever need disambiguating on the same day.
+    var isApproximateTime: Bool = false
     var domainRaw: String
     var generatedAdvice: String?
     var adviceGeneratedAt: Date?
@@ -47,6 +53,7 @@ final class Event {
         latitude: Double? = nil,
         longitude: Double? = nil,
         isOutdoor: Bool = false,
+        isApproximateTime: Bool = false,
         domain: Domain = .other,
         generatedAdvice: String? = nil,
         adviceGeneratedAt: Date? = nil,
@@ -63,6 +70,7 @@ final class Event {
         self.latitude = latitude
         self.longitude = longitude
         self.isOutdoor = isOutdoor
+        self.isApproximateTime = isApproximateTime
         self.domainRaw = domain.rawValue
         self.person = person
         self.embedding = embedding

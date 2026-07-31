@@ -30,6 +30,11 @@ final class JournalConversationViewModel {
     /// cards on the saved screen. Never affects the saved Experience directly.
     /// Mutable so the view can remove a candidate once added or dismissed.
     var appointmentCandidates: [AppointmentCandidate] = []
+    /// Past activities with a specific named person, offered as the same kind
+    /// of "Add to Events" card as appointments — a nightly check-in answering
+    /// "who did you spend time with?" is exactly the multi-activity daily-log
+    /// case this is for.
+    var activityEventCandidates: [ActivityEventCandidate] = []
     /// True when the entry was saved from the raw words because AI extraction
     /// failed (e.g. a safety-filter refusal on a heavy entry) — so the check-in
     /// never loses what the user said. Drives a note on the saved screen.
@@ -128,6 +133,7 @@ final class JournalConversationViewModel {
                 .map { $0.toDecision(rawTranscript: transcript, occurredAt: occurredAt) }
             builtExperience = experience
             appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
+            activityEventCandidates = ActivityEventCandidate.candidates(from: draft.activityEvents, day: occurredAt)
             savedWithoutAI = false
             phase = .saved
         } catch {
@@ -148,7 +154,8 @@ final class JournalConversationViewModel {
             summary: transcript, feelings: "", tone: "mixed", factors: "",
             response: "", learning: "", tags: [], domain: "other",
             people: [], activities: [], outcomes: [], hopes: [],
-            conflicts: [], reminders: [], appointments: [], decisions: []
+            conflicts: [], reminders: [], appointments: [], decisions: [],
+            activityEvents: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
         experience.kind = .dailyLog

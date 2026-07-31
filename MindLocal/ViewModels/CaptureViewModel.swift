@@ -22,6 +22,11 @@ final class CaptureViewModel {
     /// in review. Removed from this list once added or dismissed; never affects
     /// the saved Experience directly (appointments become standalone `Event`s).
     var appointmentCandidates: [AppointmentCandidate] = []
+    /// Past activities with a specific named person, shown as the same kind of
+    /// "Add to Events" card as appointments. Resolved against `occurredAt` at
+    /// submit time — like appointments, not reactive to a later edit of "When
+    /// it happened" in review.
+    var activityEventCandidates: [ActivityEventCandidate] = []
     /// When the experience happened (editable in review).
     var occurredAt: Date = .now
     /// Role mentions the user identified in review → chosen person name.
@@ -62,6 +67,7 @@ final class CaptureViewModel {
             if extracted.isExperience {
                 experienceDraft = extracted
                 appointmentCandidates = AppointmentCandidate.candidates(from: extracted.appointments)
+                activityEventCandidates = ActivityEventCandidate.candidates(from: extracted.activityEvents, day: occurredAt)
                 phase = .preview
             } else {
                 phase = .nothingFound
@@ -135,7 +141,8 @@ final class CaptureViewModel {
             summary: transcript, feelings: "", tone: "mixed", factors: "",
             response: "", learning: "", tags: [], domain: "other",
             people: [], activities: [], outcomes: [], hopes: [],
-            conflicts: [], reminders: [], appointments: [], decisions: []
+            conflicts: [], reminders: [], appointments: [], decisions: [],
+            activityEvents: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
         applyLocation(to: experience)
@@ -165,6 +172,7 @@ final class CaptureViewModel {
         typedText = ""
         experienceDraft = nil
         appointmentCandidates = []
+        activityEventCandidates = []
         occurredAt = .now
         peopleAssignments = [:]
         location = ""

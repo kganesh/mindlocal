@@ -123,7 +123,8 @@ final class MockExtractionService: ExtractionServicing {
                               context: "", options: [], rationale: "Mornings are quieter and set up my day.",
                               valuesPrioritized: ["energy"], valuesTradedOff: ["sleep-in"],
                               domain: "health", stakes: "low")
-            ]
+            ],
+            activityEvents: []
         )
     }
 

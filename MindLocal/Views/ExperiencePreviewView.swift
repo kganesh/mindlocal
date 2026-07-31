@@ -80,6 +80,17 @@ struct ExperiencePreviewView: View {
                         Text("Parsed from what you said. Add it to your calendar, or dismiss if it's not really an appointment.")
                     }
                 }
+                if !viewModel.activityEventCandidates.isEmpty {
+                    Section {
+                        ForEach(viewModel.activityEventCandidates) { candidate in
+                            activityEventRow(candidate)
+                        }
+                    } header: {
+                        Label("Activity detected", systemImage: "calendar.badge.plus")
+                    } footer: {
+                        Text("A moment with someone specific, parsed from what you said. Add it to your calendar, or dismiss if it's not really an event.")
+                    }
+                }
                 if let reminders = viewModel.experienceDraft?.reminders, !reminders.isEmpty {
                     Section {
                         ForEach(reminders.indices, id: \.self) { index in
@@ -151,6 +162,39 @@ struct ExperiencePreviewView: View {
                 Spacer()
                 Button("Not an appointment", role: .cancel) {
                     viewModel.appointmentCandidates.removeAll { $0.id == candidate.id }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func activityEventRow(_ candidate: ActivityEventCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.title).font(.subheadline.weight(.semibold))
+                if !candidate.personName.isEmpty {
+                    Text("with \(candidate.personName)").font(.caption).foregroundStyle(.secondary)
+                }
+                Text(candidate.isApproximateTime
+                     ? candidate.date.formatted(date: .abbreviated, time: .omitted) + " · approximate time"
+                     : candidate.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            HStack {
+                Button("Add to Events") {
+                    Task {
+                        await ActivityEventBuilder.createEvent(from: candidate, in: modelContext)
+                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
+                        viewModel.activityEventCandidates.removeAll { $0.id == candidate.id }
+                    }
+                }
+                .font(.callout.weight(.semibold))
+                Spacer()
+                Button("Not an event", role: .cancel) {
+                    viewModel.activityEventCandidates.removeAll { $0.id == candidate.id }
                 }
                 .font(.callout)
                 .foregroundStyle(.secondary)

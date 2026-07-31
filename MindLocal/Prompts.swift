@@ -58,15 +58,26 @@ enum Prompts {
     exactly as they said it. Keep their original wording for the date/time; do NOT \
     compute or normalize it into a calendar date yourself. If no specific date or \
     time is mentioned, it is NOT an appointment — leave it in reminders or hopes \
-    instead. Use only information present in the note — never invent \
+    instead. \
+    If they describe an activity that ALREADY happened WITH a specific named \
+    person ("met David for coffee", "took Mom to her appointment"), extract it \
+    into activityEvents — a short title, who it was with, and what time it \
+    happened exactly as they said it (empty if no time was mentioned). Do NOT \
+    include an activity done alone or with an unnamed group ("the team", \
+    "friends") — those stay in activities only, never in activityEvents. \
+    Use only information present in the note — never invent \
     people, activities, outcomes, feelings, hopes, conflicts, reminders, \
-    appointments, or decisions they did not state. \
+    appointments, activityEvents, or decisions they did not state. \
     Distinguish what actually happened from what the person only planned, intends, or \
     decided to do later. The summary, activities, and outcomes must describe ONLY \
     actions that already occurred. Never report a planned, intended, or not-yet-done \
     action as completed — cues like "we'll", "soon", "going to", "plan to", or \
     "decided to (do later)" mean it has NOT happened yet. Such intentions belong in \
     decisions or hopes, never in outcomes or the summary. \
+    If they state what time something happened, exact ("4 o'clock", "4pm") or \
+    approximate ("in the afternoon", "this morning", "around noon"), keep that \
+    time reference in the summary — it's part of what happened, not a detail \
+    to compress away. \
     If a field is not mentioned, leave it empty. Judge the tone (pleasant, \
     unpleasant, or mixed) from how they describe it. Keep their own wording where \
     possible. Title is max 8 words.
