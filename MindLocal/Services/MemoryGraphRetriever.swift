@@ -286,15 +286,33 @@ enum MemoryGraphRetriever {
             ranked[id, default: 0] += amount
         }
 
+        // Nodes actually connected to a mentioned person via a real graph edge —
+        // used below to keep the structured-intent boost from applying to
+        // unrelated nodes just because the question happened to contain a
+        // matching keyword (e.g. "meeting" triggers wantsEvents, which would
+        // otherwise boost every event in the whole graph, not just this
+        // person's).
+        var personConnectedIDs: Set<MemoryNodeID> = []
+
         for person in intent.mentionedPeople {
             boost(person.nodeID, by: 100)
+            personConnectedIDs.insert(person.nodeID)
             for edge in index.edges(touching: person.nodeID) {
-                boost(edge.from == person.nodeID ? edge.to : edge.from, by: neighborBoost(for: edge.kind))
+                let other = edge.from == person.nodeID ? edge.to : edge.from
+                boost(other, by: neighborBoost(for: edge.kind))
+                personConnectedIDs.insert(other)
             }
         }
 
         for node in graph.nodes {
-            if matchesStructuredIntent(node, intent: intent) {
+            // A tone/domain/kind/time filter (matchesStructuredIntent) is a
+            // graph-wide signal with no idea who a node is actually about — safe
+            // when the question doesn't name anyone, but too broad once it does,
+            // since it would otherwise let an unrelated node (no person, or a
+            // different person entirely) outrank evidence genuinely linked to
+            // the person asked about.
+            let structuredIntentApplies = intent.mentionedPeople.isEmpty || personConnectedIDs.contains(node.id)
+            if structuredIntentApplies, matchesStructuredIntent(node, intent: intent) {
                 boost(node.id, by: 35)
             }
             if matchesText(node, query: intent.query) {

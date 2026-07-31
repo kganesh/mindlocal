@@ -319,6 +319,54 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertNil(result.mostRecentInteraction)
     }
 
+    /// Regression: "what are priorities when MEETING Akhil" pulled in an
+    /// unrelated event (the user's own wisdom tooth extraction, no person
+    /// associated at all) as evidence about Akhil — because the word "meeting"
+    /// sets wantsEvents, and matchesStructuredIntent boosted EVERY event node
+    /// in the whole graph, not just ones actually connected to Akhil. Verify an
+    /// unconnected event doesn't outrank/appear alongside evidence genuinely
+    /// linked to the mentioned person once a person is named.
+    @MainActor
+    func test_memoryGraphRetriever_structuredIntentBoost_scopedToMentionedPerson() {
+        let me = Person(name: "Me", isMe: true)
+        let son = Person(name: "Akhil")
+        let relationship = PersonRelationship(subject: son, type: .child, object: me)
+        let sonNodeID = MemoryGraphBuilder.personNodeID(son)
+        let linkedEventID = MemoryNodeID(rawValue: "event:birthday")
+        let unlinkedEventID = MemoryNodeID(rawValue: "event:wisdom-tooth")
+        let graph = MemoryGraph(
+            builtAt: .now,
+            nodes: [
+                MemoryNode(id: sonNodeID, kind: .person, title: "Akhil"),
+                MemoryNode(
+                    id: linkedEventID, kind: .event, title: "Akhil's birthday",
+                    date: Date(timeIntervalSince1970: 1_754_100_000),
+                    properties: ["domain": "other"]
+                ),
+                MemoryNode(
+                    id: unlinkedEventID, kind: .event, title: "Wisdom tooth extraction",
+                    date: Date(timeIntervalSince1970: 1_753_800_000),
+                    properties: ["domain": "other"]
+                )
+            ],
+            edges: [
+                MemoryEdge(from: sonNodeID, to: linkedEventID, kind: .hasEvent, label: "")
+                // No edge at all between Akhil and the wisdom tooth extraction.
+            ],
+            sourceFingerprint: "test"
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "What are priorities when meeting Akhil?",
+            graph: graph, people: [me, son], relationships: [relationship], limit: 8
+        )
+
+        XCTAssertTrue(result.evidenceNodes.contains { $0.id == linkedEventID },
+            "Akhil's actual birthday event must still appear as evidence")
+        XCTAssertFalse(result.evidenceNodes.contains { $0.id == unlinkedEventID },
+            "An event with no connection to Akhil must not appear as evidence just because the question said \"meeting\"")
+    }
+
     @MainActor
     func test_memoryGraphRetriever_expandsResolvedPersonToRelevantEvidence() {
         let me = Person(name: "Me", isMe: true)
