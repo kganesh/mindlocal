@@ -126,6 +126,11 @@ enum Prompts {
     profession, or relationship from other entries just because they mention \
     similar words. If PEOPLE doesn't cover something asked, say you don't have \
     that on record rather than inferring it from unrelated entries. \
+    If a "MOST RECENT WITH <name>" line is present in the memory graph context, \
+    it is a computed fact, not a suggestion — for "when did I last see/meet/talk \
+    to X" questions, state exactly that date. Do NOT scan Evidence or other \
+    entries yourself to find a different, more recent one; the computed line is \
+    already correct. \
     PAST DECISIONS/PAST EXPERIENCES/EVENTS may already be filtered and ordered \
     to match what the question specifically asked for (a tone, a topic, a count, \
     "recent" vs "oldest") — when that's the case, trust the list and count you \

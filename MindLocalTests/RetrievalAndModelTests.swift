@@ -227,6 +227,98 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertTrue(intent.wantsReminders)
     }
 
+    func test_memoryQueryResolver_detectsMostRecentInteractionPhrasing() {
+        let intent = MemoryQueryResolver.resolve(
+            query: "Who is Aditya and when did I meet him last time?",
+            people: [], relationships: []
+        )
+        XCTAssertTrue(intent.wantsMostRecentInteraction)
+    }
+
+    func test_memoryQueryResolver_plainQuestion_doesNotFlagMostRecentInteraction() {
+        let intent = MemoryQueryResolver.resolve(
+            query: "Who is Aditya?",
+            people: [], relationships: []
+        )
+        XCTAssertFalse(intent.wantsMostRecentInteraction)
+    }
+
+    /// Regression: "when did I last meet Aditya" returned an OLDER entry (July
+    /// 18, shopping at Costco) instead of a more recent one (July 22, dinner at
+    /// home) — both were present in context, but the on-device model picked the
+    /// wrong one when left to scan dated text itself. mostRecentInteraction
+    /// computes the real max by date over every node directly linked to the
+    /// person, independent of the general relevance-score ranking (which is
+    /// exactly what let the wrong node surface as more "relevant" before).
+    @MainActor
+    func test_memoryGraphRetriever_mostRecentInteraction_picksTrueMaxDate_notHighestScored() {
+        let me = Person(name: "Me", isMe: true)
+        let son = Person(name: "Aditya")
+        let relationship = PersonRelationship(subject: son, type: .child, object: me)
+        let sonNodeID = MemoryGraphBuilder.personNodeID(son)
+        let olderEntryID = MemoryNodeID(rawValue: "entry:costco")
+        let recentEntryID = MemoryNodeID(rawValue: "entry:dinner")
+        let graph = MemoryGraph(
+            builtAt: .now,
+            nodes: [
+                MemoryNode(id: sonNodeID, kind: .person, title: "Aditya"),
+                MemoryNode(
+                    id: olderEntryID, kind: .entry, title: "Apple Watch shopping",
+                    summary: "Shopped for an Apple Watch with Aditya at Costco.",
+                    date: Date(timeIntervalSince1970: 1_752_800_000),   // July 18
+                    properties: ["domain": "family", "entryKind": "dailyLog"]
+                ),
+                MemoryNode(
+                    id: recentEntryID, kind: .entry, title: "Dinner at home",
+                    summary: "Had dinner together with Aditya at home.",
+                    date: Date(timeIntervalSince1970: 1_753_150_000),   // July 22
+                    properties: ["domain": "family", "entryKind": "dailyLog"]
+                )
+            ],
+            edges: [
+                MemoryEdge(from: sonNodeID, to: olderEntryID, kind: .mentions, label: "mentioned"),
+                MemoryEdge(from: sonNodeID, to: recentEntryID, kind: .mentions, label: "mentioned")
+            ],
+            sourceFingerprint: "test"
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "When did I last meet Aditya?",
+            graph: graph, people: [me, son], relationships: [relationship], limit: 8
+        )
+
+        XCTAssertEqual(result.mostRecentInteraction?.node.id, recentEntryID,
+            "Must pick the true most-recent linked entry (July 22), not whichever one the relevance score ranked higher")
+
+        let packed = MemoryGraphContextPacker.pack(result)
+        XCTAssertTrue(packed.contains("MOST RECENT WITH Aditya"))
+        XCTAssertTrue(packed.contains("Dinner at home"))
+    }
+
+    func test_memoryGraphRetriever_mostRecentInteraction_nilWhenIntentNotFlagged() {
+        let me = Person(name: "Me", isMe: true)
+        let son = Person(name: "Aditya")
+        let relationship = PersonRelationship(subject: son, type: .child, object: me)
+        let sonNodeID = MemoryGraphBuilder.personNodeID(son)
+        let entryID = MemoryNodeID(rawValue: "entry:dinner")
+        let graph = MemoryGraph(
+            builtAt: .now,
+            nodes: [
+                MemoryNode(id: sonNodeID, kind: .person, title: "Aditya"),
+                MemoryNode(id: entryID, kind: .entry, title: "Dinner at home", date: .now)
+            ],
+            edges: [MemoryEdge(from: sonNodeID, to: entryID, kind: .mentions, label: "mentioned")],
+            sourceFingerprint: "test"
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "Who is Aditya?",   // no "last time" phrasing
+            graph: graph, people: [me, son], relationships: [relationship], limit: 8
+        )
+
+        XCTAssertNil(result.mostRecentInteraction)
+    }
+
     @MainActor
     func test_memoryGraphRetriever_expandsResolvedPersonToRelevantEvidence() {
         let me = Person(name: "Me", isMe: true)

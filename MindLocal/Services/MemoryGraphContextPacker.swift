@@ -17,6 +17,16 @@ enum MemoryGraphContextPacker {
 
         var blocks: [String] = []
 
+        // Placed first and stated as a computed fact, not left for the model to
+        // derive from Evidence below — small on-device models are unreliable at
+        // scanning several dated lines and picking the true maximum themselves.
+        if let mostRecent = result.mostRecentInteraction {
+            blocks.append(
+                "MOST RECENT WITH \(mostRecent.person.displayName) (computed, authoritative — state this date directly, do not re-derive a different one from Evidence below):\n"
+                + line(for: mostRecent.node)
+            )
+        }
+
         if !result.intent.mentionedPeople.isEmpty {
             let people = result.intent.mentionedPeople
                 .map { "\($0.displayName) matched \"\($0.matchedPhrase)\" as \($0.matchKind.rawValue)" }

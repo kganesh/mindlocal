@@ -26,6 +26,12 @@ struct MemoryQueryIntent {
     var wantsConflicts: Bool
     var wantsDecisions: Bool
     var wantsEvents: Bool
+    /// "who is X and when did I last see them" — a small on-device model is
+    /// unreliable at scanning several dated entries and picking the true
+    /// maximum itself, so this flag routes to a deterministic computation
+    /// (`MemoryGraphRetriever`'s `mostRecentInteraction`) instead of asking
+    /// the model to reason it out from raw context text.
+    var wantsMostRecentInteraction: Bool
 
     static func empty(query: String) -> MemoryQueryIntent {
         MemoryQueryIntent(
@@ -38,7 +44,8 @@ struct MemoryQueryIntent {
             wantsReminders: false,
             wantsConflicts: false,
             wantsDecisions: false,
-            wantsEvents: false
+            wantsEvents: false,
+            wantsMostRecentInteraction: false
         )
     }
 }
@@ -48,16 +55,24 @@ struct MemoryGraphRetrievalResult {
     var seedNodes: [MemoryNode]
     var expandedNodes: [MemoryNode]
     var edges: [MemoryEdge]
+    /// The single most recent entry/event/decision/reminder/conflict directly
+    /// linked to the question's (first) resolved person, computed as a real
+    /// max-by-date over ALL of that person's connected evidence — not just
+    /// whatever made it into the score-ranked, capped `expandedNodes`. Set
+    /// only when `intent.wantsMostRecentInteraction` and a person resolved.
+    var mostRecentInteraction: (person: MemoryResolvedPerson, node: MemoryNode)? = nil
+
+    static func evidenceKind(_ kind: MemoryNodeKind) -> Bool {
+        switch kind {
+        case .entry, .event, .decision, .reminder, .conflict:
+            true
+        default:
+            false
+        }
+    }
 
     var evidenceNodes: [MemoryNode] {
-        expandedNodes.filter {
-            switch $0.kind {
-            case .entry, .event, .decision, .reminder, .conflict:
-                true
-            default:
-                false
-            }
-        }
+        expandedNodes.filter { Self.evidenceKind($0.kind) }
     }
 }
 
@@ -84,6 +99,10 @@ enum MemoryQueryResolver {
         intent.wantsConflicts = ["conflict", "argument", "fight", "tension", "disagreement"].contains { containsTerm($0, in: normalized) }
         intent.wantsDecisions = ["decision", "decide", "decided", "choice", "regret"].contains { containsTerm($0, in: normalized) }
         intent.wantsEvents = ["event", "meeting", "appointment", "calendar", "seeing", "before"].contains { containsTerm($0, in: normalized) }
+        intent.wantsMostRecentInteraction = [
+            "last time", "last met", "last saw", "last spoke", "last talked",
+            "last meet", "last see", "most recently", "when did i last"
+        ].contains { containsTerm($0, in: normalized) }
         return intent
     }
 
@@ -325,8 +344,32 @@ enum MemoryGraphRetriever {
             intent: intent,
             seedNodes: seedNodes,
             expandedNodes: expandedNodes,
-            edges: edges
+            edges: edges,
+            mostRecentInteraction: mostRecentInteraction(for: intent, index: index)
         )
+    }
+
+    /// A real max-by-date over every entry/event/decision/reminder/conflict
+    /// directly linked to the person, computed here in plain code instead of
+    /// asking the on-device model to scan dated context text and find the
+    /// maximum itself — a small model is unreliable at exactly that
+    /// computation, which is why the app already resolves relative/absolute
+    /// dates deterministically everywhere else (AppointmentDateResolver,
+    /// ActivityTimeResolver) rather than trusting model-computed dates.
+    private static func mostRecentInteraction(
+        for intent: MemoryQueryIntent,
+        index: GraphIndex
+    ) -> (person: MemoryResolvedPerson, node: MemoryNode)? {
+        guard intent.wantsMostRecentInteraction, let person = intent.mentionedPeople.first else { return nil }
+        let connected = index.edges(touching: person.nodeID).compactMap { edge -> MemoryNode? in
+            let otherID = edge.from == person.nodeID ? edge.to : edge.from
+            return index.node(otherID)
+        }
+        let eligible = connected.filter { MemoryGraphRetrievalResult.evidenceKind($0.kind) }
+        guard let mostRecent = eligible.max(by: { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }) else {
+            return nil
+        }
+        return (person, mostRecent)
     }
 
     private static func matchesStructuredIntent(_ node: MemoryNode, intent: MemoryQueryIntent) -> Bool {
