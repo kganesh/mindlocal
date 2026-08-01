@@ -60,8 +60,20 @@ enum PersonContextBuilder {
             for edge in edges {
                 let isSubject = edge.subject === person
                 let label = isSubject ? edge.type.label : edge.type.inverseLabel
-                let other = (isSubject ? edge.object : edge.subject).map(identifiedName) ?? "someone"
-                lines.append("  \(person.name) is \(label) of \(other).")
+                let otherPerson = isSubject ? edge.object : edge.subject
+                if let otherPerson, otherPerson.isMe {
+                    // "X is Child of Ganesh Kolekar (this is you, the diary's
+                    // author)." reads ambiguously — a model can misattribute the
+                    // trailing "(this is you...)" tag to the sentence's own
+                    // subject (X) rather than the nearer name it actually
+                    // modifies (Ganesh), producing a wrong "X is the diary's
+                    // author" answer. "X is your <relationship>." carries the
+                    // same fact with no parenthetical to misparse.
+                    lines.append("  \(person.name) is your \(label.lowercased()).")
+                } else {
+                    let other = otherPerson.map(identifiedName) ?? "someone"
+                    lines.append("  \(person.name) is \(label) of \(other).")
+                }
             }
         }
         return lines.joined(separator: "\n")

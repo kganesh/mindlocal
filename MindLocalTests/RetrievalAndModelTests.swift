@@ -210,6 +210,26 @@ final class RetrievalAndModelTests: XCTestCase {
 
     // MARK: - Memory graph retrieval and packing
 
+    /// Regression: "Aditya is Child of Ganesh Kolekar (this is you, the diary's
+    /// author)." was intermittently misread by the model as "Aditya is the
+    /// diary's author" — the trailing parenthetical, embedded inside another
+    /// person's relationship sentence, is ambiguous about which name it
+    /// modifies. Verify the profile now reads unambiguously ("your child") and
+    /// never emits the "(this is you...)" tag inside someone else's line.
+    @MainActor
+    func test_personContextBuilder_profile_relationshipToMe_readsUnambiguously() {
+        let me = Person(name: "Ganesh", lastName: "Kolekar", isMe: true)
+        let aditya = Person(name: "Aditya", lastName: "Kolekar")
+        let relationship = PersonRelationship(subject: aditya, type: .child, object: me)
+
+        let profile = PersonContextBuilder.profile(for: aditya, relationships: [relationship])
+
+        XCTAssertTrue(profile.contains("Aditya is your child."),
+            "Should state the relationship to Me directly and unambiguously")
+        XCTAssertFalse(profile.contains("this is you"),
+            "Must never embed the ambiguous author tag inside another person's relationship line")
+    }
+
     @MainActor
     func test_memoryQueryResolver_resolvesRelationshipPhraseThroughPeopleGraph() {
         let me = Person(name: "Me", isMe: true)
