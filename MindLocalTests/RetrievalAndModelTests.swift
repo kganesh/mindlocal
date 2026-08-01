@@ -315,6 +315,60 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertTrue(packed.contains("Dinner at home"))
     }
 
+    @MainActor
+    func test_memoryGraphRetriever_mostRecentInteraction_usesPastEntriesAndEventsOnly() {
+        let me = Person(name: "Me", isMe: true)
+        let friend = Person(name: "David")
+        let relationship = PersonRelationship(subject: friend, type: .friend, object: me)
+        let friendNodeID = MemoryGraphBuilder.personNodeID(friend)
+        let pastEntryID = MemoryNodeID(rawValue: "entry:coffee")
+        let futureEventID = MemoryNodeID(rawValue: "event:dinner")
+        let reminderID = MemoryNodeID(rawValue: "reminder:ask")
+        let conflictID = MemoryNodeID(rawValue: "conflict:old")
+        let now = Date(timeIntervalSince1970: 1_753_200_000)
+        let graph = MemoryGraph(
+            builtAt: now,
+            nodes: [
+                MemoryNode(id: friendNodeID, kind: .person, title: "David"),
+                MemoryNode(
+                    id: pastEntryID, kind: .entry, title: "Coffee with David",
+                    summary: "Met David for coffee.",
+                    date: now.addingTimeInterval(-2 * 86_400)
+                ),
+                MemoryNode(
+                    id: futureEventID, kind: .event, title: "Dinner with David",
+                    summary: "Upcoming dinner reservation.",
+                    date: now.addingTimeInterval(3 * 86_400)
+                ),
+                MemoryNode(
+                    id: reminderID, kind: .reminder, title: "Ask David about school",
+                    date: now.addingTimeInterval(-1 * 86_400),
+                    properties: ["isDone": "false"]
+                ),
+                MemoryNode(
+                    id: conflictID, kind: .conflict, title: "Disagreement with David",
+                    date: now.addingTimeInterval(-12 * 60 * 60)
+                )
+            ],
+            edges: [
+                MemoryEdge(from: friendNodeID, to: pastEntryID, kind: .hasEntry, label: "daily log"),
+                MemoryEdge(from: friendNodeID, to: futureEventID, kind: .hasEvent, label: "event"),
+                MemoryEdge(from: friendNodeID, to: reminderID, kind: .hasReminder, label: "reminder"),
+                MemoryEdge(from: friendNodeID, to: conflictID, kind: .hasConflict, label: "conflict")
+            ],
+            sourceFingerprint: "test"
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "When did I last meet David?",
+            graph: graph, people: [me, friend], relationships: [relationship],
+            now: now, limit: 8
+        )
+
+        XCTAssertEqual(result.mostRecentInteraction?.node.id, pastEntryID,
+            "Last-meet retrieval must prefer the last past interaction, not a future event, reminder, or conflict")
+    }
+
     func test_memoryGraphRetriever_mostRecentInteraction_nilWhenIntentNotFlagged() {
         let me = Person(name: "Me", isMe: true)
         let son = Person(name: "Aditya")

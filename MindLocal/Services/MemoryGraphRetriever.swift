@@ -55,11 +55,11 @@ struct MemoryGraphRetrievalResult {
     var seedNodes: [MemoryNode]
     var expandedNodes: [MemoryNode]
     var edges: [MemoryEdge]
-    /// The single most recent entry/event/decision/reminder/conflict directly
-    /// linked to the question's (first) resolved person, computed as a real
-    /// max-by-date over ALL of that person's connected evidence — not just
-    /// whatever made it into the score-ranked, capped `expandedNodes`. Set
-    /// only when `intent.wantsMostRecentInteraction` and a person resolved.
+    /// The single most recent past entry/event directly linked to the question's
+    /// (first) resolved person, computed as a real max-by-date over ALL of that
+    /// person's connected interaction evidence — not just whatever made it into
+    /// the score-ranked, capped `expandedNodes`. Set only when
+    /// `intent.wantsMostRecentInteraction` and a person resolved.
     var mostRecentInteraction: (person: MemoryResolvedPerson, node: MemoryNode)? = nil
 
     static func evidenceKind(_ kind: MemoryNodeKind) -> Bool {
@@ -363,31 +363,44 @@ enum MemoryGraphRetriever {
             seedNodes: seedNodes,
             expandedNodes: expandedNodes,
             edges: edges,
-            mostRecentInteraction: mostRecentInteraction(for: intent, index: index)
+            mostRecentInteraction: mostRecentInteraction(for: intent, index: index, now: now)
         )
     }
 
-    /// A real max-by-date over every entry/event/decision/reminder/conflict
-    /// directly linked to the person, computed here in plain code instead of
-    /// asking the on-device model to scan dated context text and find the
-    /// maximum itself — a small model is unreliable at exactly that
-    /// computation, which is why the app already resolves relative/absolute
-    /// dates deterministically everywhere else (AppointmentDateResolver,
-    /// ActivityTimeResolver) rather than trusting model-computed dates.
+    /// A real max-by-date over past entries/events directly linked to the
+    /// person, computed here in plain code instead of asking the on-device model
+    /// to scan dated context text and find the maximum itself. Future events,
+    /// reminders, decisions, and conflicts can be relevant context, but they are
+    /// not a "last met/saw/talked" interaction.
     private static func mostRecentInteraction(
         for intent: MemoryQueryIntent,
-        index: GraphIndex
+        index: GraphIndex,
+        now: Date
     ) -> (person: MemoryResolvedPerson, node: MemoryNode)? {
         guard intent.wantsMostRecentInteraction, let person = intent.mentionedPeople.first else { return nil }
         let connected = index.edges(touching: person.nodeID).compactMap { edge -> MemoryNode? in
             let otherID = edge.from == person.nodeID ? edge.to : edge.from
-            return index.node(otherID)
+            guard let node = index.node(otherID),
+                  isInteractionEdge(edge.kind, nodeKind: node.kind),
+                  let date = node.date,
+                  date <= now else {
+                return nil
+            }
+            return node
         }
-        let eligible = connected.filter { MemoryGraphRetrievalResult.evidenceKind($0.kind) }
-        guard let mostRecent = eligible.max(by: { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }) else {
+        guard let mostRecent = connected.max(by: { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }) else {
             return nil
         }
         return (person, mostRecent)
+    }
+
+    private static func isInteractionEdge(_ edgeKind: MemoryEdgeKind, nodeKind: MemoryNodeKind) -> Bool {
+        switch (edgeKind, nodeKind) {
+        case (.hasEntry, .entry), (.hasEvent, .event), (.mentions, .entry), (.mentions, .event):
+            true
+        default:
+            false
+        }
     }
 
     private static func matchesStructuredIntent(_ node: MemoryNode, intent: MemoryQueryIntent) -> Bool {
