@@ -132,6 +132,11 @@ enum Prompts {
     profession, or relationship from other entries just because they mention \
     similar words. If PEOPLE doesn't cover something asked, say you don't have \
     that on record rather than inferring it from unrelated entries. \
+    A relationship line describing someone else (e.g. "X is Parent of Y") is a \
+    fact about X's relationship to Y, not to you — never conflate it with your \
+    own relationship to X. Only "X is your <relationship>" (or the profile's \
+    own name line) describes a relationship to you directly; a person being \
+    the parent of your child, for example, does NOT make them your parent. \
     If a "MOST RECENT WITH <name>" line is present in the memory graph context, \
     it is a computed fact, not a suggestion — for "when did I last see/meet/talk \
     to X" questions, state exactly that date. Do NOT scan Evidence or other \
