@@ -730,6 +730,36 @@ final class RetrievalAndModelTests: XCTestCase {
             "The oversized block should be truncated into the budget, not dropped entirely")
     }
 
+    /// Regression: "priorities to celebrate Akhil's birthday" produced a
+    /// response that repeated the exact same four-sentence PEOPLE-derived
+    /// block roughly ten times in a row until it hit maximumResponseTokens —
+    /// a self-copy loop, not a wrong fact. Once a sentence repeats one
+    /// already seen, keep only what came before the first repeat.
+    func test_stripRepetition_truncatesAtFirstRepeatedSentence() {
+        let looping = "Akhil is your child. Akhil is Sibling of Aditya Kolekar. "
+            + "Akhil is your child. Akhil is Sibling of Aditya Kolekar. "
+            + "Akhil is your child. Akhil is Sibling of Aditya Kolekar."
+
+        let result = AdviceService.stripRepetition(looping)
+
+        XCTAssertEqual(result, "Akhil is your child. Akhil is Sibling of Aditya Kolekar.",
+            "Must stop at the first sentence that repeats one already seen in this response")
+    }
+
+    func test_stripRepetition_leavesNonRepeatingAnswerUnchanged() {
+        let answer = "Plan a small gathering with Akhil's favorite chocolate ice cream cake. "
+            + "Invite Aditya since they're siblings. Keep it low-key on a weeknight."
+
+        XCTAssertEqual(AdviceService.stripRepetition(answer), answer)
+    }
+
+    func test_stripRepetition_doesNotFlagShortRepeatedFragments() {
+        // Short fragments ("Yes", a lone clause) recur naturally in normal
+        // prose and shouldn't be mistaken for a degenerate loop.
+        let answer = "Yes. Bring a cake. Yes, that should be enough for the party."
+        XCTAssertEqual(AdviceService.stripRepetition(answer), answer)
+    }
+
     @MainActor
     func test_adviceViewModel_ignoresStaleRequestCompletions() async {
         let service = SequencedAdviceService()

@@ -120,6 +120,20 @@ final class AdviceService: AdvisingServicing {
         guardrails: .permissiveContentTransformations
     )
 
+    /// Pure greedy decoding (always the single highest-probability token) was
+    /// adopted to fix inconsistent answers across repeated identical
+    /// questions — but a real "priorities for Akhil's birthday" answer then
+    /// degenerated into a nonsensical, self-extending relationship chain
+    /// ("...so you are his doctor's patient's doctor's patient's doctor...")
+    /// that only stopped because it hit maximumResponseTokens. That's the
+    /// classic failure mode of greedy decoding: with zero token-level
+    /// entropy, a model has no way to escape a locally-repeating pattern once
+    /// it starts one. `.random(top:seed:)` with a small top and a FIXED seed
+    /// keeps the original goal (same question + same context → same answer,
+    /// since a seeded RNG's draws are reproducible) while giving just enough
+    /// escape room to break out of a repetition trap that greedy can't.
+    private static let answerSampling = GenerationOptions.SamplingMode.random(top: 3, seed: 7)
+
     func extractIntent(from question: String) async throws -> QueryIntentDraft {
         guard Self.intentModel.isAvailable else { throw AdviceError.modelUnavailable }
         let session = LanguageModelSession(
@@ -157,24 +171,18 @@ final class AdviceService: AdvisingServicing {
                     graphContext: graphContext
                 )
             ),
-            // Default sampling produced genuinely different answers (some
-            // wrong) across repeated identical questions with byte-identical
-            // context — after exhausting fixes to the context/instructions
-            // themselves, this is the remaining lever: greedy decoding always
-            // picks the highest-probability token, trading away creative
-            // variety this app never wanted anyway for the determinism a
-            // grounded factual-recall feature actually needs.
             // maximumResponseTokens is set explicitly rather than left as a
             // framework default — an identical question overflowed the
-            // context window right after greedy sampling was added, with no
-            // change to context size, suggesting the default output
-            // reservation isn't fixed across sampling modes. Instructions
-            // already say "a few sentences"; 400 tokens is generous room for
-            // that while keeping the INPUT budget (4096 - this) known and
-            // constant instead of an opaque, possibly-varying default.
-            options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 400)
+            // context window right after switching away from default
+            // sampling, with no change to context size, suggesting the
+            // default output reservation isn't fixed across sampling modes.
+            // Instructions already say "a few sentences"; 400 tokens is
+            // generous room for that while keeping the INPUT budget
+            // (4096 - this) known and constant instead of an opaque,
+            // possibly-varying default.
+            options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 400)
         )
-        return response.content
+        return Self.stripRepetition(response.content)
     }
 
     func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String {
@@ -198,9 +206,9 @@ final class AdviceService: AdvisingServicing {
         )
         let response = try await session.respond(
             to: Prompts.whoIsPrompt(question: q, context: Self.context(decisions: [], experiences: [], people: people)),
-            options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 200)
+            options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 200)
         )
-        return response.content
+        return Self.stripRepetition(response.content)
     }
 
     func eventAdvice(event: String,
@@ -224,9 +232,9 @@ final class AdviceService: AdvisingServicing {
                 weather: weather,
                 context: Self.context(decisions: decisions, experiences: experiences)
             ),
-            options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 400)
+            options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 400)
         )
-        return response.content
+        return Self.stripRepetition(response.content)
     }
 
     /// Formats the most relevant decisions, experiences, reminders, and events
@@ -361,6 +369,45 @@ final class AdviceService: AdvisingServicing {
 
     private static func clip(_ text: String, max: Int = 240) -> String {
         text.count <= max ? text : String(text.prefix(max)) + "…"
+    }
+
+    /// Small on-device models can fall into a self-copy loop, especially when
+    /// the input context itself is a repetitive list (several "X is Y of Z"
+    /// PEOPLE lines) — restating what it already saw is a very-high-probability
+    /// continuation, and it can keep doing that until maximumResponseTokens
+    /// cuts it off. Neither greedy nor a small top-k sampling reliably
+    /// prevents this (both were tried on-device; both still looped, just with
+    /// a different period), and the framework exposes no repetition-penalty
+    /// option to lean on instead. Detect it deterministically: once any
+    /// sentence repeats one already seen in this response, generation has
+    /// gone degenerate — keep only what came before the first repeat.
+    static func stripRepetition(_ text: String) -> String {
+        let pieces = text.components(separatedBy: ". ")
+        guard pieces.count > 1 else { return text }
+        var seen = Set<String>()
+        var kept: [String] = []
+        for piece in pieces {
+            let normalized = piece.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            // Short fragments (e.g. "Yes" or a lone number) are common enough
+            // on their own that seeing one twice isn't evidence of a loop.
+            guard normalized.count > 12 else {
+                kept.append(piece)
+                continue
+            }
+            guard !seen.contains(normalized) else { break }
+            seen.insert(normalized)
+            kept.append(piece)
+        }
+        var result = kept.joined(separator: ". ").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !result.isEmpty else { return text }
+        // A piece that isn't the array's true last element (i.e. truncation
+        // cut the loop short) never carried the source text's own trailing
+        // punctuation — restore it so the result still reads as a complete
+        // sentence rather than stopping mid-thought.
+        if let last = result.last, !".!?".contains(last) {
+            result += "."
+        }
+        return result
     }
 }
 
