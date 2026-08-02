@@ -48,10 +48,32 @@ enum PersonContextBuilder {
     /// relationship edge they're part of, rendered from their own perspective —
     /// the same "subject is <type> of object" convention used on their People page.
     @MainActor
-    static func profile(for person: Person, relationships: [PersonRelationship]) -> String {
+    static func profile(for person: Person, relationships: [PersonRelationship], now: Date = .now) -> String {
         var lines = ["\(identifiedName(person)):"]
         if !person.aliases.isEmpty {
             lines.append("  Also called: \(person.aliases.joined(separator: ", "))")
+        }
+        if !person.occupation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append("  Occupation: \(person.occupation).")
+        }
+        if !person.likes.isEmpty {
+            lines.append("  Likes: \(person.likes.joined(separator: ", ")).")
+        }
+        if !person.dislikes.isEmpty {
+            lines.append("  Dislikes: \(person.dislikes.joined(separator: ", ")).")
+        }
+        // Stated as a computed fact rather than left for the model to read out
+        // of Evidence — a "priorities for X's birthday" question produced a
+        // hallucinated date ("July 28th, 2027") by conflating this person's
+        // birthday event with a different, similarly-worded birthday event
+        // for someone else nearby in the same list. Same rationale as
+        // MOST RECENT WITH: a small on-device model is unreliable at picking
+        // the right one of several similar dated lines; compute it instead.
+        if let birthdate = person.birthdate,
+           let nextBirthday = BirthdayEventDeriver.nextOccurrence(of: birthdate, from: now) {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .long
+            lines.append("  Upcoming birthday (computed, authoritative — state this date directly, do not derive a different one from Evidence below): \(formatter.string(from: nextBirthday)).")
         }
         let edges = relationships.filter { $0.subject === person || $0.object === person }
         if edges.isEmpty {

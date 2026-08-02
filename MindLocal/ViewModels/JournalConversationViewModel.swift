@@ -38,6 +38,9 @@ final class JournalConversationViewModel {
     /// Occupations mentioned for specific named people, applied to their Person
     /// records at save time (only ever fills a currently-blank occupation).
     private(set) var personOccupations: [PersonOccupationDraft] = []
+    /// Likes/dislikes mentioned for specific named people, applied at save time
+    /// (prepended to that person's list, deduped).
+    private(set) var personPreferences: [PersonPreferenceDraft] = []
     /// True when the entry was saved from the raw words because AI extraction
     /// failed (e.g. a safety-filter refusal on a heavy entry) — so the check-in
     /// never loses what the user said. Drives a note on the saved screen.
@@ -138,6 +141,7 @@ final class JournalConversationViewModel {
             appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
             activityEventCandidates = ActivityEventCandidate.candidates(from: draft.activityEvents, day: occurredAt)
             personOccupations = draft.personOccupations
+            personPreferences = draft.personPreferences
             savedWithoutAI = false
             phase = .saved
         } catch {
@@ -159,7 +163,7 @@ final class JournalConversationViewModel {
             response: "", learning: "", tags: [], domain: "other",
             people: [], activities: [], outcomes: [], hopes: [],
             conflicts: [], reminders: [], appointments: [], decisions: [],
-            activityEvents: [], personOccupations: []
+            activityEvents: [], personOccupations: [], personPreferences: []
         )
         let experience = draft.toExperience(rawText: transcript, occurredAt: occurredAt)
         experience.kind = .dailyLog

@@ -94,7 +94,8 @@ enum PersonResolver {
     @MainActor
     static func linkPeople(
         to experience: Experience, assignments: [String: String] = [:],
-        personOccupations: [PersonOccupationDraft] = [], in context: ModelContext
+        personOccupations: [PersonOccupationDraft] = [],
+        personPreferences: [PersonPreferenceDraft] = [], in context: ModelContext
     ) {
         let conflictNames = experience.conflicts
             .map { $0.personName.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -123,6 +124,27 @@ enum PersonResolver {
                   person.occupation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { continue }
             person.occupation = draft.occupation.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        // Prepended, not appended — a preference mentioned today is more likely
+        // to reflect the person's current taste than one mentioned months ago,
+        // so the most recent mention should read first, not get buried at the
+        // end of a growing list. Deduped case-insensitively so a re-mention of
+        // the same thing doesn't pile up duplicate entries.
+        for draft in personPreferences where draft.isPersonPreference {
+            guard let person = resolve([draft.name], assignments: assignments, in: context).first else { continue }
+            let item = draft.item.trimmingCharacters(in: .whitespacesAndNewlines)
+            switch draft.sentiment.lowercased() {
+            case "like":
+                if !person.likes.contains(where: { $0.caseInsensitiveCompare(item) == .orderedSame }) {
+                    person.likes.insert(item, at: 0)
+                }
+            case "dislike":
+                if !person.dislikes.contains(where: { $0.caseInsensitiveCompare(item) == .orderedSame }) {
+                    person.dislikes.insert(item, at: 0)
+                }
+            default:
+                break
+            }
         }
     }
 

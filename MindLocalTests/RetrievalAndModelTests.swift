@@ -253,6 +253,53 @@ final class RetrievalAndModelTests: XCTestCase {
             "Must never mix third-person relationship lines into the reader's own profile")
     }
 
+    /// Regression: "What should be the priorities for Akhil's birthday?"
+    /// produced a hallucinated date ("July 28th, 2027") by conflating Akhil's
+    /// actual birthday event with a different, similarly-worded birthday event
+    /// for someone else nearby in the same Evidence list. Since Person.birthdate
+    /// already exists, the profile should state the real upcoming birthday as a
+    /// computed fact instead of leaving the model to find it in Evidence.
+    @MainActor
+    func test_personContextBuilder_profile_includesComputedUpcomingBirthday() {
+        let calendar = Calendar(identifier: .gregorian)
+        let birthdate = calendar.date(from: DateComponents(year: 2015, month: 8, day: 2))!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 7, day: 31))!
+        let akhil = Person(name: "Akhil", lastName: "Kolekar", birthdate: birthdate)
+
+        let profile = PersonContextBuilder.profile(for: akhil, relationships: [], now: now)
+
+        XCTAssertTrue(profile.contains("Upcoming birthday"),
+            "A person with a recorded birthdate should have their upcoming birthday stated as a computed fact")
+        XCTAssertTrue(profile.contains("August 2, 2026"),
+            "The stated date must be the real next occurrence, not something the model has to derive")
+    }
+
+    func test_personContextBuilder_profile_omitsBirthdayLineWhenNoneRecorded() {
+        let sam = Person(name: "Sam")
+        let profile = PersonContextBuilder.profile(for: sam, relationships: [])
+        XCTAssertFalse(profile.contains("Upcoming birthday"))
+    }
+
+    func test_personContextBuilder_profile_includesOccupationLikesAndDislikes() {
+        let akhil = Person(
+            name: "Akhil", occupation: "Student",
+            likes: ["chocolate ice cream cake", "hiking"], dislikes: ["cilantro"]
+        )
+        let profile = PersonContextBuilder.profile(for: akhil, relationships: [])
+
+        XCTAssertTrue(profile.contains("Occupation: Student."))
+        XCTAssertTrue(profile.contains("Likes: chocolate ice cream cake, hiking."))
+        XCTAssertTrue(profile.contains("Dislikes: cilantro."))
+    }
+
+    func test_personContextBuilder_profile_omitsPreferenceLinesWhenNoneRecorded() {
+        let sam = Person(name: "Sam")
+        let profile = PersonContextBuilder.profile(for: sam, relationships: [])
+        XCTAssertFalse(profile.contains("Occupation"))
+        XCTAssertFalse(profile.contains("Likes"))
+        XCTAssertFalse(profile.contains("Dislikes"))
+    }
+
     @MainActor
     func test_memoryQueryResolver_resolvesRelationshipPhraseThroughPeopleGraph() {
         let me = Person(name: "Me", isMe: true)

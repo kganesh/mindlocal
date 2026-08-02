@@ -232,9 +232,13 @@ struct CaptureView: View {
         // Capture the confirm-step answers before finalizeEntry() resets them.
         let assignments = viewModel.peopleAssignments
         let personOccupations = viewModel.experienceDraft?.personOccupations ?? []
+        let personPreferences = viewModel.experienceDraft?.personPreferences ?? []
         if let experience = viewModel.finalizeEntry() {
             modelContext.insert(experience)
-            PersonResolver.linkPeople(to: experience, assignments: assignments, personOccupations: personOccupations, in: modelContext)
+            PersonResolver.linkPeople(
+                to: experience, assignments: assignments, personOccupations: personOccupations,
+                personPreferences: personPreferences, in: modelContext
+            )
             EmbeddingService.embed(experience)
             MemoryGraphStore.rebuildAndPersist(in: modelContext)
             Task { await HealthService.shared.enrich(experience) }

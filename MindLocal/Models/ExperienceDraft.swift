@@ -63,6 +63,9 @@ struct ExperienceDraft: Equatable {
 
     @Guide(description: "Any specific named person's occupation or job title, if explicitly stated in the note (e.g. 'David, a nurse, ...', 'my manager Sarah is a director at...'). Empty array if no one's occupation is stated. Never invent one.")
     var personOccupations: [PersonOccupationDraft]
+
+    @Guide(description: "Any specific named person's stated like or dislike of a specific thing (e.g. 'Akhil loves chocolate ice cream cake', 'Gayatri can't stand cilantro'). Only an actual, ongoing preference they stated — NOT how they reacted to a single one-off moment (e.g. 'Akhil was excited about the ice cream today' is not a preference). Empty array if none. Never invent one.")
+    var personPreferences: [PersonPreferenceDraft]
 }
 
 extension ExperienceDraft {

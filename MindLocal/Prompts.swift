@@ -71,9 +71,17 @@ enum Prompts {
     Do NOT infer or guess an occupation from context (a role reference like \
     "my manager" is a relationship, not necessarily their job title unless the \
     note itself says so) — only what's explicitly stated. \
+    If they state that a specific named person likes or dislikes something \
+    ("Akhil loves chocolate ice cream cake", "Gayatri can't stand cilantro"), \
+    extract it into personPreferences — the person, the specific thing, and \
+    whether it's a like or dislike. This must be an actual, ongoing preference \
+    they stated, NOT how they reacted to a single one-off moment — "Akhil was \
+    excited about the ice cream today" describes one moment, not a preference; \
+    do not extract a preference from it. \
     Use only information present in the note — never invent \
     people, activities, outcomes, feelings, hopes, conflicts, reminders, \
-    appointments, activityEvents, personOccupations, or decisions they did not state. \
+    appointments, activityEvents, personOccupations, personPreferences, or \
+    decisions they did not state. \
     Distinguish what actually happened from what the person only planned, intends, or \
     decided to do later. The summary, activities, and outcomes must describe ONLY \
     actions that already occurred. Never report a planned, intended, or not-yet-done \

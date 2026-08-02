@@ -116,6 +116,8 @@ struct PersonDetailView: View {
     @State private var mergingPerson = false
     @State private var showingPeopleMap = false
     @State private var newNickname = ""
+    @State private var newLike = ""
+    @State private var newDislike = ""
 
     /// Whether another person shares this person's first name — the moment a
     /// distinguisher (last name or context) becomes worth adding.
@@ -156,6 +158,27 @@ struct PersonDetailView: View {
         guard !name.isEmpty, !person.matches(name) else { newNickname = ""; return }
         person.aliases.append(name)
         newNickname = ""
+    }
+
+    /// Inserted at the front, matching the same "most recent first" convention
+    /// used when a like/dislike is extracted from an entry — a manually-added
+    /// one is no less current than one mentioned in today's journal entry.
+    private func addLike() {
+        let item = newLike.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !item.isEmpty, !person.likes.contains(where: { $0.caseInsensitiveCompare(item) == .orderedSame }) else {
+            newLike = ""; return
+        }
+        person.likes.insert(item, at: 0)
+        newLike = ""
+    }
+
+    private func addDislike() {
+        let item = newDislike.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !item.isEmpty, !person.dislikes.contains(where: { $0.caseInsensitiveCompare(item) == .orderedSame }) else {
+            newDislike = ""; return
+        }
+        person.dislikes.insert(item, at: 0)
+        newDislike = ""
     }
 
     /// Edges touching this person, rendered from this person's perspective.
@@ -220,6 +243,38 @@ struct PersonDetailView: View {
                 if person.birthdate != nil {
                     Text("An upcoming birthday event is added automatically each year.")
                 }
+            }
+            Section {
+                ForEach(person.likes, id: \.self) { like in
+                    Text(like)
+                }
+                .onDelete { person.likes.remove(atOffsets: $0) }
+                HStack {
+                    TextField("Add something they like", text: $newLike)
+                        .autocorrectionDisabled()
+                        .onSubmit(addLike)
+                    Button("Add", action: addLike)
+                        .disabled(newLike.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            } header: {
+                Text("Likes")
+            }
+            Section {
+                ForEach(person.dislikes, id: \.self) { dislike in
+                    Text(dislike)
+                }
+                .onDelete { person.dislikes.remove(atOffsets: $0) }
+                HStack {
+                    TextField("Add something they dislike", text: $newDislike)
+                        .autocorrectionDisabled()
+                        .onSubmit(addDislike)
+                    Button("Add", action: addDislike)
+                        .disabled(newDislike.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            } header: {
+                Text("Dislikes")
+            } footer: {
+                Text("Extracted automatically when an entry mentions a preference, most recent first. Edit or swipe to remove.")
             }
             Section {
                 ForEach(person.aliases, id: \.self) { alias in

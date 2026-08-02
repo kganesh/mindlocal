@@ -172,6 +172,7 @@ struct JournalConversationView: View {
                     to: experience,
                     assignments: viewModel.peopleAssignments,
                     personOccupations: viewModel.personOccupations,
+                    personPreferences: viewModel.personPreferences,
                     in: modelContext
                 )
                 EmbeddingService.embed(experience)

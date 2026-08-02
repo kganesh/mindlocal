@@ -30,6 +30,7 @@ struct LogJournalEntryIntent: AppIntent {
         let experience: Experience
         var appointmentCandidates: [AppointmentCandidate] = []
         var personOccupations: [PersonOccupationDraft] = []
+        var personPreferences: [PersonPreferenceDraft] = []
         if let draft = try? await ExtractionService().extractExperience(from: text), draft.isExperience {
             experience = draft.toExperience(rawText: text, occurredAt: .now)
             experience.kind = .dailyLog
@@ -38,12 +39,16 @@ struct LogJournalEntryIntent: AppIntent {
                 .map { $0.toDecision(rawTranscript: text, occurredAt: .now) }
             appointmentCandidates = AppointmentCandidate.candidates(from: draft.appointments)
             personOccupations = draft.personOccupations
+            personPreferences = draft.personPreferences
         } else {
             experience = Experience(title: String(text.prefix(48)), summary: text, kind: .dailyLog, rawText: text, occurredAt: .now)
         }
 
         context.insert(experience)
-        PersonResolver.linkPeople(to: experience, personOccupations: personOccupations, in: context)
+        PersonResolver.linkPeople(
+            to: experience, personOccupations: personOccupations,
+            personPreferences: personPreferences, in: context
+        )
         EmbeddingService.embed(experience)
         MemoryGraphStore.rebuildAndPersist(in: context)
         try? context.save()

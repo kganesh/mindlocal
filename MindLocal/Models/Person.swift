@@ -30,6 +30,12 @@ final class Person {
     var birthdate: Date? = nil
     /// Free-form job/role text ("Software Engineer", "Retired"). Additive.
     var occupation: String = ""
+    /// Specific things they've been noted as liking/disliking, most recently
+    /// mentioned first — preferences can change over time, so a newer mention
+    /// surfacing above an older one keeps the list itself informative, not just
+    /// its membership. Additive.
+    var likes: [String] = []
+    var dislikes: [String] = []
 
     @Relationship(inverse: \Experience.linkedPeople)
     var experiences: [Experience] = []
@@ -42,7 +48,8 @@ final class Person {
     init(
         id: UUID = UUID(), name: String, lastName: String = "", qualifier: String = "",
         aliases: [String] = [], isMe: Bool = false, createdAt: Date = .now,
-        birthdate: Date? = nil, occupation: String = ""
+        birthdate: Date? = nil, occupation: String = "",
+        likes: [String] = [], dislikes: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -53,6 +60,8 @@ final class Person {
         self.createdAt = createdAt
         self.birthdate = birthdate
         self.occupation = occupation
+        self.likes = likes
+        self.dislikes = dislikes
     }
 
     /// Every label this person answers to, normalized for matching. Includes the
