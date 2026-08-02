@@ -15,6 +15,12 @@ final class AdviceViewModel {
 
     var question: String = ""
     private(set) var phase: Phase = .idle
+    #if DEBUG
+    /// The exact context string assembled for the last question — lets you see
+    /// what the on-device model actually saw, for debugging an answer that
+    /// looks wrong or inconsistent. Never built in release builds.
+    private(set) var debugContext: String?
+    #endif
 
     private let advisor: AdvisingServicing
     let speech: SpeechServicing
@@ -64,6 +70,13 @@ final class AdviceViewModel {
             activeRequestID = nil
             return
         }
+        #if DEBUG
+        debugContext = AdviceService.context(
+            decisions: decisions, experiences: experiences,
+            reminders: reminders, events: events,
+            people: people, graphContext: graphContext
+        )
+        #endif
         do {
             let answer = try await advisor.advise(
                 question: q, decisions: decisions, experiences: experiences,

@@ -193,6 +193,17 @@ struct AdviceView: View {
                 Text(text.renderedMarkdown)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                #if DEBUG
+                if let debugContext = viewModel.debugContext {
+                    DisclosureGroup("Debug: Context sent to model") {
+                        Text(debugContext)
+                            .font(.system(.caption2, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .font(.caption)
+                }
+                #endif
             }
             .padding()
             .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
