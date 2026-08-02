@@ -579,6 +579,57 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertTrue(advisorContext.contains("School form"))
     }
 
+    /// Regression: "Useful links" edge lines rendered bare internal IDs
+    /// ("person:2412D008-CC51-4F2E... --relatedTo--> person:B14948F4...") with
+    /// no indication of who those UUIDs actually were — opaque noise sitting
+    /// right next to the correctly-named PEOPLE/Evidence blocks, discovered via
+    /// the debug context viewer while investigating an inconsistent "who is
+    /// Ganesh" answer. Edge lines must resolve to each node's real title.
+    func test_memoryGraphContextPacker_edgeLines_resolveToTitlesNotRawIDs() {
+        let meID = MemoryNodeID(rawValue: "person:me")
+        let eventID = MemoryNodeID(rawValue: "event:wisdom-tooth")
+        let meNode = MemoryNode(id: meID, kind: .person, title: "Ganesh Kolekar")
+        let eventNode = MemoryNode(id: eventID, kind: .event, title: "Wisdom tooth extraction")
+        let result = MemoryGraphRetrievalResult(
+            intent: .empty(query: "Who is Ganesh?"),
+            seedNodes: [meNode, eventNode],
+            expandedNodes: [meNode, eventNode],
+            edges: [MemoryEdge(from: meID, to: eventID, kind: .hasEvent, label: "")]
+        )
+
+        let graphContext = MemoryGraphContextPacker.pack(result)
+
+        XCTAssertTrue(graphContext.contains("Ganesh Kolekar --hasEvent--> Wisdom tooth extraction"),
+            "Edge lines must name the actual people/events, not their internal IDs")
+        XCTAssertFalse(graphContext.contains("person:me"), "Must never leak a raw internal ID into the model's context")
+        XCTAssertFalse(graphContext.contains("event:wisdom-tooth"), "Must never leak a raw internal ID into the model's context")
+    }
+
+    /// Regression: .relatedTo edges are built one-for-one from PersonRelationship
+    /// — the same facts PersonContextBuilder already states unambiguously in the
+    /// PEOPLE block ("You are Parent of Aditya Kolekar."). Once resolved to real
+    /// names, "Akhil Kolekar --relatedTo--> Ganesh Kolekar (Child)" is genuinely
+    /// ambiguous about which side is the child, and produced exactly this kind
+    /// of misread ("Ganesh Kolekar is your parent") on-device. Verify these
+    /// edges never appear in "Useful links" at all.
+    func test_memoryGraphContextPacker_relatedToEdges_excludedFromUsefulLinks() {
+        let meID = MemoryNodeID(rawValue: "person:me")
+        let childID = MemoryNodeID(rawValue: "person:child")
+        let meNode = MemoryNode(id: meID, kind: .person, title: "Ganesh Kolekar")
+        let childNode = MemoryNode(id: childID, kind: .person, title: "Akhil Kolekar")
+        let result = MemoryGraphRetrievalResult(
+            intent: .empty(query: "Who is Ganesh?"),
+            seedNodes: [meNode, childNode],
+            expandedNodes: [meNode, childNode],
+            edges: [MemoryEdge(from: childID, to: meID, kind: .relatedTo, label: "Child")]
+        )
+
+        let graphContext = MemoryGraphContextPacker.pack(result)
+
+        XCTAssertFalse(graphContext.contains("relatedTo"),
+            "relatedTo edges duplicate the PEOPLE block and are ambiguous once resolved to names — must never appear in Useful links")
+    }
+
     /// Regression: "who is X and when did I last meet them" answers only had
     /// month-level dates ("July 2026") available in two independent ways —
     /// ExperienceSummary/DecisionSummary took the record's raw `createdAt`
@@ -652,7 +703,7 @@ final class RetrievalAndModelTests: XCTestCase {
             decisions: decisions, experiences: experiences, people: people
         )
 
-        XCTAssertLessThanOrEqual(context.count, 3_100,
+        XCTAssertLessThanOrEqual(context.count, 1_300,
             "Assembled context must stay within the safe on-device character budget regardless of journal size")
         XCTAssertTrue(context.contains("Akhil"),
             "The small, high-priority People block must survive even when the bulky Decisions/Experiences blocks are trimmed")
@@ -673,7 +724,7 @@ final class RetrievalAndModelTests: XCTestCase {
             decisions: [], experiences: [], graphContext: hugeGraphContext
         )
 
-        XCTAssertLessThanOrEqual(context.count, 3_100,
+        XCTAssertLessThanOrEqual(context.count, 1_300,
             "A single oversized block must never be allowed to blow past the budget")
         XCTAssertTrue(context.contains("MEMORY GRAPH CONTEXT"),
             "The oversized block should be truncated into the budget, not dropped entirely")

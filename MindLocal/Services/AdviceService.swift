@@ -146,7 +146,23 @@ final class AdviceService: AdvisingServicing {
                     reminders: reminders, events: events, people: people,
                     graphContext: graphContext
                 )
-            )
+            ),
+            // Default sampling produced genuinely different answers (some
+            // wrong) across repeated identical questions with byte-identical
+            // context — after exhausting fixes to the context/instructions
+            // themselves, this is the remaining lever: greedy decoding always
+            // picks the highest-probability token, trading away creative
+            // variety this app never wanted anyway for the determinism a
+            // grounded factual-recall feature actually needs.
+            // maximumResponseTokens is set explicitly rather than left as a
+            // framework default — an identical question overflowed the
+            // context window right after greedy sampling was added, with no
+            // change to context size, suggesting the default output
+            // reservation isn't fixed across sampling modes. Instructions
+            // already say "a few sentences"; 400 tokens is generous room for
+            // that while keeping the INPUT budget (4096 - this) known and
+            // constant instead of an opaque, possibly-varying default.
+            options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 400)
         )
         return response.content
     }
@@ -171,7 +187,8 @@ final class AdviceService: AdvisingServicing {
                 when: formatter.string(from: when),
                 weather: weather,
                 context: Self.context(decisions: decisions, experiences: experiences)
-            )
+            ),
+            options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 400)
         )
         return response.content
     }
@@ -264,14 +281,19 @@ final class AdviceService: AdvisingServicing {
     /// past the on-device model's 4096-token window with zero room left to
     /// generate a response — a hard failure, not a quality tradeoff.
     ///
-    /// This budget was first calibrated assuming ~4 characters/token, at 6,000
-    /// characters — and still overflowed (a 6,000-char context + ~900-char
-    /// instructions measured at 4,091 tokens on-device, i.e. ~1.7 chars/token
-    /// for this content: dense structured graph lines, dates, and property
-    /// key/value pairs tokenize far less efficiently than plain English prose).
-    /// Recalibrated from that real failure, with real margin below it rather
-    /// than just barely under.
-    private static let contextCharacterBudget = 3_000
+    /// Repeatedly recalibrated from real on-device overflows and repeatedly
+    /// still not enough: 6,000 chars measured at 4,091 tokens, then a
+    /// 2,000-char budget (with advisorInstructions independently shortened
+    /// 2,628 → 1,206 chars) STILL overflowed at 4,090 tokens on the exact
+    /// same question that had worked moments earlier — with no code change
+    /// to context size in between, only the addition of greedy sampling
+    /// (see `advise()`'s now-explicit `maximumResponseTokens`, the more
+    /// likely actual cause). Without a real on-device tokenizer, character
+    /// budgets for this densely-structured content are fundamentally an
+    /// approximation, not a guarantee. Cut much harder than the arithmetic
+    /// alone would suggest, since the arithmetic has been wrong multiple
+    /// times now.
+    private static let contextCharacterBudget = 1_200
 
     /// Assembles blocks in priority order (People and the graph context are
     /// ground truth and usually small; Decisions/Experiences are the bulky,

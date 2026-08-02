@@ -48,9 +48,36 @@ enum MemoryGraphContextPacker {
             blocks.append("Related signals:\n" + relatedLines.joined(separator: "\n"))
         }
 
+        // Resolves an edge endpoint to its actual title (a person's name, an
+        // event's title, …) instead of the bare internal ID — this previously
+        // fed the model lines like "person:2412D008-CC51-4F2E... --relatedTo-->
+        // person:B14948F4..." with no indication of who those UUIDs actually
+        // were, sitting right next to the correctly-named PEOPLE/Evidence
+        // blocks. Opaque, unresolvable noise like that is exactly the kind of
+        // thing that can derail an already-fragile identity question.
+        let nodesByID: [MemoryNodeID: MemoryNode] = Dictionary(
+            (result.seedNodes + result.expandedNodes).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        func label(for id: MemoryNodeID) -> String {
+            if let title = nodesByID[id]?.title, !title.isEmpty { return title }
+            let kind = id.rawValue.split(separator: ":").first.map(String.init) ?? "record"
+            return "a \(kind)"
+        }
+
+        // .relatedTo edges are built one-for-one from PersonRelationship — the
+        // exact same facts PersonContextBuilder already states unambiguously in
+        // the PEOPLE block above ("You are Parent of Aditya Kolekar."). Once
+        // resolved to real names, "Akhil Kolekar --relatedTo--> Ganesh Kolekar
+        // (Child)" is genuinely ambiguous prose — it doesn't say which side is
+        // the child — and having proven the model can misread that direction
+        // (producing "Ganesh Kolekar is your parent"), these are worse than
+        // useless here: pure duplication with a real chance of contradicting
+        // the correct PEOPLE block right above it. Drop them.
         let edgeLines = result.edges
+            .filter { $0.kind != .relatedTo }
             .prefix(maxEdges)
-            .map { "\($0.from.rawValue) --\($0.kind.rawValue)--> \($0.to.rawValue)\($0.label.isEmpty ? "" : " (\($0.label))")" }
+            .map { "\(label(for: $0.from)) --\($0.kind.rawValue)--> \(label(for: $0.to))\($0.label.isEmpty ? "" : " (\($0.label))")" }
         if !edgeLines.isEmpty {
             blocks.append("Useful links:\n" + edgeLines.joined(separator: "\n"))
         }
