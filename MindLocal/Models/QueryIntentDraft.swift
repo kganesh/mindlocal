@@ -24,6 +24,14 @@ struct QueryIntentDraft: Equatable {
 
     @Guide(description: "How many items the question asks for, if a specific count is stated (e.g. 'my 3 worst...' -> 3, 'the last one' -> 1). 0 if no count is stated.")
     var limit: Int
+
+    // .anyOf hard-constrains the generated value to exactly one of these two
+    // strings (unlike every other field above, which is merely described) —
+    // routing compares this with `==`, and a free-text description alone let
+    // the model return something like "Who is" or "identity" that silently
+    // never matched, always falling through to the generic pipeline.
+    @Guide(description: "What kind of question this is — used to route to a dedicated prompt instead of the generic one. 'who_is' if it's ONLY asking who someone is or how they're related to the user (e.g. 'who is Akhil', 'how am I related to Priya', 'tell me about Sam') — not if it also asks for advice, a recap, or anything beyond identity. 'generic' for everything else, including when unsure.", .anyOf(["who_is", "generic"]))
+    var questionType: String
 }
 
 extension QueryIntentDraft {

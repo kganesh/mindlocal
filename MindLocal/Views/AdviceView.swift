@@ -51,6 +51,40 @@ struct AdviceView: View {
                             // structured and semantic passes can use it.
                             let intent = await viewModel.extractIntent(for: query)
 
+                            // Anyone named in the question gets their actual
+                            // People-graph profile included as ground truth, not
+                            // just whatever text happens to rank as similar.
+                            // Computed up front (cheap) since it also gates the
+                            // "who is X" fast path below.
+                            let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
+                            let peopleSummaries = mentionedPeople.map {
+                                PersonProfileSummary(
+                                    id: $0.id,
+                                    text: PersonContextBuilder.profile(for: $0, relationships: relationships)
+                                )
+                            }
+
+                            // Route every "who_is"-classified question here,
+                            // whether or not a known person was resolved —
+                            // askWhoIs/answerWhoIs handles both outcomes
+                            // deterministically-safely: a resolved person
+                            // answers from their People profile alone (no
+                            // decisions/experiences/graph-context noise to
+                            // blend in), and an unresolved name gets a plain
+                            // "I don't have anyone by that name" with no model
+                            // call at all — falling through to the generic
+                            // pipeline for an unresolved name was what let the
+                            // model fabricate a relationship for someone never
+                            // saved as a Person, citing an entry that never
+                            // mentioned them.
+                            guard intent.questionType != "who_is" else {
+                                await viewModel.askWhoIs(
+                                    requestID: request.id, question: query,
+                                    people: peopleSummaries
+                                )
+                                return
+                            }
+
                             // Deterministic, guaranteed-correct matches for
                             // whatever structure was found (e.g. "3 unpleasant
                             // experiences recently") — empty when the question
@@ -95,16 +129,6 @@ struct AdviceView: View {
                             let experienceSummaries = mergedExperiences.map(ExperienceSummary.init)
                             let reminderSummaries = relevantReminders.map(ReminderSummary.init)
                             let eventSummaries = mergedEvents.map(EventSummary.init)
-                            // Anyone named in the question gets their actual
-                            // People-graph profile included as ground truth, not
-                            // just whatever text happens to rank as similar.
-                            let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
-                            let peopleSummaries = mentionedPeople.map {
-                                PersonProfileSummary(
-                                    id: $0.id,
-                                    text: PersonContextBuilder.profile(for: $0, relationships: relationships)
-                                )
-                            }
                             let graph = graphSnapshots.first?.graph ?? .empty
                             let graphResult = MemoryGraphRetriever.retrieve(
                                 query: query,

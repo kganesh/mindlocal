@@ -57,32 +57,73 @@ final class AdviceViewModel {
     /// this existed.
     func extractIntent(for question: String) async -> QueryIntentDraft {
         (try? await advisor.extractIntent(from: question))
-            ?? QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
+            ?? QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0, questionType: "generic")
     }
 
     func ask(requestID: UUID, question submittedQuestion: String,
              decisions: [DecisionSummary], experiences: [ExperienceSummary],
              reminders: [ReminderSummary] = [], events: [EventSummary] = [],
              people: [PersonProfileSummary] = [], graphContext: String = "") async {
-        guard activeRequestID == requestID else { return }
         let q = submittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
             activeRequestID = nil
             return
         }
-        #if DEBUG
-        debugContext = AdviceService.context(
-            decisions: decisions, experiences: experiences,
-            reminders: reminders, events: events,
-            people: people, graphContext: graphContext
+        await complete(
+            requestID: requestID,
+            debugContext: {
+                AdviceService.context(
+                    decisions: decisions, experiences: experiences,
+                    reminders: reminders, events: events,
+                    people: people, graphContext: graphContext
+                )
+            },
+            answer: {
+                try await self.advisor.advise(
+                    question: q, decisions: decisions, experiences: experiences,
+                    reminders: reminders, events: events, people: people,
+                    graphContext: graphContext
+                )
+            }
         )
+    }
+
+    /// Routed to whenever `QueryIntentDraft.questionType == "who_is"`, whether
+    /// or not `PersonContextBuilder.mentionedPeople` actually resolved anyone.
+    /// `people` non-empty: answers from their People profile alone, skipping
+    /// decisions/experiences/graph context entirely — a pure identity
+    /// question doesn't need it, and excluding it keeps unrelated retrieved
+    /// text from getting blended in. `people` empty: `AdviceService.
+    /// answerWhoIs` answers deterministically with no model call, rather than
+    /// let the generic pipeline's noisy context give the model room to invent
+    /// a relationship for a name it's never seen.
+    func askWhoIs(requestID: UUID, question submittedQuestion: String,
+                  people: [PersonProfileSummary]) async {
+        let q = submittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else {
+            activeRequestID = nil
+            return
+        }
+        await complete(
+            requestID: requestID,
+            debugContext: { AdviceService.context(decisions: [], experiences: [], people: people) },
+            answer: { try await self.advisor.answerWhoIs(question: q, people: people) }
+        )
+    }
+
+    /// Shared request lifecycle for every "ask a question, get an answer"
+    /// path: ignore stale completions, record the debug context, and map
+    /// failures to the same user-facing errors — so adding another dedicated
+    /// question type doesn't mean re-copying this plumbing.
+    private func complete(requestID: UUID,
+                          debugContext buildDebugContext: () -> String,
+                          answer produceAnswer: () async throws -> String) async {
+        guard activeRequestID == requestID else { return }
+        #if DEBUG
+        debugContext = buildDebugContext()
         #endif
         do {
-            let answer = try await advisor.advise(
-                question: q, decisions: decisions, experiences: experiences,
-                reminders: reminders, events: events, people: people,
-                graphContext: graphContext
-            )
+            let answer = try await produceAnswer()
             guard activeRequestID == requestID else { return }
             activeRequestID = nil
             phase = .answer(answer)

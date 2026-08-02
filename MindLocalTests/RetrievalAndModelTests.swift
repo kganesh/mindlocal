@@ -755,6 +755,57 @@ final class RetrievalAndModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.phase, .answer("answer for new question"))
     }
+
+    /// The dedicated "who is X" path (routed to from AdviceView when
+    /// QueryIntentDraft.questionType == "who_is" AND a person was actually
+    /// resolved) must reach AdvisingServicing.answerWhoIs, not the generic
+    /// advise() path — otherwise the whole point of skipping decisions/
+    /// experiences/graph-context assembly for a pure identity question is lost.
+    @MainActor
+    func test_adviceViewModel_askWhoIs_answersFromDedicatedPath() async {
+        let service = SequencedAdviceService()
+        let viewModel = AdviceViewModel(advisor: service, speech: MockSpeechService())
+
+        viewModel.question = "who is Akhil"
+        let request = viewModel.beginAsk()!
+
+        await viewModel.askWhoIs(
+            requestID: request.id,
+            question: request.question,
+            people: [PersonProfileSummary(id: UUID(), text: "Akhil: no recorded relationship to anyone else in People.")]
+        )
+
+        XCTAssertEqual(viewModel.phase, .answer("who-is answer for who is Akhil"))
+    }
+
+    /// Regression: "who is Connor" (a name never saved as a Person) fell
+    /// through to the generic advise() pipeline, which had no evidence
+    /// mentioning "Connor" at all — the model still answered, fabricating
+    /// "Connor is Akhil's friend" and citing an entry that never named him.
+    /// The real (non-mock) AdviceService must short-circuit to a deterministic
+    /// non-answer for an unresolved name, with no model call, so there's no
+    /// text generation step left that could invent a relationship.
+    func test_adviceService_answerWhoIs_unresolvedName_answersDeterministically_noModelCall() async throws {
+        let service = AdviceService()
+        let answer = try await service.answerWhoIs(question: "who is Connor", people: [])
+        XCTAssertEqual(answer, "I don't have anyone by that name in your People list.")
+    }
+
+    @MainActor
+    func test_adviceViewModel_askWhoIs_ignoresStaleRequestCompletions() async {
+        let service = SequencedAdviceService()
+        let viewModel = AdviceViewModel(advisor: service, speech: MockSpeechService())
+
+        viewModel.question = "who is old"
+        let old = viewModel.beginAsk()!
+        viewModel.question = "who is new"
+        let new = viewModel.beginAsk()!
+
+        await viewModel.askWhoIs(requestID: new.id, question: new.question, people: [])
+        await viewModel.askWhoIs(requestID: old.id, question: old.question, people: [])
+
+        XCTAssertEqual(viewModel.phase, .answer("who-is answer for who is new"))
+    }
 }
 
 private final class SequencedAdviceService: AdvisingServicing {
@@ -781,7 +832,11 @@ private final class SequencedAdviceService: AdvisingServicing {
     }
 
     func extractIntent(from question: String) async throws -> QueryIntentDraft {
-        QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
+        QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0, questionType: "generic")
+    }
+
+    func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String {
+        "who-is answer for \(question)"
     }
 }
 

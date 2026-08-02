@@ -162,6 +162,28 @@ enum Prompts {
         """
     }
 
+    // Specialized "who is X" prompt, routed to via QueryIntentDraft.questionType.
+    // Deliberately given ONLY the PEOPLE block — no decisions/experiences/graph
+    // context to blend in — so a pure identity/relationship question has no
+    // unrelated text nearby for the model to draw a wrong connection from.
+    static let whoIsInstructions = """
+    The user is asking who someone is or how that person relates to them. \
+    Answer using ONLY the PEOPLE profile given as context — it's authoritative \
+    ground truth from their own People graph, not something to re-derive or \
+    guess. State the name, relationship to the user (if any), occupation, and \
+    any other recorded detail relevant to the question, in a sentence or two. \
+    Never mention a relationship, occupation, or fact that isn't explicitly in \
+    the given profile, and never answer about anyone not named in it.
+    """
+
+    static func whoIsPrompt(question: String, context: String) -> String {
+        """
+        \(context)
+
+        Question: \(question)
+        """
+    }
+
     // §10.5 — Event preparation (proactive advice for an upcoming calendar event)
     static let eventAdvisorInstructions = """
     You help the user prepare for an upcoming event using only their own past \

@@ -81,6 +81,16 @@ protocol AdvisingServicing: Sendable {
     /// semantic search. Never throws to the caller in practice; extraction
     /// failure just means no structured match is attempted.
     func extractIntent(from question: String) async throws -> QueryIntentDraft
+
+    /// Answers a question identified (by `QueryIntentDraft.questionType`) as
+    /// asking who someone is or how they're related. When `people` names
+    /// someone actually resolved from the People graph, answers grounded
+    /// solely in their profile — no decisions/experiences/graph-context noise
+    /// for the model to blend in. When `people` is empty (no known person
+    /// matched), answers deterministically with no model call at all, rather
+    /// than risk the model inventing a relationship for a name it's never
+    /// seen.
+    func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String
 }
 
 enum AdviceError: Error {
@@ -163,6 +173,32 @@ final class AdviceService: AdvisingServicing {
             // that while keeping the INPUT budget (4096 - this) known and
             // constant instead of an opaque, possibly-varying default.
             options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 400)
+        )
+        return response.content
+    }
+
+    func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { throw AdviceError.noQuestion }
+        // No known person was resolved for this question — answer this
+        // deterministically instead of handing the model an empty PEOPLE
+        // block and a name it has never seen: asked about someone not in
+        // People (e.g. "who is Connor" when Connor was never saved), the
+        // model fabricated a relationship and even cited an entry that never
+        // mentioned the name at all. There is no real answer to retrieve
+        // here, so don't give the model a chance to invent one.
+        guard !people.isEmpty else {
+            return "I don't have anyone by that name in your People list."
+        }
+        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
+
+        let session = LanguageModelSession(
+            model: Self.answerModel,
+            instructions: Prompts.whoIsInstructions
+        )
+        let response = try await session.respond(
+            to: Prompts.whoIsPrompt(question: q, context: Self.context(decisions: [], experiences: [], people: people)),
+            options: GenerationOptions(sampling: .greedy, maximumResponseTokens: 200)
         )
         return response.content
     }
@@ -345,7 +381,7 @@ final class MockAdviceService: AdvisingServicing {
     }
 
     func extractIntent(from question: String) async throws -> QueryIntentDraft {
-        QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0)
+        QueryIntentDraft(tone: "", domain: "", topicKeywords: [], sortOrder: "recent", limit: 0, questionType: "generic")
     }
 
     func eventAdvice(event: String,
@@ -354,6 +390,12 @@ final class MockAdviceService: AdvisingServicing {
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String {
         "Before \(event): last time something similar came up it went reasonably well — repeat what worked, and jot down two questions to ask."
+    }
+
+    func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String {
+        people.isEmpty
+            ? "I don't have anyone by that name in your People list."
+            : "Drawing on your People profile — " + people.map(\.text).joined(separator: " ")
     }
 }
 
