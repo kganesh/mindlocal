@@ -70,6 +70,18 @@ enum PersonContextBuilder {
                     // author" answer. "X is your <relationship>." carries the
                     // same fact with no parenthetical to misparse.
                     lines.append("  \(person.name) is your \(label.lowercased()).")
+                } else if person.isMe {
+                    // This whole profile's header already says "(this is you,
+                    // the diary's author)" — but every line beneath it was still
+                    // "Ganesh is Spouse of X" in the third person, mixing a
+                    // second-person header with a third-person body. That
+                    // mismatch is what let the model inconsistently decide
+                    // whether "Ganesh" and "you" were the same person from one
+                    // run to the next, sometimes producing "Ganesh is your
+                    // spouse" (as if married to himself). Keep the whole profile
+                    // in second person when it's the reader's own.
+                    let other = otherPerson.map(identifiedName) ?? "someone"
+                    lines.append("  You are \(label) of \(other).")
                 } else {
                     let other = otherPerson.map(identifiedName) ?? "someone"
                     lines.append("  \(person.name) is \(label) of \(other).")

@@ -230,6 +230,29 @@ final class RetrievalAndModelTests: XCTestCase {
             "Must never embed the ambiguous author tag inside another person's relationship line")
     }
 
+    /// Regression: "Who is Ganesh" (Ganesh being Me) returned wildly inconsistent
+    /// answers across repeated identical questions — sometimes correct ("Ganesh
+    /// is you... You are a Spouse of Gayatri"), sometimes self-contradictory
+    /// ("Ganesh is your spouse", as if married to himself). Root cause: the
+    /// profile header said "(this is you...)" but every relationship line
+    /// beneath it was still third person ("Ganesh is Spouse of Gayatri"),
+    /// mixing second- and third-person framing within one profile and letting
+    /// the model's identity resolution vary by sampling run. Verify Ganesh's
+    /// own profile stays in second person throughout.
+    @MainActor
+    func test_personContextBuilder_profile_forMeAnchor_staysSecondPersonThroughout() {
+        let me = Person(name: "Ganesh", lastName: "Kolekar", isMe: true)
+        let spouse = Person(name: "Gayatri", lastName: "Kolekar")
+        let relationship = PersonRelationship(subject: me, type: .spouse, object: spouse)
+
+        let profile = PersonContextBuilder.profile(for: me, relationships: [relationship])
+
+        XCTAssertTrue(profile.contains("You are Spouse of Gayatri Kolekar."),
+            "Ganesh's own profile must phrase his relationships in second person, matching the header's 'this is you' tag")
+        XCTAssertFalse(profile.contains("Ganesh is Spouse"),
+            "Must never mix third-person relationship lines into the reader's own profile")
+    }
+
     @MainActor
     func test_memoryQueryResolver_resolvesRelationshipPhraseThroughPeopleGraph() {
         let me = Person(name: "Me", isMe: true)
