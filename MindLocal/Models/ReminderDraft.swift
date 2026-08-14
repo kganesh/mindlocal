@@ -6,10 +6,10 @@ import FoundationModels
 /// `about` means "not a real reminder" and is dropped, mirroring `ConflictDraft`.
 @Generable
 struct ReminderDraft: Equatable {
-    @Guide(description: "Who this reminder is about — a specific person by name or relationship (e.g. 'Dr. Chotai', 'my manager'). Empty if not tied to a specific person.")
+    @Guide(description: "Who this reminder is about — a specific person by name or relationship (e.g. 'Dr. Chotai', 'my manager').")
     var with: String
 
-    @Guide(description: "What to remember or ask, phrased as a short action item in the writer's own words (e.g. 'ask about the referral', 'bring up the raise'). Empty if the note contains no actionable reminder.")
+    @Guide(description: "What to remember or ask, phrased as a short action item in the writer's own words (e.g. 'ask about the referral', 'bring up the raise').")
     var about: String
 }
 

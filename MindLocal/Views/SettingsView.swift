@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage(AdviceGroundingSettings.enabledKey) private var groundedAnswersEnabled = false
     @AppStorage("reminderEnabled") private var reminderEnabled = false
     @AppStorage("reminderHour")    private var reminderHour = 22   // 10 PM
     @AppStorage("reminderMinute")  private var reminderMinute = 0
@@ -47,6 +48,14 @@ struct SettingsView: View {
                 }
 
                 #if DEBUG
+                Section {
+                    Toggle("Grounded Answers", isOn: $groundedAnswersEnabled)
+                } header: {
+                    Text("Advise (Dev)")
+                } footer: {
+                    Text("Asks the model to cite the evidence it used, then checks those citations against the context it was actually given. Findings appear under the answer in Advise.")
+                }
+
                 Section {
                     Button(role: .destructive) {
                         confirmingWipe = true

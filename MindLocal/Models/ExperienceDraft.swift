@@ -7,64 +7,64 @@ import SwiftData
 /// note describes no experience.
 @Generable
 struct ExperienceDraft: Equatable {
-    @Guide(description: "Short title for the experience, max 8 words. Empty if the note describes no experience.")
+    @Guide(description: "Short title for the experience, max 8 words.")
     var title: String
 
-    @Guide(description: "What actually happened, in a sentence or two, in the person's words. Describe only events that already occurred — not planned or future actions. If a specific or approximate time of day is stated (e.g. '4 o'clock', '4pm', 'in the afternoon'), keep it in the summary. Empty if the note describes no experience.")
+    @Guide(description: "What actually happened, in a sentence or two. Keep any stated time of day (e.g. '4 o'clock', 'in the afternoon') — it is part of what happened.")
     var summary: String
 
-    @Guide(description: "The emotions the person expressed about it. Empty if none stated.")
+    @Guide(description: "The emotions the person expressed about it.")
     var feelings: String
 
-    @Guide(description: "Overall tone of the experience. One of: pleasant, unpleasant, mixed.")
+    @Guide(description: "One of: pleasant, unpleasant, mixed.")
     var tone: String
 
-    @Guide(description: "What made it pleasant or unpleasant — the factors the person mentioned. Empty if not stated.")
+    @Guide(description: "What made it pleasant or unpleasant.")
     var factors: String
 
-    @Guide(description: "What the person did or how they responded. Empty if not mentioned.")
+    @Guide(description: "What the person did or how they responded.")
     var response: String
 
-    @Guide(description: "The takeaway the person stated or clearly implied — what they'd do again (if pleasant) or differently (if unpleasant). Empty if not stated.")
+    @Guide(description: "The takeaway they stated or clearly implied — what they'd do again, or differently.")
     var learning: String
 
-    @Guide(description: "One to three short theme tags. Empty array if unclear. Never invent.")
+    @Guide(description: "One to three short theme tags.")
     var tags: [String]
 
     @Guide(description: "One of: career, money, health, family, work, other.")
     var domain: String
 
-    @Guide(description: "Specific individuals involved, by name or a specific relationship (e.g. 'Sam', 'my manager', 'Mom'). Do NOT include groups or plurals ('the team', 'senior engineers', 'colleagues'), generic job titles, or the writer themselves ('me', 'self'). Empty if none. Never invent.")
+    @Guide(description: "Specific individuals involved, by name or specific relationship (e.g. 'Sam', 'my manager', 'Mom'). Not groups ('the team', 'colleagues'), generic job titles, or the writer themselves.")
     var people: [String]
 
-    @Guide(description: "Concrete activities or actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Do NOT include arguments, disagreements, fights, or conflicts — those belong in conflicts, never here. Empty if none. Never invent.")
+    @Guide(description: "Concrete actions the person did, each a short phrase (e.g. 'morning run', 'finished the report'). Arguments and disagreements belong in conflicts, never here.")
     var activities: [String]
 
-    @Guide(description: "Results or outcomes of things that ACTUALLY happened — how they turned out, INCLUDING a missed, failed, or forgotten commitment (e.g. 'missed the team meeting due to a scheduling conflict', 'forgot about the dentist appointment'). Each a short phrase. Do NOT include planned, intended, or not-yet-done actions (e.g. 'will buy', 'plan to visit'), and do NOT include arguments or conflicts (those belong in conflicts). Empty if none stated.")
+    @Guide(description: "How things actually turned out, including a missed, failed, or forgotten commitment (e.g. 'forgot the dentist appointment'). Each a short phrase. Conflicts belong in conflicts.")
     var outcomes: [String]
 
-    @Guide(description: "Forward-looking wants, wishes, or hopes the person expressed (e.g. 'wants to travel more', 'hopes the interview goes well'). Empty if none. Never invent.")
+    @Guide(description: "Forward-looking wants, wishes, or hopes (e.g. 'hopes the interview goes well').")
     var hopes: [String]
 
-    @Guide(description: "Any interpersonal conflicts, arguments, disagreements, or tension the writer describes having with a specific person, as structured records. Empty array if there was no real conflict. Never invent a conflict.")
+    @Guide(description: "Interpersonal conflicts, arguments, disagreements, or tension with a specific person. An unpleasant event with no interpersonal disagreement is NOT a conflict.")
     var conflicts: [ConflictDraft]
 
-    @Guide(description: "Any action items the writer wants to remember for a future interaction with a specific person — things to ask, bring up, or follow up on next time they see that person (e.g. 'ask my doctor about the referral'). ALSO include a reminder to reach out when the writer mentions missing, not getting to see, or failing to connect with a specific named person (e.g. 'I missed seeing Sam at the party' -> a reminder to reach out to Sam), even if they didn't explicitly ask to be reminded. Empty array if none. Never invent a reminder.")
+    @Guide(description: "Action items to remember for a future interaction with a specific person (e.g. 'ask my doctor about the referral'). Also add one when the writer mentions missing or failing to connect with a named person. A general wish with no specific person belongs in hopes.")
     var reminders: [ReminderDraft]
 
-    @Guide(description: "Any specific upcoming appointments, meetings, or scheduled visits the writer mentions, WITH a stated or clearly implied date/time. Empty array if none, or if something is mentioned with no specific date/time (that belongs in reminders or hopes instead, not here). Never invent an appointment.")
+    @Guide(description: "Upcoming appointments, meetings, or scheduled visits WITH a stated date/time. With no specific date/time it belongs in reminders or hopes instead.")
     var appointments: [AppointmentDraft]
 
-    @Guide(description: "Any decisions the person mentions having made in this note, as structured records. Empty array if they did not mention deciding anything. Never invent a decision.")
+    @Guide(description: "Decisions the person mentions having made in this note.")
     var decisions: [DecisionDraft]
 
-    @Guide(description: "Any activities that ALREADY happened with a specific named person (e.g. 'met David for coffee', 'took Mom to her appointment'), as structured records — a candidate to add as a calendar Event. Do NOT include activities done alone or with an unnamed group ('the team', 'friends') — those belong only in activities, never here. Empty array if none. Never invent one.")
+    @Guide(description: "Activities that ALREADY happened with a specific named person (e.g. 'met David for coffee') — a candidate calendar Event. Not activities done alone or with an unnamed group.")
     var activityEvents: [ActivityEventDraft]
 
-    @Guide(description: "Any specific named person's occupation or job title, if explicitly stated in the note (e.g. 'David, a nurse, ...', 'my manager Sarah is a director at...'). Empty array if no one's occupation is stated. Never invent one.")
+    @Guide(description: "A named person's occupation, only where the note explicitly states it (e.g. 'David, a nurse'). A role reference like 'my manager' is a relationship, not a job title.")
     var personOccupations: [PersonOccupationDraft]
 
-    @Guide(description: "Any specific named person's stated like or dislike of a specific thing (e.g. 'Akhil loves chocolate ice cream cake', 'Gayatri can't stand cilantro'). Only an actual, ongoing preference they stated — NOT how they reacted to a single one-off moment (e.g. 'Akhil was excited about the ice cream today' is not a preference). Empty array if none. Never invent one.")
+    @Guide(description: "A named person's stated ongoing like or dislike (e.g. 'Akhil loves chocolate cake'). Not a one-off reaction ('was excited about the ice cream today').")
     var personPreferences: [PersonPreferenceDraft]
 }
 

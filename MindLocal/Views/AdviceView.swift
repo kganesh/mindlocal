@@ -85,6 +85,37 @@ struct AdviceView: View {
                                 return
                             }
 
+                            // Backstop for the same hole when the classifier
+                            // misses it. questionType comes from a model call
+                            // whose failure fallback is "generic" — the unsafe
+                            // path — so a failed or wrong classification sent
+                            // "who is Tommy?" (never saved as a Person) into
+                            // the generic pipeline with full graph context,
+                            // which answered "Tommy is your brother". Only
+                            // fires when NOTHING resolved, so a question about
+                            // a real person is never diverted here.
+                            if mentionedPeople.isEmpty,
+                               let candidate = WhoIsQuestionDetector.candidateName(in: query) {
+                                // Two very different answers hide behind "not in
+                                // People": the name is unknown, or it's been
+                                // journaled about and simply never added. The
+                                // second is answerable from the graph's own
+                                // unresolved-mention nodes, deterministically.
+                                let snapshot = graphSnapshots.first?.graph ?? .empty
+                                if let mention = UnresolvedPersonFinder.find(
+                                    name: candidate, in: snapshot
+                                ) {
+                                    await viewModel.answerDirectly(
+                                        requestID: request.id, text: mention.answerText
+                                    )
+                                } else {
+                                    await viewModel.askWhoIs(
+                                        requestID: request.id, question: query, people: []
+                                    )
+                                }
+                                return
+                            }
+
                             // Deterministic, guaranteed-correct matches for
                             // whatever structure was found (e.g. "3 unpleasant
                             // experiences recently") — empty when the question
@@ -138,13 +169,16 @@ struct AdviceView: View {
                                 now: .now,
                                 limit: 24
                             )
-                            let graphContext = MemoryGraphContextPacker.pack(graphResult)
+                            let packed = MemoryGraphContextPacker.packWithManifest(graphResult)
 
                             await viewModel.ask(
                                 requestID: request.id, question: query,
                                 decisions: decisionSummaries, experiences: experienceSummaries,
                                 reminders: reminderSummaries, events: eventSummaries,
-                                people: peopleSummaries, graphContext: graphContext
+                                people: peopleSummaries, graphContext: packed.text,
+                                // nil keeps the plain-prose path; non-nil routes
+                                // through the grounded, citation-checked one.
+                                packedContext: AdviceGroundingSettings.isEnabled ? packed : nil
                             )
                         }
                     } label: {
@@ -218,6 +252,9 @@ struct AdviceView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 #if DEBUG
+                if let report = viewModel.debugGroundingReport {
+                    groundingBadge(report)
+                }
                 if let debugContext = viewModel.debugContext {
                     DisclosureGroup("Debug: Context sent to model") {
                         Text(debugContext)
@@ -271,4 +308,39 @@ struct AdviceView: View {
         }
         return result
     }
+
+    #if DEBUG
+    /// Surfaces what GroundingValidator found for the last answer. Green means
+    /// every citation resolved to something the model was actually shown — not
+    /// that the answer is correct, since a real citation can still be
+    /// misdescribed.
+    @ViewBuilder
+    private func groundingBadge(_ report: GroundingReport) -> some View {
+        let ok = !report.hasFindings
+        VStack(alignment: .leading, spacing: 4) {
+            Label(
+                ok ? "Grounded — all citations resolve" : "Grounding findings",
+                systemImage: ok ? "checkmark.seal" : "exclamationmark.triangle"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(ok ? .green : .orange)
+
+            if !report.unknownEvidence.isEmpty {
+                Text("Cited evidence not in context: \(report.unknownEvidence.map(String.init).joined(separator: ", "))")
+            }
+            if !report.unknownPeople.isEmpty {
+                Text("People not in context: \(report.unknownPeople.joined(separator: ", "))")
+            }
+            if !report.unknownDates.isEmpty {
+                Text("Dates not in context: \(report.unknownDates.joined(separator: ", "))")
+            }
+            if report.citesNothing {
+                Text("Named people or dates but cited no evidence — unverifiable.")
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(ok ? .secondary : .primary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    #endif
 }

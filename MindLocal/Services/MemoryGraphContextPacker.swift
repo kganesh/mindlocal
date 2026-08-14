@@ -4,15 +4,43 @@ import Foundation
 /// block for the advisor prompt. The retriever decides what is relevant; this
 /// packer keeps the LLM payload readable and bounded.
 enum MemoryGraphContextPacker {
+    /// The context string plus a manifest of what went into it, so an answer
+    /// can be checked against the evidence the model was actually shown.
+    /// `evidenceTitles` is index-aligned with the numbered "Evidence:" lines —
+    /// element 0 is line 1 — which is what the model cites by number.
+    struct PackedContext: Equatable {
+        var text: String
+        var evidenceTitles: [String]
+        var knownPeople: Set<String>
+        var knownDates: Set<String>
+
+        static let empty = PackedContext(text: "", evidenceTitles: [], knownPeople: [], knownDates: [])
+    }
+
     static func pack(_ result: MemoryGraphRetrievalResult, maxNodes: Int = 10, maxEdges: Int = 12) -> String {
-        let evidence = Array(result.evidenceNodes
-            .sorted(by: sortEvidence)
-            .prefix(maxNodes))
+        packWithManifest(result, maxNodes: maxNodes, maxEdges: maxEdges).text
+    }
+
+    static func packWithManifest(_ result: MemoryGraphRetrievalResult, maxNodes: Int = 10, maxEdges: Int = 12) -> PackedContext {
+        // `result.evidenceNodes`/`expandedNodes` already arrive ordered by the
+        // retriever's relevance score (person-connection + structured-intent +
+        // text-match boosts). Select the top `maxNodes` by that order AND
+        // keep them in that order for display — a kind/date re-sort here
+        // (event > entry > conflict, then most-recent-first, tried
+        // previously) let an utterly unrelated but higher-kind-priority
+        // event ("Wisdom tooth extraction") land ahead of the actually
+        // relevant conflict entry in the composed string. That's exactly
+        // backwards once AdviceService's outer character budget has to
+        // truncate: it cuts from the END of the string, so anything sorted
+        // later — even the single most relevant item — is the first thing to
+        // get silently dropped. Relevance order first means the most
+        // important evidence is always closest to the front, and the least
+        // relevant is what a tight budget trims away.
+        let evidence = Array(result.evidenceNodes.prefix(maxNodes))
         let evidenceIDs = Set(evidence.map(\.id))
         let relatedLimit = max(0, maxNodes - evidence.count)
         let related = Array(result.expandedNodes
             .filter { !evidenceIDs.contains($0.id) }
-            .sorted(by: sortEvidence)
             .prefix(relatedLimit))
 
         var blocks: [String] = []
@@ -82,33 +110,28 @@ enum MemoryGraphContextPacker {
             blocks.append("Useful links:\n" + edgeLines.joined(separator: "\n"))
         }
 
-        return blocks.isEmpty ? "" : blocks.joined(separator: "\n\n")
-    }
-
-    private static func sortEvidence(_ lhs: MemoryNode, _ rhs: MemoryNode) -> Bool {
-        let lhsPriority = priority(lhs)
-        let rhsPriority = priority(rhs)
-        if lhsPriority != rhsPriority { return lhsPriority > rhsPriority }
-        return (lhs.date ?? .distantPast) > (rhs.date ?? .distantPast)
-    }
-
-    private static func priority(_ node: MemoryNode) -> Int {
-        switch node.kind {
-        case .reminder:
-            node.properties["isDone"] == "false" ? 90 : 45
-        case .event:
-            80
-        case .entry:
-            70
-        case .decision:
-            65
-        case .conflict:
-            60
-        case .person:
-            50
-        default:
-            20
+        // Everything the validator is allowed to treat as "the model was told
+        // this". Drawn from the same arrays that composed the blocks above, so
+        // the manifest can't drift from what was actually sent.
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let shown = evidence + related
+        var knownPeople = Set(result.intent.mentionedPeople.map(\.displayName))
+        knownPeople.formUnion(shown.filter { $0.kind == .person }.map(\.title))
+        if let mostRecent = result.mostRecentInteraction {
+            knownPeople.insert(mostRecent.person.displayName)
         }
+        var knownDates = Set(shown.compactMap { $0.date.map(dateFormatter.string(from:)) })
+        if let date = result.mostRecentInteraction?.node.date {
+            knownDates.insert(dateFormatter.string(from: date))
+        }
+
+        return PackedContext(
+            text: blocks.isEmpty ? "" : blocks.joined(separator: "\n\n"),
+            evidenceTitles: evidence.map(\.title),
+            knownPeople: knownPeople,
+            knownDates: knownDates
+        )
     }
 
     private static func line(for node: MemoryNode) -> String {

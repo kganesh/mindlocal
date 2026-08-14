@@ -35,7 +35,7 @@ enum MemoryGraphBuilder {
         }
 
         for experience in experiences {
-            addExperience(experience, to: &graph)
+            addExperience(experience, people: people, to: &graph)
         }
 
         for event in events {
@@ -47,11 +47,11 @@ enum MemoryGraphBuilder {
         }
 
         for reminder in reminders where reminder.experience == nil {
-            addReminder(reminder, sourceEntryID: nil, to: &graph)
+            addReminder(reminder, people: people, sourceEntryID: nil, to: &graph)
         }
 
         for conflict in conflicts where conflict.experience == nil {
-            addConflict(conflict, sourceEntryID: nil, to: &graph)
+            addConflict(conflict, people: people, sourceEntryID: nil, to: &graph)
         }
 
         return graph.makeGraph()
@@ -59,7 +59,7 @@ enum MemoryGraphBuilder {
 
     // MARK: - Source records
 
-    private static func addExperience(_ experience: Experience, to graph: inout GraphAccumulator) {
+    private static func addExperience(_ experience: Experience, people: [Person], to graph: inout GraphAccumulator) {
         let entryID = entryNodeID(experience)
         graph.addNode(MemoryNode(
             id: entryID,
@@ -96,16 +96,34 @@ enum MemoryGraphBuilder {
             graph.addEdge(MemoryEdge(from: personID, to: entryID, kind: .hasEntry, label: experience.kind.label))
         }
 
+        // `experience.people` (raw extracted names) and `experience.linkedPeople`
+        // (resolved at save time) are independent — a name here that was never
+        // successfully linked (or whose link has gone stale) previously always
+        // fell to an "unresolved" node, a permanently separate MemoryNodeID from
+        // the real Person even once one exists with a matching name. That's
+        // exactly what let a real, later-added Person's own connected evidence
+        // (an argument entry, a conflict) become invisible to the boost that
+        // comes from being connected to the person actually asked about. Same
+        // self-healing fallback as addReminder/addConflict: re-check against
+        // who's actually known now, since the graph rebuilds from scratch anyway.
+        let linkedIDs = Set(experience.linkedPeople.map(personNodeID))
         for rawPerson in experience.people where !rawPerson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let personID = unresolvedPersonNodeID(rawPerson)
-            graph.addNode(MemoryNode(
-                id: personID,
-                kind: .person,
-                title: rawPerson,
-                summary: "Unresolved mention",
-                properties: ["resolved": "false"]
-            ))
-            graph.addEdge(MemoryEdge(from: entryID, to: personID, kind: .mentions, label: "unresolved mention"))
+            if let match = people.first(where: { $0.matches(rawPerson) }) {
+                let personID = personNodeID(match)
+                guard !linkedIDs.contains(personID) else { continue }   // already connected above
+                graph.addEdge(MemoryEdge(from: entryID, to: personID, kind: .mentions, label: "mentions"))
+                graph.addEdge(MemoryEdge(from: personID, to: entryID, kind: .hasEntry, label: experience.kind.label))
+            } else {
+                let personID = unresolvedPersonNodeID(rawPerson)
+                graph.addNode(MemoryNode(
+                    id: personID,
+                    kind: .person,
+                    title: rawPerson,
+                    summary: "Unresolved mention",
+                    properties: ["resolved": "false"]
+                ))
+                graph.addEdge(MemoryEdge(from: entryID, to: personID, kind: .mentions, label: "unresolved mention"))
+            }
         }
 
         for activity in experience.activities {
@@ -122,10 +140,10 @@ enum MemoryGraphBuilder {
             addDecision(decision, sourceEntryID: entryID, to: &graph)
         }
         for reminder in experience.reminders {
-            addReminder(reminder, sourceEntryID: entryID, to: &graph)
+            addReminder(reminder, people: people, sourceEntryID: entryID, to: &graph)
         }
         for conflict in experience.conflicts {
-            addConflict(conflict, sourceEntryID: entryID, to: &graph)
+            addConflict(conflict, people: people, sourceEntryID: entryID, to: &graph)
         }
     }
 
@@ -216,7 +234,7 @@ enum MemoryGraphBuilder {
         }
     }
 
-    private static func addReminder(_ reminder: Reminder, sourceEntryID: MemoryNodeID?, to graph: inout GraphAccumulator) {
+    private static func addReminder(_ reminder: Reminder, people: [Person], sourceEntryID: MemoryNodeID?, to graph: inout GraphAccumulator) {
         let reminderID = reminderNodeID(reminder)
         graph.addNode(MemoryNode(
             id: reminderID,
@@ -232,7 +250,12 @@ enum MemoryGraphBuilder {
         if let sourceEntryID {
             graph.addEdge(MemoryEdge(from: sourceEntryID, to: reminderID, kind: .hasReminder, label: "reminder"))
         }
-        if let person = reminder.person {
+        // Falls back to a fresh name/alias match against the current People
+        // list when `reminder.person` was never set (or has gone stale) —
+        // the graph is rebuilt from scratch every time anyway, so re-checking
+        // against who's actually known now self-heals a link that a one-time
+        // resolve() at save time either missed or can no longer see.
+        if let person = reminder.person ?? people.first(where: { $0.matches(reminder.personName) }) {
             let personID = personNodeID(person)
             graph.addEdge(MemoryEdge(from: reminderID, to: personID, kind: .aboutPerson, label: "about"))
             graph.addEdge(MemoryEdge(from: personID, to: reminderID, kind: .hasReminder, label: "reminder"))
@@ -243,7 +266,7 @@ enum MemoryGraphBuilder {
         }
     }
 
-    private static func addConflict(_ conflict: Conflict, sourceEntryID: MemoryNodeID?, to graph: inout GraphAccumulator) {
+    private static func addConflict(_ conflict: Conflict, people: [Person], sourceEntryID: MemoryNodeID?, to graph: inout GraphAccumulator) {
         let conflictID = conflictNodeID(conflict)
         graph.addNode(MemoryNode(
             id: conflictID,
@@ -260,7 +283,14 @@ enum MemoryGraphBuilder {
         if let sourceEntryID {
             graph.addEdge(MemoryEdge(from: sourceEntryID, to: conflictID, kind: .hasConflict, label: "conflict"))
         }
-        if let person = conflict.withPerson {
+        // Same self-healing fallback as addReminder above — a conflict whose
+        // `withPerson` was never resolved (e.g. captured before this feature
+        // existed, or before the person was formally added to People)
+        // otherwise attaches to a permanently-orphaned "unresolved" node,
+        // invisible to the boost that comes from being connected to the
+        // person actually asked about — silently dropping real evidence for
+        // "how do I resolve this conflict with X" out of the advisor's reach.
+        if let person = conflict.withPerson ?? people.first(where: { $0.matches(conflict.personName) }) {
             let personID = personNodeID(person)
             graph.addEdge(MemoryEdge(from: conflictID, to: personID, kind: .withPerson, label: "with"))
             graph.addEdge(MemoryEdge(from: personID, to: conflictID, kind: .hasConflict, label: "conflict"))

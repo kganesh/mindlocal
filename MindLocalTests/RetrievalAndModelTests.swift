@@ -333,6 +333,230 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertFalse(intent.wantsMostRecentInteraction)
     }
 
+    /// Reproduces the exact on-device scenario reported: Alex's own People
+    /// page correctly shows the conflict AND the "Argument with Alex about
+    /// Project Deadline" entry (proving conflict.withPerson and
+    /// experience.linkedPeople ARE both correctly resolved to this Alex —
+    /// not a stale-link problem), yet "How to resolve conflict with Alex"
+    /// still retrieved none of it. Builds the graph from properly-linked
+    /// records exactly like this and checks whether the conflict/entry ever
+    /// reach evidenceNodes for that query, to isolate whether the defect is
+    /// in retrieval/scoring rather than in person-resolution.
+    @MainActor
+    func test_memoryGraphRetriever_conflict_properlyLinkedConflict_stillReachesEvidence() {
+        let me = Person(name: "Ganesh", lastName: "Kolekar", isMe: true)
+        let alex = Person(name: "Alex", occupation: "Software engineer")
+        let coworker = PersonRelationship(subject: alex, type: .coworker, object: me)
+
+        let conflict = Conflict(
+            summary: "disagreement about project deadline",
+            personName: "Alex",
+            feelings: "frustrated",
+            resolution: .unresolved
+        )
+        conflict.withPerson = alex
+
+        let experience = Experience(
+            title: "Argument with Alex about Project Deadline",
+            summary: "Had a rough evening. Alex and I got into an argument about the project deadline.",
+            tone: .unpleasant,
+            domain: .work,
+            people: ["Alex"]
+        )
+        experience.linkedPeople = [alex]
+        experience.conflicts = [conflict]
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [experience], events: [], decisions: [],
+            people: [me, alex], relationships: [coworker],
+            conflicts: [], reminders: []
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "How to resolve conflict with Alex",
+            graph: graph, people: [me, alex], relationships: [coworker], limit: 24
+        )
+
+        XCTAssertTrue(result.evidenceNodes.contains { $0.title.contains("Argument with Alex") },
+            "The properly-linked conflict entry must reach evidence for a question naming both 'conflict' and 'Alex'")
+    }
+
+    /// Regression: the retriever correctly ranks the Alex conflict entry
+    /// highly (previous test), but `MemoryGraphContextPacker.pack` then
+    /// RE-SORTED evidence purely by node kind + date, discarding that
+    /// relevance ranking entirely — so once several newer, unrelated
+    /// "productive day" entries exist (exactly like the real journal), an
+    /// older-but-highly-relevant conflict entry gets pushed past `maxNodes`
+    /// and silently dropped from what the model actually sees, even though
+    /// the retriever scored it as the most relevant thing in the graph.
+    /// Dates are relative to `now` (not fixed epoch constants) so
+    /// `isRecentEvidence`'s 30-day window — the thing that puts the
+    /// unrelated entries in real competition for a slot in the first
+    /// place — behaves the same regardless of when this test runs.
+    @MainActor
+    func test_memoryGraphContextPacker_selectsByRelevance_beforeSortingForDisplay() {
+        let now = Date()
+        let me = Person(name: "Ganesh", lastName: "Kolekar", isMe: true)
+        let alex = Person(name: "Alex", occupation: "Software engineer")
+        let coworker = PersonRelationship(subject: alex, type: .coworker, object: me)
+
+        let conflict = Conflict(
+            summary: "disagreement about project deadline",
+            personName: "Alex", feelings: "frustrated", resolution: .unresolved
+        )
+        conflict.withPerson = alex
+        let argument = Experience(
+            id: UUID(), createdAt: now.addingTimeInterval(-14 * 86_400),   // 14 days ago
+            title: "Argument with Alex about Project Deadline",
+            summary: "Had a rough evening. Alex and I got into an argument about the project deadline.",
+            tone: .unpleasant, domain: .work, people: ["Alex"]
+        )
+        argument.linkedPeople = [alex]
+        argument.conflicts = [conflict]
+
+        // Several newer, unrelated entries — same shape as the real journal
+        // (dated after the argument, no connection to Alex at all).
+        let unrelated = (0..<5).map { i in
+            Experience(
+                id: UUID(), createdAt: now.addingTimeInterval(-Double(i + 1) * 86_400),   // 1-5 days ago
+                title: "Productive Day \(i)",
+                summary: "Worked from home on personal projects.",
+                tone: .pleasant, domain: .work
+            )
+        }
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [argument] + unrelated, events: [], decisions: [],
+            people: [me, alex], relationships: [coworker],
+            conflicts: [], reminders: []
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "How to resolve conflict with Alex",
+            graph: graph, people: [me, alex], relationships: [coworker], now: now, limit: 24
+        )
+        let packed = MemoryGraphContextPacker.pack(result, maxNodes: 5, maxEdges: 12)
+
+        // Checks the Evidence block specifically — "Argument with Alex" also
+        // appears in "Useful links" edge labels regardless of this bug, so a
+        // bare packed.contains(...) would false-pass even when Evidence itself
+        // dropped it entirely.
+        let evidenceBlock = packed.components(separatedBy: "\n\n").first { $0.hasPrefix("Evidence:") } ?? ""
+        XCTAssertTrue(evidenceBlock.contains("Had a rough evening"),
+            "The retriever's top-ranked evidence must survive packing into the Evidence block, even when it's older than several unrelated, lower-relevance entries")
+    }
+
+    /// Regression, second layer: even after evidence is SELECTED by
+    /// relevance, the packer used to re-sort the selected items by kind then
+    /// date for display (event > entry > conflict) — so a completely
+    /// unrelated event ("Wisdom tooth extraction") landed ahead of the
+    /// actually-relevant conflict entry in the composed string purely
+    /// because "event" outranks "entry"/"conflict" by kind. That's exactly
+    /// backwards once AdviceService's real 1200-char budget has to truncate:
+    /// it cuts from the end, so whatever the kind/date sort pushed later —
+    /// even the most relevant item — is the first thing silently dropped.
+    /// Runs the full pipeline (retrieve -> pack -> AdviceService.context)
+    /// with the app's real character budget to prove the fix holds
+    /// end-to-end, not just inside the packer in isolation.
+    @MainActor
+    func test_advisorContext_relevantOlderEvidence_survivesRealBudget_despiteUnrelatedEvent() {
+        let now = Date()
+        let me = Person(name: "Ganesh", lastName: "Kolekar", isMe: true)
+        let alex = Person(name: "Alex", occupation: "Software engineer")
+        let coworker = PersonRelationship(subject: alex, type: .coworker, object: me)
+
+        let conflict = Conflict(
+            summary: "disagreement about project deadline",
+            personName: "Alex", feelings: "frustrated", resolution: .unresolved
+        )
+        conflict.withPerson = alex
+        let argument = Experience(
+            id: UUID(), createdAt: now.addingTimeInterval(-14 * 86_400),
+            title: "Argument with Alex about Project Deadline",
+            summary: "Had a rough evening. Alex and I got into an argument about the project deadline.",
+            tone: .unpleasant, domain: .work, people: ["Alex"]
+        )
+        argument.linkedPeople = [alex]
+        argument.conflicts = [conflict]
+
+        let unrelatedEvent = Event(title: "Wisdom tooth extraction", date: now.addingTimeInterval(-3 * 86_400), domain: .other)
+        let unrelated = (0..<4).map { i in
+            Experience(
+                id: UUID(), createdAt: now.addingTimeInterval(-Double(i + 1) * 86_400),
+                title: "Productive Day \(i)",
+                summary: "Worked from home on personal projects and technical prep. Had breakfast and lunch.",
+                tone: .pleasant, domain: .work
+            )
+        }
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [argument] + unrelated, events: [unrelatedEvent], decisions: [],
+            people: [me, alex], relationships: [coworker],
+            conflicts: [], reminders: []
+        )
+        let result = MemoryGraphRetriever.retrieve(
+            query: "How to resolve conflict with Alex",
+            graph: graph, people: [me, alex], relationships: [coworker], now: now, limit: 24
+        )
+        let packed = MemoryGraphContextPacker.pack(result)
+        let people = [PersonProfileSummary(id: alex.id, text: "Alex:\n  Occupation: Software engineer.\n  Alex is your coworker.")]
+
+        let context = AdviceService.context(
+            decisions: [], experiences: [], people: people, graphContext: packed
+        )
+
+        XCTAssertTrue(context.contains("Argument with Alex"),
+            "The most relevant evidence must survive the real character budget, even with an unrelated event and several unrelated entries also present")
+    }
+
+    /// Regression: "how to resolve conflict with Alex" produced generic,
+    /// ungrounded boilerplate — the actual "Argument with Alex about Project
+    /// Deadline" conflict entry never showed up in retrieved evidence at all.
+    /// Root cause: `conflict.withPerson` was never resolved to the real Alex
+    /// `Person` (a stale link, or one that predates person-resolution ever
+    /// running for that entry), so the graph attached it to a permanently
+    /// separate "unresolved conflict person" node instead — invisible to the
+    /// boost a mentioned person's real connections get. The graph rebuilds
+    /// from scratch every time, so it should self-heal via a live name match
+    /// against the current People list rather than trusting a stale link.
+    @MainActor
+    func test_memoryGraphBuilder_conflict_selfHealsPersonLinkViaLiveNameMatch() {
+        let alex = Person(name: "Alex")
+        let conflict = Conflict(summary: "Argument about deadline", personName: "Alex")
+        // withPerson intentionally left nil, simulating a link that was never
+        // (or is no longer) resolved.
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [], decisions: [],
+            people: [alex], relationships: [],
+            conflicts: [conflict], reminders: []
+        )
+
+        let alexID = MemoryGraphBuilder.personNodeID(alex)
+        XCTAssertTrue(graph.edges.contains { $0.kind == .withPerson && $0.to == alexID },
+            "A conflict with an unresolved withPerson must still connect to a Person that matches its personName by live lookup")
+        XCTAssertFalse(graph.nodes.contains { $0.summary == "Unresolved conflict person" },
+            "Must not fall back to an orphaned 'unresolved' node when a real Person already matches by name")
+    }
+
+    @MainActor
+    func test_memoryGraphBuilder_reminder_selfHealsPersonLinkViaLiveNameMatch() {
+        let alex = Person(name: "Alex")
+        let reminder = Reminder(text: "Ask about the deadline plan", personName: "Alex")
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [], decisions: [],
+            people: [alex], relationships: [],
+            conflicts: [], reminders: [reminder]
+        )
+
+        let alexID = MemoryGraphBuilder.personNodeID(alex)
+        XCTAssertTrue(graph.edges.contains { $0.kind == .aboutPerson && $0.to == alexID },
+            "A reminder with an unresolved person must still connect to a Person that matches its personName by live lookup")
+        XCTAssertFalse(graph.nodes.contains { $0.summary == "Unresolved reminder person" },
+            "Must not fall back to an orphaned 'unresolved' node when a real Person already matches by name")
+    }
+
     /// Regression: "when did I last meet Aditya" returned an OLDER entry (July
     /// 18, shopping at Costco) instead of a more recent one (July 22, dinner at
     /// home) — both were present in context, but the on-device model picked the
@@ -730,6 +954,28 @@ final class RetrievalAndModelTests: XCTestCase {
             "The oversized block should be truncated into the budget, not dropped entirely")
     }
 
+    /// Regression: a real oversized MEMORY GRAPH CONTEXT block was cut off
+    /// mid-word inside a real evidence line ("...Argument with Alex ab…"),
+    /// handing the model a dangling, unfinished sentence as part of its own
+    /// input. Truncation must snap to the last complete line instead of an
+    /// arbitrary character position, even though that means using a little
+    /// less than the full budget.
+    func test_advisorContext_oversizedBlock_truncatesAtLineBoundary_notMidWord() {
+        let line = "1. [entry, 2026-07-01] A complete evidence line of fixed length here.\n"
+        let graphContext = "Evidence:\n" + String(repeating: line, count: 40)   // well over budget
+
+        let context = AdviceService.context(decisions: [], experiences: [], graphContext: graphContext)
+
+        XCTAssertLessThanOrEqual(context.count, 1_300)
+        guard let ellipsisRange = context.range(of: "…") else {
+            XCTFail("This oversized block should have required truncation")
+            return
+        }
+        let charBeforeEllipsis = context.index(before: ellipsisRange.lowerBound)
+        XCTAssertEqual(context[charBeforeEllipsis], "\n",
+            "Truncation must land right after a complete line, never mid-word")
+    }
+
     /// Regression: "priorities to celebrate Akhil's birthday" produced a
     /// response that repeated the exact same four-sentence PEOPLE-derived
     /// block roughly ten times in a row until it hit maximumResponseTokens —
@@ -836,6 +1082,352 @@ final class RetrievalAndModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.phase, .answer("who-is answer for who is new"))
     }
+
+    // MARK: - Forward-looking time intent
+
+    /// resolveTimeRange only understood backward-looking phrases (today,
+    /// yesterday, this week, recently), so "tonight" / "next week" resolved to
+    /// no range at all and a question about an upcoming interaction fell back
+    /// to undated relevance.
+    @MainActor
+    func test_memoryQueryResolver_resolvesForwardLookingTimePhrases() {
+        func range(_ query: String) -> DateInterval? {
+            MemoryQueryResolver.resolve(query: query, people: [], relationships: []).timeRange
+        }
+
+        XCTAssertNotNil(range("what should I ask Lilly before dinner tonight?"),
+            "'tonight' must resolve to a time range")
+        XCTAssertNotNil(range("what are the priorities meeting Lilly next week?"),
+            "'next week' must resolve to a time range")
+        XCTAssertNotNil(range("anything I should prepare tomorrow?"),
+            "'tomorrow' must resolve to a time range")
+        XCTAssertNotNil(range("what is upcoming with Lilly?"),
+            "'upcoming' must resolve to a time range")
+    }
+
+    /// "next week" must land in the future, not be silently read as the past —
+    /// the previous ranges all ended at `now`.
+    @MainActor
+    func test_memoryQueryResolver_nextWeekRangeIsInTheFuture() {
+        let now = Date()
+        let intent = MemoryQueryResolver.resolve(
+            query: "what are the priorities meeting Lilly next week?",
+            people: [], relationships: [], now: now
+        )
+        let range = try? XCTUnwrap(intent.timeRange)
+        XCTAssertNotNil(range)
+        if let range { XCTAssertGreaterThan(range.end, now, "'next week' must extend past now") }
+    }
+
+    /// With a resolved window, evidence inside it must outrank evidence far
+    /// outside it. Before timeProximityBoost both scored identically and only
+    /// separated on the UUID-string tie-break in the ranking sort.
+    @MainActor
+    func test_memoryGraphRetriever_tonightQuestion_ranksTonightAboveNextWeek() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let lilly = Person(name: "Lilly")
+        let spouse = PersonRelationship(subject: lilly, type: .spouse, object: me)
+
+        let tonight = Event(title: "Dinner with Lilly", date: now.addingTimeInterval(3 * 3_600), person: lilly)
+        let nextWeek = Event(title: "Travel plan review with Lilly", date: now.addingTimeInterval(8 * 86_400), person: lilly)
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [tonight, nextWeek], decisions: [],
+            people: [me, lilly], relationships: [spouse],
+            conflicts: [], reminders: []
+        )
+
+        let result = MemoryGraphRetriever.retrieve(
+            query: "what should I ask Lilly before dinner tonight?",
+            graph: graph, people: [me, lilly], relationships: [spouse], now: now, limit: 24
+        )
+
+        let titles: [String] = result.evidenceNodes.map { $0.title }
+        guard let tonightIndex = titles.firstIndex(of: "Dinner with Lilly") else {
+            return XCTFail("Tonight's event must reach evidence; got \(titles)")
+        }
+        if let nextWeekIndex = titles.firstIndex(of: "Travel plan review with Lilly") {
+            XCTAssertLessThan(tonightIndex, nextWeekIndex,
+                "Evidence inside the asked-about window must outrank evidence a week outside it")
+        }
+    }
+
+    // MARK: - Grounding validation
+
+    private func packedContext(evidence: [String] = ["Coffee with Bradley", "Recruiter call"],
+                               people: Set<String> = ["Bradley", "Lilly Kolekar"],
+                               dates: Set<String> = ["2026-08-13"]) -> MemoryGraphContextPacker.PackedContext {
+        MemoryGraphContextPacker.PackedContext(
+            text: "Evidence:\n1. Coffee with Bradley\n2. Recruiter call",
+            evidenceTitles: evidence, knownPeople: people, knownDates: dates
+        )
+    }
+
+    @MainActor
+    func test_groundingValidator_answerCitingSuppliedEvidence_isGrounded() {
+        let answer = GroundedAnswer(
+            answer: "You met Bradley about the platform architect role.",
+            citedEvidence: [1, 2], citedPeople: ["Bradley"],
+            citedDates: ["2026-08-13"], usedGeneralKnowledge: false
+        )
+        let report = GroundingValidator.validate(answer, against: packedContext())
+        XCTAssertTrue(report.isGrounded)
+        XCTAssertFalse(report.hasFindings)
+    }
+
+    /// The core case: an Evidence number the model was never shown.
+    @MainActor
+    func test_groundingValidator_flagsEvidenceNumberNotInContext() {
+        let answer = GroundedAnswer(
+            answer: "Per entry 7 you decided to leave.", citedEvidence: [1, 7],
+            citedPeople: [], citedDates: [], usedGeneralKnowledge: false
+        )
+        let report = GroundingValidator.validate(answer, against: packedContext())
+        XCTAssertEqual(report.unknownEvidence, [7])
+        XCTAssertFalse(report.isGrounded)
+    }
+
+    /// The failure already seen in this app: a person named who appears nowhere
+    /// in the context.
+    @MainActor
+    func test_groundingValidator_flagsPersonNotInContext() {
+        let answer = GroundedAnswer(
+            answer: "Connor mentioned the referral.", citedEvidence: [1],
+            citedPeople: ["Connor"], citedDates: [], usedGeneralKnowledge: false
+        )
+        let report = GroundingValidator.validate(answer, against: packedContext())
+        XCTAssertEqual(report.unknownPeople, ["Connor"])
+        XCTAssertFalse(report.isGrounded)
+    }
+
+    /// A first name must match a fuller name in the context — the answer may
+    /// reasonably say "Lilly" where the context says "Lilly Kolekar".
+    @MainActor
+    func test_groundingValidator_acceptsFirstNameOfAFullerContextName() {
+        let answer = GroundedAnswer(
+            answer: "Lilly is your spouse.", citedEvidence: [1],
+            citedPeople: ["lilly"], citedDates: [], usedGeneralKnowledge: false
+        )
+        XCTAssertTrue(GroundingValidator.validate(answer, against: packedContext()).isGrounded)
+    }
+
+    @MainActor
+    func test_groundingValidator_flagsDateNotInContext() {
+        let answer = GroundedAnswer(
+            answer: "That was on 2020-01-01.", citedEvidence: [1],
+            citedPeople: [], citedDates: ["2020-01-01"], usedGeneralKnowledge: false
+        )
+        let report = GroundingValidator.validate(answer, against: packedContext())
+        XCTAssertEqual(report.unknownDates, ["2020-01-01"])
+    }
+
+    /// Specific claims with no citation are unverifiable — surfaced separately
+    /// from an outright fabricated reference.
+    @MainActor
+    func test_groundingValidator_flagsSpecificClaimsWithNoCitation() {
+        let answer = GroundedAnswer(
+            answer: "Bradley called on 2026-08-13.", citedEvidence: [],
+            citedPeople: ["Bradley"], citedDates: ["2026-08-13"], usedGeneralKnowledge: false
+        )
+        let report = GroundingValidator.validate(answer, against: packedContext())
+        XCTAssertTrue(report.citesNothing)
+        XCTAssertTrue(report.isGrounded, "Nothing was fabricated — it just cannot be checked")
+        XCTAssertTrue(report.hasFindings)
+    }
+
+    /// General guidance that names nobody is a legitimate answer, not a finding.
+    @MainActor
+    func test_groundingValidator_generalGuidanceWithNoCitationIsNotFlagged() {
+        let answer = GroundedAnswer(
+            answer: "Your history doesn't cover this; keep notes as you go.",
+            citedEvidence: [], citedPeople: [], citedDates: [], usedGeneralKnowledge: true
+        )
+        let report = GroundingValidator.validate(answer, against: packedContext())
+        XCTAssertFalse(report.hasFindings)
+    }
+
+    /// The manifest must describe what was actually packed, or validation is
+    /// checking against the wrong thing.
+    @MainActor
+    func test_packWithManifest_manifestMatchesWhatWasPacked() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let lilly = Person(name: "Lilly")
+        let spouse = PersonRelationship(subject: lilly, type: .spouse, object: me)
+        let dinner = Event(title: "Dinner with Lilly", date: now, person: lilly)
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [dinner], decisions: [],
+            people: [me, lilly], relationships: [spouse], conflicts: [], reminders: []
+        )
+        let result = MemoryGraphRetriever.retrieve(
+            query: "what should I ask Lilly tonight?",
+            graph: graph, people: [me, lilly], relationships: [spouse], now: now, limit: 24
+        )
+        let packed = MemoryGraphContextPacker.packWithManifest(result)
+
+        XCTAssertEqual(packed.text, MemoryGraphContextPacker.pack(result),
+            "The String wrapper must return exactly the manifest's text")
+        for title in packed.evidenceTitles {
+            XCTAssertTrue(packed.text.contains(title),
+                "Manifest lists '\(title)' but the packed context never mentions it")
+        }
+        XCTAssertTrue(packed.knownPeople.contains("Lilly"),
+            "A resolved person must be citable; got \(packed.knownPeople)")
+    }
+
+    // MARK: - Unknown-identity backstop
+
+    /// The reported failure: "who is Tommy?" for a name never saved reached the
+    /// generic pipeline (its classifier said "generic", the fallback default)
+    /// and came back "Tommy is your brother."
+    @MainActor
+    func test_whoIsDetector_catchesBareUnknownName() {
+        XCTAssertEqual(WhoIsQuestionDetector.candidateName(in: "who is Tommy?"), "tommy")
+        XCTAssertEqual(WhoIsQuestionDetector.candidateName(in: "Who's Bradley"), "bradley")
+        XCTAssertEqual(WhoIsQuestionDetector.candidateName(in: "who is Anne-Marie?"), "anne-marie")
+        XCTAssertEqual(WhoIsQuestionDetector.candidateName(in: "how am I related to Priya?"), "priya")
+    }
+
+    /// Must not fire on questions that merely start "who is" — those have real
+    /// answers and would be wrongly refused with "I don't have anyone by that name".
+    @MainActor
+    func test_whoIsDetector_ignoresNonIdentityQuestions() {
+        for query in ["who is coming to dinner tomorrow?",
+                      "who is my manager?",
+                      "who is responsible for the deadline slip?",
+                      "who is going to the party with Alex?",
+                      "what should I ask Lilly tonight?",
+                      "who is the person that helped me with the dashboard work last week?"] {
+            XCTAssertFalse(WhoIsQuestionDetector.looksLikeIdentityQuestion(query),
+                "Should not short-circuit: \(query)")
+        }
+    }
+
+    /// Smart quotes come from iOS keyboards; the straight and curly forms must
+    /// behave identically.
+    @MainActor
+    func test_whoIsDetector_handlesTypographicApostrophe() {
+        XCTAssertEqual(WhoIsQuestionDetector.candidateName(in: "Who\u{2019}s Tommy?"), "tommy")
+    }
+
+    /// The safe answer itself — no model call, so nothing can be fabricated.
+    @MainActor
+    func test_answerWhoIs_withNoResolvedPeople_refusesDeterministically() async throws {
+        let answer = try await AdviceService().answerWhoIs(question: "who is Tommy?", people: [])
+        XCTAssertTrue(answer.contains("don't have anyone by that name"),
+            "An unresolved name must get the deterministic refusal; got: \(answer)")
+    }
+
+    // MARK: - Unresolved-but-mentioned people
+
+    /// Builds a graph where "Tommy" is named in entries but was never added as
+    /// a Person — the state MemoryGraphBuilder records as a
+    /// `person-unresolved:` node.
+    @MainActor
+    private func graphMentioningTommy(entryCount: Int, now: Date) -> MemoryGraph {
+        let me = Person(name: "Ganesh", isMe: true)
+        let experiences = (0..<entryCount).map { i in
+            Experience(
+                id: UUID(), createdAt: now.addingTimeInterval(-Double(i + 1) * 86_400),
+                title: "Day \(i) with Tommy",
+                summary: "Spent time with Tommy.",
+                tone: .pleasant, domain: .family, people: ["Tommy"]
+            )
+        }
+        return MemoryGraphBuilder.build(
+            experiences: experiences, events: [], decisions: [],
+            people: [me], relationships: [], conflicts: [], reminders: []
+        )
+    }
+
+    @MainActor
+    func test_unresolvedPersonFinder_findsNameMentionedButNotInPeople() {
+        let now = Date()
+        let found = UnresolvedPersonFinder.find(
+            name: "tommy", in: graphMentioningTommy(entryCount: 2, now: now), now: now
+        )
+        let mention = try? XCTUnwrap(found)
+        XCTAssertNotNil(mention)
+        XCTAssertEqual(found?.totalCount, 2)
+        XCTAssertEqual(found?.name, "Tommy", "Should use the journal's own spelling")
+        XCTAssertTrue(found?.answerText.contains("isn't in your People list") ?? false)
+        XCTAssertTrue(found?.answerText.contains("add Tommy to your People list") ?? false)
+    }
+
+    /// Caps cited mentions at 3 while still reporting the true total.
+    @MainActor
+    func test_unresolvedPersonFinder_capsCitationsAtThree() {
+        let now = Date()
+        let found = UnresolvedPersonFinder.find(
+            name: "tommy", in: graphMentioningTommy(entryCount: 7, now: now), now: now
+        )
+        XCTAssertEqual(found?.mentions.count, 3)
+        XCTAssertEqual(found?.totalCount, 7)
+        XCTAssertTrue(found?.answerText.contains("and 4 more") ?? false,
+            "Got: \(found?.answerText ?? "nil")")
+    }
+
+    /// Most recent first, so the three shown are the three that matter.
+    @MainActor
+    func test_unresolvedPersonFinder_citesMostRecentFirst() {
+        let now = Date()
+        let found = UnresolvedPersonFinder.find(
+            name: "tommy", in: graphMentioningTommy(entryCount: 5, now: now), now: now
+        )
+        let dates = found?.mentions.compactMap(\.date) ?? []
+        XCTAssertEqual(dates, dates.sorted(by: >), "Mentions must be newest first")
+    }
+
+    /// The window is applied explicitly — the graph itself has no date bound.
+    @MainActor
+    func test_unresolvedPersonFinder_ignoresMentionsOlderThanAYear() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let old = Experience(
+            id: UUID(), createdAt: now.addingTimeInterval(-400 * 86_400),
+            title: "Ancient day with Tommy", summary: "Long ago.",
+            tone: .pleasant, domain: .family, people: ["Tommy"]
+        )
+        let graph = MemoryGraphBuilder.build(
+            experiences: [old], events: [], decisions: [],
+            people: [me], relationships: [], conflicts: [], reminders: []
+        )
+        XCTAssertNil(UnresolvedPersonFinder.find(name: "tommy", in: graph, now: now),
+            "A mention older than the lookback window must not be cited")
+    }
+
+    /// A name nobody has ever written must stay unknown — that is the case the
+    /// deterministic refusal exists for.
+    @MainActor
+    func test_unresolvedPersonFinder_returnsNilForNameNeverMentioned() {
+        let now = Date()
+        XCTAssertNil(UnresolvedPersonFinder.find(
+            name: "connor", in: graphMentioningTommy(entryCount: 3, now: now), now: now
+        ))
+    }
+
+    /// A real Person must never be reported as unresolved, or adding someone
+    /// would not stop the prompt.
+    @MainActor
+    func test_unresolvedPersonFinder_ignoresPeopleWhoAreInTheList() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let tommy = Person(name: "Tommy")
+        let entry = Experience(
+            id: UUID(), createdAt: now.addingTimeInterval(-86_400),
+            title: "Day with Tommy", summary: "Spent time with Tommy.",
+            tone: .pleasant, domain: .family, people: ["Tommy"]
+        )
+        entry.linkedPeople = [tommy]
+        let graph = MemoryGraphBuilder.build(
+            experiences: [entry], events: [], decisions: [],
+            people: [me, tommy], relationships: [], conflicts: [], reminders: []
+        )
+        XCTAssertNil(UnresolvedPersonFinder.find(name: "tommy", in: graph, now: now),
+            "Tommy is in People — this path must not fire")
+    }
 }
 
 private final class SequencedAdviceService: AdvisingServicing {
@@ -877,4 +1469,5 @@ private final class MockSpeechService: SpeechServicing {
     func requestAuthorization() async -> Bool { true }
     func startRecording() async throws { isRecording = true }
     func stopRecording() { isRecording = false }
+
 }

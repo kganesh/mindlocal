@@ -6,10 +6,10 @@ import FoundationModels
 /// the couch" -> David / nurse). Grounded in the note; never invented.
 @Generable
 struct PersonOccupationDraft: Equatable {
-    @Guide(description: "The person's name or relationship, exactly as mentioned (e.g. 'David', 'my manager Sarah'). Empty if no specific person's occupation is stated.")
+    @Guide(description: "The person's name or relationship, exactly as mentioned (e.g. 'David', 'my manager Sarah').")
     var name: String
 
-    @Guide(description: "Their occupation or job title, exactly as stated (e.g. 'nurse', 'software engineer', 'retired'). Empty if not stated.")
+    @Guide(description: "Their occupation or job title, exactly as stated (e.g. 'nurse', 'software engineer', 'retired').")
     var occupation: String
 }
 

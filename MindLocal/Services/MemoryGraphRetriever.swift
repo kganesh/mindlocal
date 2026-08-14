@@ -228,6 +228,34 @@ enum MemoryQueryResolver {
             let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
             return DateInterval(start: start, end: now)
         }
+
+        // Forward-looking terms. Everything above answers "what happened";
+        // these answer "what's coming", which is what a question like "what
+        // should I ask Lilly before dinner tonight" or "priorities meeting her
+        // next week" is actually about. Without them the phrase was silently
+        // dropped and the question fell back to undated relevance only.
+        if containsTerm("tonight", in: normalized) {
+            // Deliberately the whole of today, not now..<midnight: a reminder
+            // due earlier today is exactly what "before dinner tonight" wants
+            // surfaced, and excluding it would be worse than including a few
+            // already-past hours.
+            let start = calendar.startOfDay(for: now)
+            return DateInterval(start: start, end: calendar.date(byAdding: .day, value: 1, to: start) ?? now)
+        }
+        if containsTerm("tomorrow", in: normalized) {
+            let today = calendar.startOfDay(for: now)
+            let start = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+            return DateInterval(start: start, end: calendar.date(byAdding: .day, value: 1, to: start) ?? start)
+        }
+        if containsTerm("next week", in: normalized) {
+            guard let nextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: now),
+                  let interval = calendar.dateInterval(of: .weekOfYear, for: nextWeek) else { return nil }
+            return interval
+        }
+        if containsTerm("upcoming", in: normalized) || containsTerm("coming up", in: normalized) {
+            let end = calendar.date(byAdding: .day, value: 30, to: now) ?? now
+            return DateInterval(start: now, end: end)
+        }
         return nil
     }
 
@@ -320,6 +348,13 @@ enum MemoryGraphRetriever {
             }
             if isRecentEvidence(node, now: now) {
                 boost(node.id, by: 4)
+            }
+            // Same scoping as the structured-intent boost above, and for the
+            // same reason: a date is a graph-wide signal with no idea who the
+            // node is about, so an unrelated event that merely happens to fall
+            // tonight would otherwise outrank this person's own evidence.
+            if structuredIntentApplies {
+                boost(node.id, by: timeProximityBoost(node, intent: intent))
             }
         }
 
@@ -471,6 +506,38 @@ enum MemoryGraphRetriever {
             10
         default:
             0
+        }
+    }
+
+    /// Ranks dated evidence by how close it sits to the window the question
+    /// asked about, so "due today" beats "due next week" when the question was
+    /// about tonight.
+    ///
+    /// `isRecentEvidence` can't do this: it measures distance from `now` with
+    /// `abs()`, so a reminder due next week and one due today score identically
+    /// and the two only separated on the UUID-string tie-break in the ranking
+    /// sort — effectively at random.
+    ///
+    /// Deliberately returns 0 when the question named no time at all, leaving
+    /// undated-question ranking exactly as it was. Time should only steer
+    /// results when the user actually asked about it.
+    private static func timeProximityBoost(_ node: MemoryNode, intent: MemoryQueryIntent) -> Double {
+        guard let range = intent.timeRange,
+              MemoryGraphRetrievalResult.evidenceKind(node.kind),
+              let date = node.date else { return 0 }
+
+        if range.contains(date) { return 18 }
+
+        // Just outside the window still beats far away — a reminder due the
+        // morning after "tonight" is more use than one from six months back.
+        let distance = date < range.start
+            ? range.start.timeIntervalSince(date)
+            : date.timeIntervalSince(range.end)
+        switch distance / 86_400 {
+        case ..<1:  return 10
+        case ..<3:  return 6
+        case ..<7:  return 3
+        default:    return 0
         }
     }
 

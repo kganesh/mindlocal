@@ -14,13 +14,13 @@ import FoundationModels
 /// relative/fuzzy time arithmetic wrong.
 @Generable
 struct ActivityEventDraft: Equatable {
-    @Guide(description: "Short title for the activity (e.g. 'Coffee with David', 'Took Mom to her appointment'). Empty if not a real, completed activity with a specific person.")
+    @Guide(description: "Short title for the activity (e.g. 'Coffee with David', 'Took Mom to her appointment').")
     var title: String
 
-    @Guide(description: "The specific named person involved — by name or relationship (e.g. 'David', 'Mom'). Empty if the activity involved no specific person (a group, or done alone) — never invent one.")
+    @Guide(description: "The specific named person involved — by name or relationship (e.g. 'David', 'Mom'). Not a group, and not done alone.")
     var with: String
 
-    @Guide(description: "What time of day it happened, exactly as the writer stated it (e.g. '4 o'clock', '4pm', 'in the afternoon', 'this morning'). Do NOT compute or normalize it. Empty if no time was mentioned at all.")
+    @Guide(description: "What time of day it happened, exactly as the writer stated it (e.g. '4 o'clock', '4pm', 'in the afternoon', 'this morning'). Do NOT compute or normalize it.")
     var timePhrase: String
 }
 

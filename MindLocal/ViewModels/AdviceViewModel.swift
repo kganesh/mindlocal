@@ -20,6 +20,9 @@ final class AdviceViewModel {
     /// what the on-device model actually saw, for debugging an answer that
     /// looks wrong or inconsistent. Never built in release builds.
     private(set) var debugContext: String?
+    /// Grounding findings for the last question, when the Settings toggle
+    /// routed it through the grounded path. nil when that path wasn't used.
+    private(set) var debugGroundingReport: GroundingReport?
     #endif
 
     private let advisor: AdvisingServicing
@@ -63,7 +66,8 @@ final class AdviceViewModel {
     func ask(requestID: UUID, question submittedQuestion: String,
              decisions: [DecisionSummary], experiences: [ExperienceSummary],
              reminders: [ReminderSummary] = [], events: [EventSummary] = [],
-             people: [PersonProfileSummary] = [], graphContext: String = "") async {
+             people: [PersonProfileSummary] = [], graphContext: String = "",
+             packedContext: MemoryGraphContextPacker.PackedContext? = nil) async {
         let q = submittedQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
             activeRequestID = nil
@@ -79,11 +83,26 @@ final class AdviceViewModel {
                 )
             },
             answer: {
-                try await self.advisor.advise(
+                // packedContext non-nil means the Settings toggle asked for the
+                // grounded path. It carries the manifest the report is checked
+                // against, so the answer is validated against exactly the
+                // context that produced it.
+                guard let packedContext else {
+                    return try await self.advisor.advise(
+                        question: q, decisions: decisions, experiences: experiences,
+                        reminders: reminders, events: events, people: people,
+                        graphContext: graphContext
+                    )
+                }
+                let (grounded, report) = try await self.advisor.adviseGrounded(
                     question: q, decisions: decisions, experiences: experiences,
                     reminders: reminders, events: events, people: people,
-                    graphContext: graphContext
+                    packedContext: packedContext
                 )
+                #if DEBUG
+                self.debugGroundingReport = report
+                #endif
+                return grounded.answer
             }
         )
     }
@@ -121,6 +140,7 @@ final class AdviceViewModel {
         guard activeRequestID == requestID else { return }
         #if DEBUG
         debugContext = buildDebugContext()
+        debugGroundingReport = nil
         #endif
         do {
             let answer = try await produceAnswer()
@@ -136,6 +156,18 @@ final class AdviceViewModel {
             activeRequestID = nil
             phase = .error("\(ModelErrorReason.debugAnnotated(error)) Please try again.")
         }
+    }
+
+    /// Publishes an answer this app computed itself, with no model call.
+    /// Used where the truthful answer is fully determined by the data — e.g. a
+    /// name the journal mentions but People doesn't contain, where handing the
+    /// question to the model is exactly what produced "Tommy is your brother".
+    func answerDirectly(requestID: UUID, text: String, debugContext: String = "") async {
+        await complete(
+            requestID: requestID,
+            debugContext: { debugContext },
+            answer: { text }
+        )
     }
 
     func clear() {

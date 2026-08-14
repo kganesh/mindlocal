@@ -8,10 +8,10 @@ import FoundationModels
 /// instructions for the "stated preference vs. one-time reaction" distinction.
 @Generable
 struct PersonPreferenceDraft: Equatable {
-    @Guide(description: "The person's name or relationship, exactly as mentioned (e.g. 'Akhil', 'my manager Sarah'). Empty if no specific person's preference is stated.")
+    @Guide(description: "The person's name or relationship, exactly as mentioned (e.g. 'Akhil', 'my manager Sarah').")
     var name: String
 
-    @Guide(description: "The specific thing they like or dislike, exactly as stated (e.g. 'chocolate ice cream cake', 'cilantro'). Empty if not stated.")
+    @Guide(description: "The specific thing they like or dislike, exactly as stated (e.g. 'chocolate ice cream cake', 'cilantro').")
     var item: String
 
     @Guide(description: "Whether they like or dislike it, based on how they described it. One of: like, dislike.")

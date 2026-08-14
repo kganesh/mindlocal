@@ -67,6 +67,20 @@ protocol AdvisingServicing: Sendable {
                 people: [PersonProfileSummary],
                 graphContext: String) async throws -> String
 
+    /// Same as `advise`, but returns a structured answer plus a report on
+    /// whether its citations actually appear in the context it was given.
+    /// Defaulted so existing conformances (test doubles) keep compiling; the
+    /// default is deliberately ungrounded — only the real service can produce a
+    /// meaningful report.
+    func adviseGrounded(question: String,
+                        decisions: [DecisionSummary],
+                        experiences: [ExperienceSummary],
+                        reminders: [ReminderSummary],
+                        events: [EventSummary],
+                        people: [PersonProfileSummary],
+                        packedContext: MemoryGraphContextPacker.PackedContext)
+    async throws -> (answer: GroundedAnswer, report: GroundingReport)
+
     /// Proactive preparation advice for an upcoming event, grounded in the
     /// (already-filtered, relevant) decisions and experiences, optionally
     /// factoring in a weather forecast for outdoor events.
@@ -91,6 +105,28 @@ protocol AdvisingServicing: Sendable {
     /// than risk the model inventing a relationship for a name it's never
     /// seen.
     func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String
+}
+
+extension AdvisingServicing {
+    func adviseGrounded(question: String,
+                        decisions: [DecisionSummary],
+                        experiences: [ExperienceSummary],
+                        reminders: [ReminderSummary],
+                        events: [EventSummary],
+                        people: [PersonProfileSummary],
+                        packedContext: MemoryGraphContextPacker.PackedContext)
+    async throws -> (answer: GroundedAnswer, report: GroundingReport) {
+        let text = try await advise(
+            question: question, decisions: decisions, experiences: experiences,
+            reminders: reminders, events: events, people: people,
+            graphContext: packedContext.text
+        )
+        let answer = GroundedAnswer(
+            answer: text, citedEvidence: [], citedPeople: [],
+            citedDates: [], usedGeneralKnowledge: true
+        )
+        return (answer, GroundingReport())
+    }
 }
 
 enum AdviceError: Error {
@@ -183,6 +219,46 @@ final class AdviceService: AdvisingServicing {
             options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 400)
         )
         return Self.stripRepetition(response.content)
+    }
+
+    /// Graph-backed advice that can be checked afterwards.
+    ///
+    /// Same model, sampling, and token budget as `advise` above — the only
+    /// differences are the citation contract in the instructions and the
+    /// structured return type. Takes the packer's `PackedContext` rather than a
+    /// bare string so the caller validates against exactly what was sent, with
+    /// no chance of the manifest and the prompt drifting apart.
+    func adviseGrounded(question: String,
+                        decisions: [DecisionSummary],
+                        experiences: [ExperienceSummary],
+                        reminders: [ReminderSummary],
+                        events: [EventSummary],
+                        people: [PersonProfileSummary],
+                        packedContext: MemoryGraphContextPacker.PackedContext)
+    async throws -> (answer: GroundedAnswer, report: GroundingReport) {
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { throw AdviceError.noQuestion }
+        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
+
+        let session = LanguageModelSession(
+            model: Self.answerModel,
+            instructions: Prompts.groundedAdvisorInstructions
+        )
+        let response = try await session.respond(
+            to: Prompts.advisorPrompt(
+                question: q,
+                context: Self.context(
+                    decisions: decisions, experiences: experiences,
+                    reminders: reminders, events: events, people: people,
+                    graphContext: packedContext.text
+                )
+            ),
+            generating: GroundedAnswer.self,
+            options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 400)
+        )
+        var answer = response.content
+        answer.answer = Self.stripRepetition(answer.answer)
+        return (answer, GroundingValidator.validate(answer, against: packedContext))
     }
 
     func answerWhoIs(question: String, people: [PersonProfileSummary]) async throws -> String {
@@ -360,11 +436,25 @@ final class AdviceService: AdvisingServicing {
                 kept.append(block)
                 remaining -= (block.count + separatorCost)
             } else {
-                kept.append(String(block.prefix(available)) + "…")
+                kept.append(truncatedToLineBoundary(block, available: available))
                 remaining = 0
             }
         }
         return kept.joined(separator: "\n\n")
+    }
+
+    /// Cuts `block` to fit `available` characters at the last complete line
+    /// rather than an arbitrary character position — a raw `prefix` landed
+    /// mid-word on a real evidence line ("...Argument with Alex ab…"), a
+    /// dangling, unfinished sentence right in the model's own input. Dropping
+    /// the partial trailing line entirely keeps every line the model actually
+    /// sees intact, at the cost of a little unused budget.
+    private static func truncatedToLineBoundary(_ block: String, available: Int) -> String {
+        let prefix = String(block.prefix(available))
+        guard let lastNewline = prefix.lastIndex(of: "\n") else {
+            return prefix + "…"   // no line break to snap to — best effort
+        }
+        return String(prefix[..<lastNewline]) + "\n…"
     }
 
     private static func clip(_ text: String, max: Int = 240) -> String {

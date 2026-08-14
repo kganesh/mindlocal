@@ -29,72 +29,26 @@ enum Prompts {
     }
 
     // §10.4 — Experience extraction (on-device, guided generation with ExperienceDraft)
+    /// Deliberately global-only. Every per-field rule lives in the matching
+    /// `@Guide` on ExperienceDraft (and the nested drafts) instead of being
+    /// stated in both places — the guided-generation schema is sent to the
+    /// model alongside these instructions, so duplicated wording was costing
+    /// context twice and left too little room for the note itself.
     static let experienceExtractionInstructions = """
-    You turn a person's diary entry — a moment or experience from their day — into \
-    a structured record. Write the summary, feelings, factors, and response in the \
-    diary writer's own first-person voice ("I", "we", "my"), the way they wrote it — \
-    never in the third person and never refer to them as "the writer", "the author", \
-    "the narrator", or "they". Extract the people involved, the activities they did, \
-    the outcomes/results, their emotions, any forward-looking wants/wishes/hopes, and \
-    the themes. For people, list only OTHER people the writer mentions by name or \
-    relationship (e.g. Lilly, Maya, my manager) — never include the diary writer \
-    themselves, and never "I", "me", "the writer", "the narrator", or "the author". \
-    If they mention any decisions they made, extract those into the decisions list; \
-    otherwise leave it empty. If they describe an argument, disagreement, fight, or \
-    tension with a specific person, extract it into the conflicts list — who it was \
-    with, what it was about, how they felt, and whether it was resolved, unresolved, \
-    or ongoing; otherwise leave conflicts empty. A merely unpleasant event with no \
-    interpersonal disagreement is NOT a conflict. An argument or disagreement is a \
-    conflict — put it ONLY in conflicts, never under activities or outcomes. \
-    If they say something like "remind me to ask my doctor about X" or "next time I \
-    see my manager, bring up Y" — a concrete action item tied to a FUTURE interaction \
-    with a specific named person — extract it into reminders (who it's about, and \
-    what to remember), never into hopes. A general want or wish with no specific \
-    person and no next-interaction framing ("I hope things get better") stays in \
-    hopes, not reminders. \
-    If they mention a specific upcoming appointment, meeting, or scheduled visit \
-    WITH a stated date or time ("next Tuesday", "in two weeks", "the 15th at 2pm"), \
-    extract it into appointments — who it's with, a short title, and the date/time \
-    exactly as they said it. Keep their original wording for the date/time; do NOT \
-    compute or normalize it into a calendar date yourself. If no specific date or \
-    time is mentioned, it is NOT an appointment — leave it in reminders or hopes \
-    instead. \
-    If they describe an activity that ALREADY happened WITH a specific named \
-    person ("met David for coffee", "took Mom to her appointment"), extract it \
-    into activityEvents — a short title, who it was with, and what time it \
-    happened exactly as they said it (empty if no time was mentioned). Do NOT \
-    include an activity done alone or with an unnamed group ("the team", \
-    "friends") — those stay in activities only, never in activityEvents. \
-    If they explicitly state a specific named person's occupation or job title \
-    ("David, a nurse, ...", "my manager Sarah is a director at..."), extract it \
-    into personOccupations — the person and their occupation exactly as stated. \
-    Do NOT infer or guess an occupation from context (a role reference like \
-    "my manager" is a relationship, not necessarily their job title unless the \
-    note itself says so) — only what's explicitly stated. \
-    If they state that a specific named person likes or dislikes something \
-    ("Akhil loves chocolate ice cream cake", "Gayatri can't stand cilantro"), \
-    extract it into personPreferences — the person, the specific thing, and \
-    whether it's a like or dislike. This must be an actual, ongoing preference \
-    they stated, NOT how they reacted to a single one-off moment — "Akhil was \
-    excited about the ice cream today" describes one moment, not a preference; \
-    do not extract a preference from it. \
-    Use only information present in the note — never invent \
-    people, activities, outcomes, feelings, hopes, conflicts, reminders, \
-    appointments, activityEvents, personOccupations, personPreferences, or \
-    decisions they did not state. \
-    Distinguish what actually happened from what the person only planned, intends, or \
-    decided to do later. The summary, activities, and outcomes must describe ONLY \
-    actions that already occurred. Never report a planned, intended, or not-yet-done \
-    action as completed — cues like "we'll", "soon", "going to", "plan to", or \
-    "decided to (do later)" mean it has NOT happened yet. Such intentions belong in \
-    decisions or hopes, never in outcomes or the summary. \
-    If they state what time something happened, exact ("4 o'clock", "4pm") or \
-    approximate ("in the afternoon", "this morning", "around noon"), keep that \
-    time reference in the summary — it's part of what happened, not a detail \
-    to compress away. \
-    If a field is not mentioned, leave it empty. Judge the tone (pleasant, \
-    unpleasant, or mixed) from how they describe it. Keep their own wording where \
-    possible. Title is max 8 words.
+    You turn a person's diary entry — a moment from their day — into a structured record.
+
+    VOICE: write summary, feelings, factors, and response in the writer's own \
+    first-person voice ("I", "we", "my") — never the third person, and never \
+    "the writer", "the author", or "the narrator". Keep their own wording where you can.
+
+    GROUNDING: use only what the note states. Never invent or infer anything, for \
+    any field. Leave every field the note does not cover empty.
+
+    TIMING: summary, activities, and outcomes describe ONLY what already happened. \
+    Cues like "we'll", "soon", "going to", "plan to", or "decided to" mean it has \
+    NOT happened yet — that belongs in decisions or hopes.
+
+    Judge tone from how they describe it.
     """
 
     static func experienceExtractionPrompt(transcript: String) -> String {
@@ -132,6 +86,24 @@ enum Prompts {
     // characters through several one-off additions and was itself a real
     // contributor to a context-window overflow — condensed back down while
     // preserving every directive.
+    /// Same advisor rules, plus the citation contract that makes the answer
+    /// checkable. Kept as a separate constant so the plain-prose path is
+    /// unaffected while the grounded path is being evaluated.
+    static let groundedAdvisorInstructions = """
+    \(advisorInstructions)
+
+    Return your answer as a structured record, not prose alone:
+    - answer: the reply itself.
+    - citedEvidence: the NUMBERS of the Evidence lines you used (e.g. [1, 3]). \
+    Cite only lines you actually relied on. If none applied, leave it empty.
+    - citedPeople: every person you named, spelled exactly as the context spells them.
+    - citedDates: every date you stated, copied exactly as the context writes it.
+    - usedGeneralKnowledge: true if any part of the answer is general guidance \
+    rather than something the context supports.
+    Never cite an Evidence number that is not in the context, and never list a \
+    person or date the context does not contain.
+    """
+
     static let advisorInstructions = """
     You are the user's personal advisor. Use their past decisions/experiences \
     (given as context) and sound reasoning. Cite specifics — title, and the \

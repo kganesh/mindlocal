@@ -12,13 +12,13 @@ import FoundationModels
 /// resolved deterministically afterward by `AppointmentDateResolver`.
 @Generable
 struct AppointmentDraft: Equatable {
-    @Guide(description: "Who the appointment is with — a specific person by name or relationship (e.g. 'Dr. Chotai', 'the specialist'). Empty if not tied to a specific person.")
+    @Guide(description: "Who the appointment is with — a specific person by name or relationship (e.g. 'Dr. Chotai', 'the specialist').")
     var with: String
 
-    @Guide(description: "Short title for the appointment (e.g. 'Wisdom tooth extraction', 'Follow-up visit'). Empty if not a real appointment.")
+    @Guide(description: "Short title for the appointment (e.g. 'Wisdom tooth extraction', 'Follow-up visit').")
     var title: String
 
-    @Guide(description: "The date/time exactly as the writer stated it (e.g. 'next Tuesday', 'in two weeks', 'August 15th at 2pm'). Do NOT compute or normalize this into a calendar date — keep their original wording. Empty if no specific date or time was mentioned.")
+    @Guide(description: "The date/time exactly as the writer stated it (e.g. 'next Tuesday', 'in two weeks', 'August 15th at 2pm'). Do NOT compute or normalize this into a calendar date — keep their original wording.")
     var whenPhrase: String
 }
 
