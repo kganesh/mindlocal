@@ -224,6 +224,29 @@ enum MemoryQueryResolver {
             let start = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
             return DateInterval(start: start, end: now)
         }
+        // "last week" / "last month" mean the PREVIOUS calendar period, which is
+        // what someone reviewing means by them. "past week" / "past month" are
+        // the rolling equivalents. Without these, "what did I do last week"
+        // resolved to no window at all and the answer was drawn from whatever
+        // ranked highest, month-old entries included.
+        if containsTerm("last week", in: normalized) {
+            guard let lastWeek = calendar.date(byAdding: .weekOfYear, value: -1, to: now),
+                  let interval = calendar.dateInterval(of: .weekOfYear, for: lastWeek) else { return nil }
+            return interval
+        }
+        if containsTerm("past week", in: normalized) || containsTerm("last 7 days", in: normalized) {
+            let start = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+            return DateInterval(start: start, end: now)
+        }
+        if containsTerm("last month", in: normalized) {
+            guard let lastMonth = calendar.date(byAdding: .month, value: -1, to: now),
+                  let interval = calendar.dateInterval(of: .month, for: lastMonth) else { return nil }
+            return interval
+        }
+        if containsTerm("past month", in: normalized) || containsTerm("last 30 days", in: normalized) {
+            let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+            return DateInterval(start: start, end: now)
+        }
         if containsTerm("recent", in: normalized) || containsTerm("recently", in: normalized) {
             let start = calendar.date(byAdding: .day, value: -30, to: now) ?? now
             return DateInterval(start: start, end: now)
@@ -376,6 +399,7 @@ enum MemoryGraphRetriever {
         let expandedNodes = expandedScores
             .compactMap { id, score -> (MemoryNode, Double)? in
                 guard let node = index.node(id) else { return nil }
+                guard withinRequestedTime(node, intent: intent) else { return nil }
                 return (node, score + evidencePriority(node))
             }
             .sorted {
@@ -473,6 +497,22 @@ enum MemoryGraphRetriever {
         return terms.contains { MemoryQueryResolver.containsTerm($0, in: haystack) }
     }
 
+    /// Score a node picks up for sitting one edge away from a mentioned person.
+    ///
+    /// IMPORTANT when tuning these: each value lands TWICE per record, so the
+    /// effective weights are double what this table reads. MemoryGraphBuilder
+    /// writes every person↔record link in both directions (entry --mentions-->
+    /// person AND person --hasEntry--> entry), and GraphIndex files each edge
+    /// under both endpoints — so `edges(touching: personID)` returns both, and
+    /// `boost` accumulates with `+=`. A reminder is really worth 56 (28 + 28),
+    /// an entry 40 (20 + 20), a related person 28 (14 + 14).
+    ///
+    /// Relative order among neighbours is unaffected, which is why this went
+    /// unnoticed. It does mean edge-derived score weighs about twice as heavily
+    /// against the once-applied signals in the node loop above — the structured
+    /// intent boost (35), text match (12), time proximity (up to 18) and
+    /// recency (4). Halving these values would rebalance that; it is left as-is
+    /// because the retriever's existing behaviour is calibrated around it.
     private static func neighborBoost(for edgeKind: MemoryEdgeKind) -> Double {
         switch edgeKind {
         case .hasReminder, .aboutPerson:
@@ -539,6 +579,26 @@ enum MemoryGraphRetriever {
         case ..<7:  return 3
         default:    return 0
         }
+    }
+
+    /// Dated evidence outside an explicitly requested window is REMOVED, not
+    /// merely ranked lower.
+    ///
+    /// matchesStructuredIntent only withholds a boost from a non-matching node,
+    /// so month-old entries still reached the model for "what did I do last
+    /// week" — they simply arrived on other signals. Asking about a period is
+    /// a constraint on which evidence is admissible, not a preference, and
+    /// handing the model evidence from outside it invites exactly the confident
+    /// wrong answer it produced.
+    ///
+    /// Applies only to evidence that carries a date. People, domains and other
+    /// undated or non-evidence nodes are untouched — they are context for
+    /// interpreting the evidence, not answers in themselves.
+    private static func withinRequestedTime(_ node: MemoryNode, intent: MemoryQueryIntent) -> Bool {
+        guard let range = intent.timeRange,
+              MemoryGraphRetrievalResult.evidenceKind(node.kind),
+              let date = node.date else { return true }
+        return range.contains(date)
     }
 
     private static func isRecentEvidence(_ node: MemoryNode, now: Date) -> Bool {

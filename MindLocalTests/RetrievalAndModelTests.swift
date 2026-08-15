@@ -1549,6 +1549,94 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertFalse(names.contains(where: { $0.lowercased().contains("amazon") }),
             "A group must not become a Person; got \(names)")
     }
+
+    // MARK: - Backward-looking time windows
+
+    /// Reported: "what did I do last week" returned entries from a month
+    /// earlier. "last week" matched nothing in resolveTimeRange, so no window
+    /// was set and ranking alone decided what the model saw.
+    @MainActor
+    func test_memoryQueryResolver_resolvesBackwardLookingTimePhrases() {
+        func range(_ query: String) -> DateInterval? {
+            MemoryQueryResolver.resolve(query: query, people: [], relationships: []).timeRange
+        }
+        XCTAssertNotNil(range("what did I do last week"), "'last week' must resolve")
+        XCTAssertNotNil(range("what did I do in the past week"), "'past week' must resolve")
+        XCTAssertNotNil(range("what happened last month"), "'last month' must resolve")
+        XCTAssertNotNil(range("anything from the past month?"), "'past month' must resolve")
+    }
+
+    /// "last week" is the previous calendar week — entirely in the past, and
+    /// not merely "this week so far".
+    @MainActor
+    func test_memoryQueryResolver_lastWeekIsWhollyInThePast() throws {
+        let now = Date()
+        let intent = MemoryQueryResolver.resolve(
+            query: "what did I do last week", people: [], relationships: [], now: now
+        )
+        let range = try XCTUnwrap(intent.timeRange)
+        XCTAssertLessThan(range.end, now, "'last week' must end before now")
+        XCTAssertGreaterThan(range.start, now.addingTimeInterval(-21 * 86_400),
+            "'last week' must not reach weeks back")
+    }
+
+    /// The core fix: an explicit window REMOVES older evidence rather than
+    /// merely ranking it lower. Previously a month-old entry still reached the
+    /// model because it scored well on other signals.
+    @MainActor
+    func test_memoryGraphRetriever_lastWeekQuestion_excludesOlderEvidence() throws {
+        let now = Date()
+        let calendar = Calendar.current
+        let lastWeek = try XCTUnwrap(calendar.date(byAdding: .weekOfYear, value: -1, to: now))
+        let inWindow = try XCTUnwrap(calendar.dateInterval(of: .weekOfYear, for: lastWeek)).start
+            .addingTimeInterval(2 * 86_400)
+
+        let me = Person(name: "Ganesh", isMe: true)
+        let recent = Experience(
+            id: UUID(), createdAt: inWindow,
+            title: "UNIQUE-LASTWEEK Ran by the river",
+            summary: "A run before work.", tone: .pleasant, domain: .health
+        )
+        let old = Experience(
+            id: UUID(), createdAt: now.addingTimeInterval(-35 * 86_400),
+            title: "UNIQUE-MONTHOLD Piano progress",
+            summary: "Played the Chopin piece all the way through.",
+            tone: .pleasant, domain: .other
+        )
+
+        let graph = MemoryGraphBuilder.build(
+            experiences: [recent, old], events: [], decisions: [],
+            people: [me], relationships: [], conflicts: [], reminders: []
+        )
+        let result = MemoryGraphRetriever.retrieve(
+            query: "what did I do last week",
+            graph: graph, people: [me], relationships: [], now: now, limit: 24
+        )
+
+        let titles = result.evidenceNodes.map { $0.title }
+        XCTAssertFalse(titles.contains { $0.contains("UNIQUE-MONTHOLD") },
+            "Evidence from outside the asked-about week must not reach the model; got \(titles)")
+    }
+
+    /// The filter must not strip people or other context — only dated evidence
+    /// that falls outside the window.
+    @MainActor
+    func test_memoryGraphRetriever_timeWindowKeepsUndatedContext() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let lilly = Person(name: "Lilly")
+        let spouse = PersonRelationship(subject: lilly, type: .spouse, object: me)
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [], decisions: [],
+            people: [me, lilly], relationships: [spouse], conflicts: [], reminders: []
+        )
+        let result = MemoryGraphRetriever.retrieve(
+            query: "what did Lilly and I do last week",
+            graph: graph, people: [me, lilly], relationships: [spouse], now: now, limit: 24
+        )
+        XCTAssertTrue(result.expandedNodes.contains { $0.kind == .person },
+            "People must survive a time window — they are context, not evidence")
+    }
 }
 
 private final class SequencedAdviceService: AdvisingServicing {

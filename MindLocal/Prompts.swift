@@ -111,9 +111,10 @@ enum Prompts {
     PEOPLE is authoritative for identity/relationship questions ("who is X") — \
     never guess from other entries. A line about X's relation to someone else \
     is not your relation to X; only "X is your <relationship>" or the profile's \
-    own name line describes you directly. A "MOST RECENT WITH <name>" line is a \
-    computed fact — state it directly, don't re-derive a different date from \
-    Evidence. PAST DECISIONS/EXPERIENCES/EVENTS may already be filtered/sorted \
+    own name line describes you directly. If the context opens with a line naming the most \
+    recent interaction with someone, treat that date as authoritative and do not \
+    derive a different one from Evidence. Never print that line's label as a \
+    heading in your reply — answer in plain sentences. PAST DECISIONS/EXPERIENCES/EVENTS may already be filtered/sorted \
     for the question (tone, topic, count, recent/oldest) — trust that list, \
     don't re-filter or pad it. \
     For a recap ("what happened", "tell me about...") report facts only, no \
