@@ -16,7 +16,15 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "The emotions the person expressed about it.")
     var feelings: String
 
-    @Guide(description: "One of: pleasant, unpleasant, mixed.")
+    // .anyOf hard-constrains the value, for the same reason it does on
+    // QueryIntentDraft.questionType. A description alone let the model answer
+    // with words it preferred — "positive", "good", "productive" — none of
+    // which are raw values, so `ExperienceTone(rawValue:) ?? .mixed` below
+    // silently turned an unmistakably good day into Mixed. A wrong tone is
+    // invisible: it looks like a judgement call rather than a parse failure,
+    // and it feeds the mood trend chart.
+    @Guide(description: "Overall tone the writer conveys. Use mixed ONLY when they describe both good and bad parts — a day they call good or productive throughout is pleasant, not mixed.",
+           .anyOf(["pleasant", "unpleasant", "mixed"]))
     var tone: String
 
     @Guide(description: "What made it pleasant or unpleasant.")
@@ -31,7 +39,8 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "One to three short theme tags.")
     var tags: [String]
 
-    @Guide(description: "One of: career, money, health, family, work, other.")
+    @Guide(description: "Which area of life this belongs to.",
+           .anyOf(["career", "money", "health", "family", "work", "other"]))
     var domain: String
 
     @Guide(description: "Specific individuals involved, by name or specific relationship (e.g. 'Sam', 'my manager', 'Mom'). Not groups ('the team', 'colleagues'), generic job titles, or the writer themselves.")
@@ -83,7 +92,7 @@ extension ExperienceDraft {
             response: response,
             learning: learning,
             tags: tags.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
-            domain: Domain(rawValue: domain) ?? .other,
+            domain: Domain(rawValue: domain.lowercased()) ?? .other,
             rawText: rawText,
             occurredAt: occurredAt,
             people: ExperienceDraft.cleaned(people),
@@ -118,7 +127,7 @@ extension ExperienceDraft {
         experience.response = response
         experience.learning = learning
         experience.tags = tags.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        experience.domain = Domain(rawValue: domain) ?? .other
+        experience.domain = Domain(rawValue: domain.lowercased()) ?? .other
         experience.people = ExperienceDraft.cleaned(people)
         experience.activities = ExperienceDraft.cleaned(activities)
         experience.outcomes = ExperienceDraft.cleaned(outcomes)

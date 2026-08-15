@@ -1,4 +1,5 @@
 import XCTest
+import SwiftData
 @testable import MindLocal
 
 final class RetrievalAndModelTests: XCTestCase {
@@ -1427,6 +1428,126 @@ final class RetrievalAndModelTests: XCTestCase {
         )
         XCTAssertNil(UnresolvedPersonFinder.find(name: "tommy", in: graph, now: now),
             "Tommy is in People — this path must not fire")
+    }
+
+    // MARK: - Tone / domain parsing
+
+    private func draft(tone: String, domain: String) -> ExperienceDraft {
+        ExperienceDraft(
+            title: "Preparation Day", summary: "A good productive preparation day.",
+            feelings: "positive", tone: tone, factors: "", response: "", learning: "",
+            tags: [], domain: domain, people: [], activities: [], outcomes: [],
+            hopes: [], conflicts: [], reminders: [], appointments: [],
+            decisions: [], activityEvents: [], personOccupations: [], personPreferences: []
+        )
+    }
+
+    /// A valid tone must survive whatever casing the model emits.
+    @MainActor
+    func test_experienceDraft_toneParsesRegardlessOfCasing() {
+        for raw in ["pleasant", "Pleasant", "PLEASANT"] {
+            let experience = draft(tone: raw, domain: "career").toExperience(rawText: nil, occurredAt: nil)
+            XCTAssertEqual(experience.tone, .pleasant, "Failed for tone '\(raw)'")
+        }
+    }
+
+    /// Domain was parsed WITHOUT lowercasing while tone was — so a capitalised
+    /// "Career" silently fell to .other, the same class of silent default that
+    /// made a good day read as Mixed.
+    @MainActor
+    func test_experienceDraft_domainParsesRegardlessOfCasing() {
+        for raw in ["career", "Career", "CAREER"] {
+            let experience = draft(tone: "pleasant", domain: raw).toExperience(rawText: nil, occurredAt: nil)
+            XCTAssertEqual(experience.domain, .career, "Failed for domain '\(raw)'")
+        }
+    }
+
+    /// The reported bug: a clearly positive day came back Mixed. An
+    /// out-of-vocabulary tone still defaults to .mixed — .anyOf on the guide is
+    /// what stops the model producing one — but this pins the fallback so the
+    /// behaviour is deliberate rather than incidental.
+    @MainActor
+    func test_experienceDraft_unparseableToneFallsBackToMixed() {
+        let experience = draft(tone: "positive", domain: "career").toExperience(rawText: nil, occurredAt: nil)
+        XCTAssertEqual(experience.tone, .mixed,
+            "An unrecognised tone falls back to mixed — which is exactly why the guide must constrain it")
+    }
+
+    /// Every raw value the guide's .anyOf allows must actually parse, or the
+    /// constraint and the parser disagree.
+    @MainActor
+    func test_experienceDraft_everyAllowedToneAndDomainParses() {
+        for tone in ExperienceTone.allCases {
+            let experience = draft(tone: tone.rawValue, domain: "other").toExperience(rawText: nil, occurredAt: nil)
+            XCTAssertEqual(experience.tone, tone)
+        }
+        for domain in Domain.allCases {
+            let experience = draft(tone: "mixed", domain: domain.rawValue).toExperience(rawText: nil, occurredAt: nil)
+            XCTAssertEqual(experience.domain, domain)
+        }
+    }
+
+    // MARK: - Group mentions must not become People
+
+    /// Reported: "I had some communication with the Amazon team" created a
+    /// Person called "Amazon team". nonPersonExact matched whole strings only
+    /// ("team", "the team"), and groupPluralWords held only plurals, so a
+    /// qualified singular collective fell through both.
+    @MainActor
+    func test_isLikelyPerson_rejectsQualifiedCollectiveNouns() {
+        for group in ["Amazon team", "the Amazon team", "the marketing team",
+                      "HR department", "the leadership group", "platform org",
+                      "the review committee", "engineering division",
+                      "the design guild", "product management"] {
+            XCTAssertFalse(PersonResolver.isLikelyPerson(group),
+                "'\(group)' is a group, not a person")
+        }
+    }
+
+    /// The pre-existing cases must keep working.
+    @MainActor
+    func test_isLikelyPerson_stillRejectsBareGroupsAndPlurals() {
+        for group in ["team", "the team", "my team", "colleagues",
+                      "senior engineers", "the kids", "me", "the writer"] {
+            XCTAssertFalse(PersonResolver.isLikelyPerson(group), "'\(group)' is not a person")
+        }
+    }
+
+    /// And real people must still pass — a filter that rejects everything is
+    /// no better than one that accepts everything.
+    @MainActor
+    func test_isLikelyPerson_acceptsRealPeople() {
+        for name in ["Sam", "Lilly Kolekar", "my manager", "Dr. Chotai",
+                     "Bradley", "Anne-Marie", "Mom", "my doctor"] {
+            XCTAssertTrue(PersonResolver.isLikelyPerson(name),
+                "'\(name)' should be treated as a person")
+        }
+    }
+
+    /// End to end: extracting an entry that names both a person and a group
+    /// must create only the person.
+    @MainActor
+    func test_linkPeople_doesNotCreateAPersonForAGroupMention() throws {
+        let container = try ModelContainer(
+            for: Person.self, Experience.self, PersonRelationship.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = ModelContext(container)
+
+        let experience = Experience(
+            title: "Preparation Day",
+            summary: "Prepared for meetings, spoke with the Amazon team and with Bradley.",
+            tone: .pleasant, domain: .career,
+            people: ["Bradley", "Amazon team"]
+        )
+        context.insert(experience)
+        PersonResolver.linkPeople(to: experience, in: context)
+
+        let created = (try? context.fetch(FetchDescriptor<Person>())) ?? []
+        let names = created.map(\.name)
+        XCTAssertTrue(names.contains("Bradley"), "The real person must be created; got \(names)")
+        XCTAssertFalse(names.contains(where: { $0.lowercased().contains("amazon") }),
+            "A group must not become a Person; got \(names)")
     }
 }
 

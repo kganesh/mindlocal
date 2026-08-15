@@ -279,6 +279,18 @@ enum PersonResolver {
         "twins", "guests", "boys", "girls", "everybody",
     ]
 
+    /// Singular collective nouns. `nonPersonExact` only matches a whole string,
+    /// so it caught "team" and "the team" but not "Amazon team"; groupPluralWords
+    /// only holds plurals, so singular "team" wasn't there either. A qualified
+    /// collective ("Amazon team", "the marketing group", "HR department") fell
+    /// straight through both and was created as a Person.
+    private static let collectiveHeadNouns: Set<String> = [
+        "team", "group", "department", "dept", "org", "organization", "organisation",
+        "committee", "board", "staff", "crew", "squad", "council", "class",
+        "cohort", "division", "unit", "panel", "chapter", "club", "association",
+        "leadership", "management", "office", "branch", "guild", "collective"
+    ]
+
     /// A mention is a specific person, not a group/plural/self-reference.
     static func isLikelyPerson(_ raw: String) -> Bool {
         let name = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -287,6 +299,9 @@ enum PersonResolver {
         let words = name.split(separator: " ").map(String.init)
         guard let last = words.last else { return false }
         if groupPluralWords.contains(last) { return false }
+        // A collective head noun makes the whole phrase a group no matter what
+        // qualifies it — "Amazon team", "the marketing group", "HR department".
+        if collectiveHeadNouns.contains(last) { return false }
         // Multi-word phrase ending in a plural noun ("senior engineers", "team leads").
         if words.count >= 2, last.hasSuffix("s"), !last.hasSuffix("ss") {
             return false
