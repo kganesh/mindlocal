@@ -436,7 +436,7 @@ final class RetrievalAndModelTests: XCTestCase {
             query: "How to resolve conflict with Alex",
             graph: graph, people: [me, alex], relationships: [coworker], now: now, limit: 24
         )
-        let packed = MemoryGraphContextPacker.pack(result, maxNodes: 5, maxEdges: 12)
+        let packed = MemoryGraphContextPacker.pack(result, maxNodes: 5)
 
         // Checks the Evidence block specifically — "Argument with Alex" also
         // appears in "Useful links" edge labels regardless of this bug, so a
@@ -606,7 +606,8 @@ final class RetrievalAndModelTests: XCTestCase {
             "Must pick the true most-recent linked entry (July 22), not whichever one the relevance score ranked higher")
 
         let packed = MemoryGraphContextPacker.pack(result)
-        XCTAssertTrue(packed.contains("MOST RECENT WITH Aditya"))
+        XCTAssertTrue(packed.contains("most recent interaction with Aditya"),
+            "The computed most-recent fact must still be stated up front")
         XCTAssertTrue(packed.contains("Dinner at home"))
     }
 
@@ -793,7 +794,8 @@ final class RetrievalAndModelTests: XCTestCase {
 
         let graphContext = MemoryGraphContextPacker.pack(result)
         XCTAssertTrue(graphContext.contains("School form"))
-        XCTAssertTrue(graphContext.contains("dailyLog"))
+        XCTAssertTrue(graphContext.lowercased().contains("you wrote a"),
+            "The entry must be described in a sentence, not as bracketed metadata")
 
         let advisorContext = AdviceService.context(
             decisions: [],
@@ -824,8 +826,12 @@ final class RetrievalAndModelTests: XCTestCase {
 
         let graphContext = MemoryGraphContextPacker.pack(result)
 
-        XCTAssertTrue(graphContext.contains("Ganesh Kolekar --hasEvent--> Wisdom tooth extraction"),
-            "Edge lines must name the actual people/events, not their internal IDs")
+        XCTAssertTrue(graphContext.contains("Wisdom tooth extraction"),
+            "The event must be named")
+        XCTAssertTrue(graphContext.contains("Ganesh Kolekar"),
+            "The person on the edge must be named in the sentence, not left as an internal ID")
+        XCTAssertFalse(graphContext.contains("-->"),
+            "Relationships are folded into sentences now, not drawn as arrows")
         XCTAssertFalse(graphContext.contains("person:me"), "Must never leak a raw internal ID into the model's context")
         XCTAssertFalse(graphContext.contains("event:wisdom-tooth"), "Must never leak a raw internal ID into the model's context")
     }
@@ -1636,6 +1642,177 @@ final class RetrievalAndModelTests: XCTestCase {
         )
         XCTAssertTrue(result.expandedNodes.contains { $0.kind == .person },
             "People must survive a time window — they are context, not evidence")
+    }
+
+    // MARK: - Time window across both context paths
+
+    /// The graph enforces its own window, but decisions and experiences are
+    /// chosen by semantic similarity, which has no idea when anything happened.
+    /// Reported: "what events happened last week" shipped a decision from a
+    /// month earlier under PAST DECISIONS, and the model answered from it.
+    @MainActor
+    func test_timeWindowFilter_dropsRecordsOutsideTheWindow() {
+        let now = Date()
+        let window = DateInterval(start: now.addingTimeInterval(-7 * 86_400), end: now)
+        let dates = [
+            now.addingTimeInterval(-2 * 86_400),    // inside
+            now.addingTimeInterval(-30 * 86_400),   // a month old
+            now.addingTimeInterval(-1 * 86_400),    // inside
+        ]
+        let kept = TimeWindowFilter.within(dates, window: window, date: { $0 })
+        XCTAssertEqual(kept.count, 2, "Only records inside the window survive")
+        XCTAssertFalse(kept.contains(dates[1]))
+    }
+
+    /// No window means no filtering — an untimed question must still see
+    /// everything.
+    @MainActor
+    func test_timeWindowFilter_withoutWindowKeepsEverything() {
+        let dates = [Date(), Date().addingTimeInterval(-500 * 86_400)]
+        XCTAssertEqual(TimeWindowFilter.within(dates, window: nil, date: { $0 }).count, 2)
+    }
+
+    /// An empty window must stay empty. Falling back to "everything" would
+    /// reintroduce the exact bug — a month-old decision answering a question
+    /// about last week.
+    @MainActor
+    func test_timeWindowFilter_emptyWindowStaysEmpty() {
+        let now = Date()
+        let window = DateInterval(start: now.addingTimeInterval(-7 * 86_400), end: now)
+        let dates = [now.addingTimeInterval(-30 * 86_400)]
+        XCTAssertTrue(TimeWindowFilter.within(dates, window: window, date: { $0 }).isEmpty)
+    }
+
+    // MARK: - Context packing quality
+
+    /// Edges whose endpoints aren't among the packed nodes used to render as
+    /// "a person --hasEvent--> Akhil's birthday" — unresolvable and
+    /// ungrammatical. They are dropped now.
+    @MainActor
+    func test_packer_omitsEdgesWithUnnameableEndpoints() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let akhil = Person(name: "Akhil")
+        let birthday = Event(title: "Akhil's birthday", date: now, person: akhil)
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [birthday], decisions: [],
+            people: [me, akhil], relationships: [], conflicts: [], reminders: []
+        )
+        let result = MemoryGraphRetriever.retrieve(
+            query: "what events happened", graph: graph,
+            people: [me, akhil], relationships: [], now: now, limit: 24
+        )
+        let packed = MemoryGraphContextPacker.pack(result)
+        XCTAssertFalse(packed.contains("a person"), "Unnameable endpoints must not be described as 'a person'")
+        XCTAssertFalse(packed.contains("a entry"), "Unnameable endpoints must not be described as 'a entry'")
+    }
+
+    /// Bare attribute nodes carry no date and no owner, so as standalone lines
+    /// they mislead — especially for a dated question.
+    @MainActor
+    func test_packer_doesNotListBareAttributeNodesAsSignals() {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let entry = Experience(
+            id: UUID(), createdAt: now, title: "Morning Run Habit",
+            summary: "Went for a run before work.", tone: .pleasant, domain: .health,
+            hopes: ["make it a three-times-a-week habit"]
+        )
+        let graph = MemoryGraphBuilder.build(
+            experiences: [entry], events: [], decisions: [],
+            people: [me], relationships: [], conflicts: [], reminders: []
+        )
+        let result = MemoryGraphRetriever.retrieve(
+            query: "what did I do", graph: graph,
+            people: [me], relationships: [], now: now, limit: 24
+        )
+        let packed = MemoryGraphContextPacker.pack(result)
+        if let signals = packed.components(separatedBy: "Related signals:").dropFirst().first {
+            XCTAssertFalse(signals.contains("[hope]"), "Bare attribute nodes must not be listed as signals")
+            XCTAssertFalse(signals.contains("[tone]"), "Bare attribute nodes must not be listed as signals")
+        }
+    }
+
+    // MARK: - Unknown person named in a non-identity question
+
+    /// Reported: "Did Nora's birthday happen last week?" — Nora exists nowhere.
+    /// The context held only Akhil's birthday, and the model answered "Nora's
+    /// birthday is scheduled for August 2, 2026", moving Akhil's date onto a
+    /// name that appears nowhere.
+    @MainActor
+    func test_unknownPersonGuard_extractsPossessiveNames() {
+        XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "Did Nora's birthday happen last week"), ["Nora"])
+        XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "what about Akhil\u{2019}s party?"), ["Akhil"])
+        XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "Anne-Marie's visit"), ["Anne-Marie"])
+    }
+
+    /// Must not fire on possessives that are not people, or on the
+    /// sentence-initial capital.
+    @MainActor
+    func test_unknownPersonGuard_ignoresNonPersonPossessives() {
+        for query in ["What did I do last week",
+                      "Did the meeting happen last week",
+                      "How is my manager's project going",
+                      "What is today's plan",
+                      "Whose birthday is in August",
+                      "August's events"] {
+            XCTAssertTrue(UnknownPersonGuard.possessiveNames(in: query).isEmpty,
+                "Should find no person name in: \(query)")
+        }
+    }
+
+    /// A name nobody has ever written gets a plain refusal — and crucially, no
+    /// model call, so nothing can be substituted.
+    @MainActor
+    func test_unknownPersonGuard_refusesCompletelyUnknownName() throws {
+        let me = Person(name: "Ganesh", isMe: true)
+        let akhil = Person(name: "Akhil")
+        let birthday = Event(title: "Akhil's birthday", date: Date(), person: akhil)
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [birthday], decisions: [],
+            people: [me, akhil], relationships: [], conflicts: [], reminders: []
+        )
+        let refusal = try XCTUnwrap(UnknownPersonGuard.refusal(
+            for: "Did Nora's birthday happen last week", people: [me, akhil], graph: graph))
+        XCTAssertTrue(refusal.contains("Nora"))
+        XCTAssertFalse(refusal.contains("Akhil"), "Must never mention a different person's data")
+        XCTAssertFalse(refusal.contains("August"), "Must never carry over another person's date")
+    }
+
+    /// A known person must pass straight through — the guard cannot block
+    /// ordinary questions.
+    @MainActor
+    func test_unknownPersonGuard_allowsKnownPerson() {
+        let me = Person(name: "Ganesh", isMe: true)
+        let akhil = Person(name: "Akhil")
+        let graph = MemoryGraphBuilder.build(
+            experiences: [], events: [], decisions: [],
+            people: [me, akhil], relationships: [], conflicts: [], reminders: []
+        )
+        XCTAssertNil(UnknownPersonGuard.refusal(
+            for: "Did Akhil's birthday happen last week", people: [me, akhil], graph: graph),
+            "A known person must not be refused")
+    }
+
+    /// Journalled but never added: cite the mentions rather than refusing flat,
+    /// same as the "who is" path does.
+    @MainActor
+    func test_unknownPersonGuard_citesMentionsForJournalledName() throws {
+        let now = Date()
+        let me = Person(name: "Ganesh", isMe: true)
+        let entry = Experience(
+            id: UUID(), createdAt: now.addingTimeInterval(-86_400),
+            title: "Coffee with Nora", summary: "Caught up with Nora.",
+            tone: .pleasant, domain: .other, people: ["Nora"]
+        )
+        let graph = MemoryGraphBuilder.build(
+            experiences: [entry], events: [], decisions: [],
+            people: [me], relationships: [], conflicts: [], reminders: []
+        )
+        let refusal = try XCTUnwrap(UnknownPersonGuard.refusal(
+            for: "Did Nora's birthday happen last week", people: [me], graph: graph, now: now))
+        XCTAssertTrue(refusal.contains("isn't in your People list"))
+        XCTAssertTrue(refusal.contains("Coffee with Nora"), "Should cite the real mention")
     }
 }
 

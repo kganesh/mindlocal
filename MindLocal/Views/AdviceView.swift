@@ -116,6 +116,45 @@ struct AdviceView: View {
                                 return
                             }
 
+                            // A question can name someone the app has never
+                            // heard of while asking about something else
+                            // entirely ("did Nora's birthday happen last
+                            // week"). Handing that to the model let it answer
+                            // from the nearest similar fact — it took Akhil's
+                            // birthday and put Nora's name on it. Refuse
+                            // deterministically instead.
+                            if let refusal = UnknownPersonGuard.refusal(
+                                for: query, people: people,
+                                graph: graphSnapshots.first?.graph ?? .empty
+                            ) {
+                                await viewModel.answerDirectly(
+                                    requestID: request.id, text: refusal
+                                )
+                                return
+                            }
+
+                            // Resolved here rather than inside the graph
+                            // retriever alone, because its time window has to
+                            // gate BOTH context paths. QueryIntentDraft has no
+                            // time dimension at all, so a purely temporal
+                            // question ("what did I do last week") is
+                            // unstructured as far as the lists below are
+                            // concerned, and semantic similarity cannot tell
+                            // July from August.
+                            let memoryIntent = MemoryQueryResolver.resolve(
+                                query: query, people: people,
+                                relationships: relationships, now: .now
+                            )
+                            let window = memoryIntent.timeRange
+                            let experiences = TimeWindowFilter.within(
+                                experiences, window: window, date: \.timelineDate)
+                            let decisions = TimeWindowFilter.within(
+                                decisions, window: window, date: \.timelineDate)
+                            let events = TimeWindowFilter.within(
+                                events, window: window, date: \.date)
+                            let reminders = TimeWindowFilter.within(
+                                reminders, window: window, date: \.createdAt)
+
                             // Deterministic, guaranteed-correct matches for
                             // whatever structure was found (e.g. "3 unpleasant
                             // experiences recently") — empty when the question
@@ -162,10 +201,8 @@ struct AdviceView: View {
                             let eventSummaries = mergedEvents.map(EventSummary.init)
                             let graph = graphSnapshots.first?.graph ?? .empty
                             let graphResult = MemoryGraphRetriever.retrieve(
-                                query: query,
+                                intent: memoryIntent,
                                 graph: graph,
-                                people: people,
-                                relationships: relationships,
                                 now: .now,
                                 limit: 24
                             )

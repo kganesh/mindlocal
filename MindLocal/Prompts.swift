@@ -122,6 +122,11 @@ enum Prompts {
     they themselves said (feelings/factors/takeaway) — never invent a generic \
     lesson they didn't express. If their history doesn't cover it, say so and \
     give brief general guidance. \
+    Every person you name must appear in the context by that exact name. If the \
+    question asks about someone the context never mentions, say you have nothing \
+    about them — never answer using a different person's event, date, or detail, \
+    and never attach a name from the question to a fact that belongs to someone \
+    else. \
     Be concise (a few sentences), concrete, non-judgmental. Never invent past \
     decisions, experiences, or outcomes.
     """
