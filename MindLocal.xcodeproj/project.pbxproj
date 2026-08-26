@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; };
 		2627CBDF303EA21400BA8A24 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBDE303EA21400BA8A24 /* WhisperKit */; };
 /* End PBXBuildFile section */
 
@@ -43,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */,
 				2627CBDF303EA21400BA8A24 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -95,6 +97,7 @@
 			);
 			name = MindLocal;
 			packageProductDependencies = (
+				2627CBE1303EA21400BA8A24 /* KokoroSwift */,
 				2627CBDE303EA21400BA8A24 /* WhisperKit */,
 			);
 			productName = MindLocal;
@@ -153,6 +156,7 @@
 			mainGroup = A1000000000000000000C2;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */,
 				2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -432,6 +436,14 @@
 				kind = branch;
 			};
 		};
+		2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mlalma/kokoro-ios.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 1.0.11;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -439,6 +451,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */;
 			productName = WhisperKit;
+		};
+		2627CBE1303EA21400BA8A24 /* KokoroSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */;
+			productName = KokoroSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
