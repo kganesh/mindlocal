@@ -42,7 +42,7 @@ final class CaptureViewModel {
     let speech: SpeechServicing
 
     init(extraction: ExtractionServicing = ExtractionService(),
-         speech: SpeechServicing = SpeechService()) {
+         speech: SpeechServicing = SpeechEngine.make()) {
         self.extraction = extraction
         self.speech = speech
         // Restore transcript lost to a crash.

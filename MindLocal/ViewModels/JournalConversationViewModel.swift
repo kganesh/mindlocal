@@ -55,7 +55,7 @@ final class JournalConversationViewModel {
     let speaker: SpeechSpeaker
     private let extraction: ExtractionServicing
 
-    init(speech: SpeechServicing = SpeechService(),
+    init(speech: SpeechServicing = SpeechEngine.make(),
          speaker: SpeechSpeaker? = nil,
          extraction: ExtractionServicing = ExtractionService()) {
         self.speech = speech

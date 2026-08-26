@@ -30,7 +30,7 @@ final class AdviceViewModel {
     private var activeRequestID: UUID?
 
     init(advisor: AdvisingServicing = AdviceService(),
-         speech: SpeechServicing = SpeechService()) {
+         speech: SpeechServicing = SpeechEngine.make()) {
         self.advisor = advisor
         self.speech = speech
     }
