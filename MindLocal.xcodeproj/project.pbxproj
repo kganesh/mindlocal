@@ -146,6 +146,9 @@
 			);
 			mainGroup = A1000000000000000000C2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1000000000000000000CC /* Products */;
 			projectDirPath = "";
@@ -413,6 +416,17 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/argmax-oss-swift.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = A1000000000000000000C3 /* Project object */;
 }
