@@ -1,18 +1,27 @@
 import Foundation
 import AVFoundation
 
-/// On-device text-to-speech for reading advice aloud. Uses the highest-quality
-/// installed voice for the user's language. Fully on-device — nothing leaves the
-/// phone.
+/// On-device text-to-speech for reading advice aloud. Fully on-device — nothing
+/// leaves the phone.
+///
+/// The public surface is unchanged from when this wrapped `AVSpeechSynthesizer`
+/// directly; the synthesiser now sits behind `SpeechSynthesizing` so the engine
+/// can be swapped without touching the four views that hold this type. Text is
+/// chunked on the way in so a conversational reply starts playing before the
+/// whole thing has been synthesised.
 @MainActor
 @Observable
-final class SpeechSpeaker: NSObject {
-    private let synthesizer = AVSpeechSynthesizer()
+final class SpeechSpeaker {
+
     private(set) var isSpeaking = false
 
-    override init() {
-        super.init()
-        synthesizer.delegate = self
+    private let engine: SpeechSynthesizing
+    private let chunker = SpeechChunker()
+
+    /// Defaults to whichever engine is available and enabled. Injectable so
+    /// tests can observe what was handed to the synthesiser.
+    init(engine: SpeechSynthesizing? = nil) {
+        self.engine = engine ?? SystemSpeechEngine()
     }
 
     func toggle(_ text: String) {
@@ -20,50 +29,18 @@ final class SpeechSpeaker: NSObject {
     }
 
     func speak(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        let chunks = chunker.chunks(from: text)
+        guard !chunks.isEmpty else { return }
 
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
-
-        let utterance = AVSpeechUtterance(string: trimmed)
-        utterance.voice = Self.bestVoice()
-        synthesizer.speak(utterance)
+        engine.stop()
         isSpeaking = true
+        engine.speak(chunks) { [weak self] in
+            self?.isSpeaking = false
+        }
     }
 
     func stop() {
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        engine.stop()
         isSpeaking = false
-    }
-
-    /// The user's chosen voice if set, otherwise the highest-quality installed
-    /// voice for their language (premium > enhanced > default).
-    private static func bestVoice() -> AVSpeechSynthesisVoice? {
-        if let id = UserDefaults.standard.string(forKey: "selectedVoiceId"), !id.isEmpty,
-           let chosen = AVSpeechSynthesisVoice(identifier: id) {
-            return chosen
-        }
-        let prefix = String((Locale.current.language.languageCode?.identifier ?? "en").prefix(2))
-        let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix(prefix) }
-        func rank(_ quality: AVSpeechSynthesisVoiceQuality) -> Int {
-            switch quality {
-            case .premium: 3
-            case .enhanced: 2
-            default: 1
-            }
-        }
-        return voices.max { rank($0.quality) < rank($1.quality) }
-            ?? AVSpeechSynthesisVoice(language: Locale.current.identifier)
-    }
-}
-
-extension SpeechSpeaker: AVSpeechSynthesizerDelegate {
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
-    }
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
     }
 }
