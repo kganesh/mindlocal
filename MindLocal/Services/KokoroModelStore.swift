@@ -84,49 +84,24 @@ final class KokoroModelStore {
                                                     withIntermediateDirectories: true)
             let destination = Self.downloadBase.appending(path: Self.fileName)
 
-            // Streamed to disk rather than `URLSession.data(from:)` — 327 MB
-            // held in memory would be jetsammed on a phone.
-            let (bytes, response) = try await URLSession.shared.bytes(from: Self.modelURL)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                state = .failed("The download server returned an error.")
-                return
-            }
-            let expected = response.expectedContentLength
-
-            FileManager.default.createFile(atPath: destination.path(percentEncoded: false), contents: nil)
-            let handle = try FileHandle(forWritingTo: destination)
-            defer { try? handle.close() }
-
-            var buffer = Data()
-            buffer.reserveCapacity(1 << 20)
-            var written: Int64 = 0
-
-            for try await byte in bytes {
-                if Task.isCancelled {
-                    try? FileManager.default.removeItem(at: destination)
-                    state = .notDownloaded
-                    return
-                }
-                buffer.append(byte)
-                if buffer.count >= (1 << 20) {
-                    try handle.write(contentsOf: buffer)
-                    written += Int64(buffer.count)
-                    buffer.removeAll(keepingCapacity: true)
-                    if expected > 0 {
-                        state = .downloading(progress: Double(written) / Double(expected))
-                    }
+            // A URLSessionDownloadTask writes to disk on its own thread with no
+            // per-byte Swift overhead. The obvious-looking `URLSession.bytes`
+            // is a trap here: it yields one UInt8 at a time, and on a
+            // MainActor-isolated type that means hundreds of millions of
+            // main-actor hops, which stalls the UI and kills the transfer.
+            let staged = try await ModelDownloader.download(from: Self.modelURL) { fraction in
+                Task { @MainActor [weak self] in
+                    guard let self, self.isDownloading else { return }
+                    self.state = .downloading(progress: fraction)
                 }
             }
-            if !buffer.isEmpty {
-                try handle.write(contentsOf: buffer)
-                written += Int64(buffer.count)
-            }
 
-            guard expected <= 0 || written == expected else {
-                try? FileManager.default.removeItem(at: destination)
-                state = .failed("The download ended early. Try again on a stable connection.")
-                return
+            // Replace atomically — a half-written file from a previous attempt
+            // would otherwise look like a valid model on the next launch.
+            if FileManager.default.fileExists(atPath: destination.path(percentEncoded: false)) {
+                try FileManager.default.removeItem(at: destination)
             }
+            try FileManager.default.moveItem(at: staged, to: destination)
 
             UserDefaults.standard.set(Self.fileName, forKey: Self.relativePathKey)
             modelFile = destination
@@ -153,6 +128,17 @@ final class KokoroModelStore {
     // MARK: - Helpers
 
     static func message(for error: Error) -> String {
+        // Surfaced before the NSError mapping so a server-side failure doesn't
+        // get reported as a generic "didn't finish".
+        if let download = error as? ModelDownloadError {
+            switch download {
+            case .httpStatus(let code):
+                return "The download server returned an error (\(code))."
+            case .incomplete:
+                return "The download ended early. Try again on a stable connection."
+            }
+        }
+
         let nsError = error as NSError
         switch (nsError.domain, nsError.code) {
         case (NSURLErrorDomain, NSURLErrorNotConnectedToInternet):
