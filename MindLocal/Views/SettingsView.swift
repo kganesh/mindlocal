@@ -75,10 +75,15 @@ struct SettingsView: View {
                     } label: {
                         LabeledContent("Transcription", value: SpeechEngine.currentEngineName)
                     }
+                    NavigationLink {
+                        ReadAloudSettingsView()
+                    } label: {
+                        LabeledContent("Read-Aloud", value: VoiceEngine.currentEngineName)
+                    }
                 } header: {
                     Text("Voice")
                 } footer: {
-                    Text("Which engine turns your voice into text. Apple's runs on-device with no download; Whisper is optional and fetches a one-time model.")
+                    Text("Which engine turns your voice into text, and which one reads it back. Apple's run on-device with no download; Whisper and Kokoro are optional and each fetch a one-time model.")
                 }
 
                 Section {

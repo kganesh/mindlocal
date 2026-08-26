@@ -21,7 +21,7 @@ final class SpeechSpeaker {
     /// Defaults to whichever engine is available and enabled. Injectable so
     /// tests can observe what was handed to the synthesiser.
     init(engine: SpeechSynthesizing? = nil) {
-        self.engine = engine ?? SystemSpeechEngine()
+        self.engine = engine ?? VoiceEngine.make()
     }
 
     func toggle(_ text: String) {

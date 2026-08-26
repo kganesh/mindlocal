@@ -7,8 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; };
+		2627CBE4303EA21400BA8A24 /* MLXUtilsLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */; };
 		2627CBDF303EA21400BA8A24 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBDE303EA21400BA8A24 /* WhisperKit */; };
+		2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,6 +45,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2627CBE4303EA21400BA8A24 /* MLXUtilsLibrary in Frameworks */,
 				2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */,
 				2627CBDF303EA21400BA8A24 /* WhisperKit in Frameworks */,
 			);
@@ -97,6 +99,7 @@
 			);
 			name = MindLocal;
 			packageProductDependencies = (
+				2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */,
 				2627CBE1303EA21400BA8A24 /* KokoroSwift */,
 				2627CBDE303EA21400BA8A24 /* WhisperKit */,
 			);
@@ -456,6 +459,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */;
 			productName = KokoroSwift;
+		};
+		2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MLXUtilsLibrary;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
