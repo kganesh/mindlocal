@@ -70,9 +70,21 @@ struct SettingsView: View {
                 #endif
 
                 Section {
+                    NavigationLink {
+                        TranscriptionSettingsView()
+                    } label: {
+                        LabeledContent("Transcription", value: SpeechEngine.currentEngineName)
+                    }
+                } header: {
+                    Text("Voice")
+                } footer: {
+                    Text("Which engine turns your voice into text. Apple's runs on-device with no download; Whisper is optional and fetches a one-time model.")
+                }
+
+                Section {
                     LabeledContent("Version", value: "1.0")
                 } footer: {
-                    Text("MindLocal keeps your journal on your device. Only weather forecasts for outdoor events use the network.")
+                    Text("MindLocal keeps your journal on your device. Only weather forecasts and the optional Whisper model download use the network.")
                 }
             }
             .navigationTitle("Settings")

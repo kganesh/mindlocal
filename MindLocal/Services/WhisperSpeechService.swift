@@ -68,10 +68,15 @@ final class WhisperSpeechService: SpeechServicing {
     private(set) var transcript: String = ""
     private(set) var isRecording: Bool = false
 
-    /// WhisperKit model identifier. `.en` beats multilingual `base` on English
-    /// by a clear margin; switch to `"base"` only if non-English capture is
-    /// added, and re-tune the VAD thresholds if so.
-    static let modelName = "base.en"
+    /// Folder holding the downloaded weights. Supplied by `WhisperModelStore`,
+    /// which is also the only thing that decides whether this service is
+    /// reachable at all — without a completed download `SpeechEngine` hands
+    /// back `SpeechService` instead.
+    private let modelFolder: URL
+
+    init(modelFolder: URL) {
+        self.modelFolder = modelFolder
+    }
 
     private static let sampleRate: Double = 16_000
     /// Whisper's fixed input window. Audio past this must be committed.
@@ -115,8 +120,14 @@ final class WhisperSpeechService: SpeechServicing {
 
         // First call loads and compiles the model. Doing it before the engine
         // starts keeps the opening words out of a buffer nothing is draining.
+        // `download: false` because the weights are already on disk — reaching
+        // for the network here would stall recording on a bad connection.
         if whisper == nil {
-            whisper = try await WhisperKit(WhisperKitConfig(model: Self.modelName))
+            whisper = try await WhisperKit(
+                WhisperKitConfig(model: WhisperModelStore.variant,
+                                 modelFolder: modelFolder.path(percentEncoded: false),
+                                 download: false)
+            )
         }
 
         let session = AVAudioSession.sharedInstance()

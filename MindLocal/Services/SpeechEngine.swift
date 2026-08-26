@@ -2,15 +2,15 @@ import Foundation
 
 /// Chooses the speech backend.
 ///
-/// Both implementations satisfy `SpeechServicing`, so this is the only place
-/// that knows which one is live. Kept switchable at runtime rather than swapped
-/// outright because the two have genuinely different characters — Apple's
-/// `SpeechTranscriber` gives true word-by-word partials, Whisper gives better
-/// punctuation and one model for every locale — and that trade is best judged
-/// against real captures on real hardware, not in the abstract.
+/// Apple's on-device `SpeechTranscriber` is the default and the fallback — it
+/// ships with the app, needs no download, and gives true word-by-word partials.
+/// Whisper is opt-in from Settings and only becomes reachable once its weights
+/// have actually been downloaded, so every path that can't produce a working
+/// Whisper ends up back at `SpeechService` rather than at an error.
 enum SpeechEngine {
 
-    /// Set from the debug settings screen; survives relaunch.
+    /// User's preference, set in Settings → Transcription. Survives relaunch.
+    /// On its own it isn't enough to select Whisper — see `make()`.
     static let preferenceKey = "speech.useWhisper"
 
     static var useWhisper: Bool {
@@ -18,13 +18,31 @@ enum SpeechEngine {
         set { UserDefaults.standard.set(newValue, forKey: preferenceKey) }
     }
 
-    /// Falls back to `SpeechService` when the WhisperKit package isn't linked,
-    /// so a build without the dependency still records.
+    /// True when Whisper is both wanted and usable right now.
+    ///
+    /// The two conditions are deliberately separate: the preference can stay on
+    /// through a download the system later evicts under storage pressure, and
+    /// the app should quietly transcribe with Apple's recogniser in the
+    /// meantime rather than refuse to record.
+    static var isWhisperActive: Bool {
+        #if canImport(WhisperKit)
+        return useWhisper && WhisperModelStore.shared.state == .ready
+        #else
+        return false
+        #endif
+    }
+
     static func make() -> SpeechServicing {
         #if canImport(WhisperKit)
-        return useWhisper ? WhisperSpeechService() : SpeechService()
-        #else
-        return SpeechService()
+        if useWhisper, let folder = WhisperModelStore.shared.modelFolder {
+            return WhisperSpeechService(modelFolder: folder)
+        }
         #endif
+        return SpeechService()
+    }
+
+    /// One-line description for the Settings row.
+    static var currentEngineName: String {
+        isWhisperActive ? "Whisper (base.en)" : "Apple on-device"
     }
 }
