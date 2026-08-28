@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UIKit
 
 #if canImport(KokoroSwift)
 import KokoroSwift
@@ -41,6 +42,14 @@ private final class KokoroRuntime: @unchecked Sendable {
         self.voicesFile = voicesFile
     }
 
+    /// MLX keeps freed Metal buffers in a cache sized for a Mac by default.
+    /// On a phone that cache is the difference between fitting and being
+    /// jetsammed, especially with a FoundationModels session still resident
+    /// from generating the advice we're about to read aloud.
+    private static let boundCache: Void = {
+        GPU.set(cacheLimit: 32 * 1024 * 1024)
+    }()
+
     /// Loads the 14 MB voice archive on first ask; cheap enough for Settings.
     func voiceNames() async -> [String] {
         await withCheckedContinuation { continuation in
@@ -61,6 +70,7 @@ private final class KokoroRuntime: @unchecked Sendable {
                     }
                     // The expensive one — first spoken word pays for it, and
                     // only once per launch.
+                    _ = Self.boundCache
                     if self.tts == nil { self.tts = KokoroTTS(modelPath: modelFile) }
                     guard let tts = self.tts else { throw KokoroSpeechError.modelMissing }
 
@@ -71,6 +81,10 @@ private final class KokoroRuntime: @unchecked Sendable {
                     let (audio, _) = try tts.generateAudio(voice: embedding,
                                                            language: language,
                                                            text: text)
+                    // Intermediates from one chunk are dead by the time the
+                    // next is requested; holding them across a whole reply is
+                    // what pushes peak usage over the limit.
+                    GPU.clearCache()
                     continuation.resume(returning: audio)
                 } catch {
                     continuation.resume(throwing: error)
@@ -85,6 +99,16 @@ private final class KokoroRuntime: @unchecked Sendable {
         queue.async {
             self.tts = nil
             self.voices = nil
+            GPU.clearCache()
+        }
+    }
+
+    /// Drops the weights but keeps the voices — the expensive half, released
+    /// under memory pressure so the OS doesn't kill the app instead.
+    func releaseModel() {
+        queue.async {
+            self.tts = nil
+            GPU.clearCache()
         }
     }
 
@@ -137,6 +161,21 @@ final class KokoroSpeechEngine: SpeechSynthesizing {
         }
         format = AVAudioFormat(standardFormatWithSampleRate: Double(KokoroTTS.Constants.samplingRate),
                                channels: 1)
+
+        // Give the weights back rather than let the OS kill the app for them.
+        // 327 MB of F32 is worth more to iOS than it is to us between replies.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.releaseModelUnderPressure() }
+        }
+    }
+
+    /// Keeps playback going — only the weights are dropped, and they reload on
+    /// the next request.
+    private func releaseModelUnderPressure() {
+        runtime?.releaseModel()
     }
 
     /// Voice names for the picker. Loads the 14 MB archive on first call only.
