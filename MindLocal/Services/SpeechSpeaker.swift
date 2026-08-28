@@ -17,6 +17,9 @@ final class SpeechSpeaker {
 
     private let engine: SpeechSynthesizing
     private let chunker = SpeechChunker()
+    /// Advice and journal text arrives as markdown; without this both engines
+    /// pronounce the markup.
+    private let sanitizer = SpeechTextSanitizer()
 
     /// Defaults to whichever engine is available and enabled. Injectable so
     /// tests can observe what was handed to the synthesiser.
@@ -29,7 +32,7 @@ final class SpeechSpeaker {
     }
 
     func speak(_ text: String) {
-        let chunks = chunker.chunks(from: text)
+        let chunks = chunker.chunks(from: sanitizer.plainText(from: text))
         guard !chunks.isEmpty else { return }
 
         engine.stop()
