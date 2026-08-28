@@ -23,15 +23,15 @@ enum VoiceEngine {
         #endif
     }
 
+    /// Must stay cheap. This runs from `SpeechSpeaker.init`, which SwiftUI
+    /// re-evaluates every time a View struct holding one is created — so
+    /// anything expensive here becomes a cost paid on every navigation.
+    /// Both engines are shared instances that load lazily on first use.
     static func make() -> SpeechSynthesizing {
         #if canImport(KokoroSwift)
-        if useKokoro, let modelFile = KokoroModelStore.shared.modelFile {
-            // A corrupt or half-written model file throws here rather than at
-            // the first spoken word; falling back is better than a dead button.
-            if let engine = try? KokoroSpeechEngine(modelFile: modelFile) { return engine }
-        }
+        if isKokoroActive { return KokoroSpeechEngine.shared }
         #endif
-        return SystemSpeechEngine()
+        return SystemSpeechEngine.shared
     }
 
     static var currentEngineName: String {

@@ -10,6 +10,10 @@ struct ReadAloudSettingsView: View {
     @State private var confirmingDownload = false
     @State private var confirmingRemoval = false
     @State private var selectedVoice = currentVoice
+    @State private var voiceNames: [String] = []
+    /// One shared speaker for previews. Rebuilding it per tap used to rebuild
+    /// the whole engine; the engine is shared now and reads the selected voice
+    /// at speak time, so one instance is enough.
     @State private var preview = SpeechSpeaker()
 
     private static var currentVoice: String {
@@ -57,13 +61,12 @@ struct ReadAloudSettingsView: View {
             }
 
             #if canImport(KokoroSwift)
-            if useKokoro, store.state == .ready, let engine = kokoroEngine {
+            if useKokoro, store.state == .ready, !voiceNames.isEmpty {
                 Section("Voice") {
-                    ForEach(engine.voiceNames, id: \.self) { name in
+                    ForEach(voiceNames, id: \.self) { name in
                         Button {
                             selectedVoice = name
                             KokoroSpeechEngine.selectedVoice = name
-                            preview = SpeechSpeaker()   // rebuild with the new voice
                             preview.speak(sample)
                         } label: {
                             HStack {
@@ -87,6 +90,7 @@ struct ReadAloudSettingsView: View {
         }
         .navigationTitle("Read-Aloud")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await loadVoiceNames() }
         .onDisappear { preview.stop() }
         .alert("Download the Kokoro voice model?", isPresented: $confirmingDownload) {
             Button("Download") { Task { await enableKokoro() } }
@@ -104,13 +108,6 @@ struct ReadAloudSettingsView: View {
 
     // MARK: - Actions
 
-    #if canImport(KokoroSwift)
-    private var kokoroEngine: KokoroSpeechEngine? {
-        guard let file = store.modelFile else { return nil }
-        return try? KokoroSpeechEngine(modelFile: file)
-    }
-    #endif
-
     private var kokoroBinding: Binding<Bool> {
         Binding(
             get: { useKokoro },
@@ -126,15 +123,28 @@ struct ReadAloudSettingsView: View {
         )
     }
 
+    /// Reads the bundled 14 MB voice archive once, off the view body.
+    private func loadVoiceNames() async {
+        #if canImport(KokoroSwift)
+        guard voiceNames.isEmpty else { return }
+        voiceNames = await KokoroSpeechEngine.shared.voiceNames()
+        #endif
+    }
+
     private func enableKokoro() async {
         await store.download()
         let succeeded = store.state == .ready
         VoiceEngine.useKokoro = succeeded
         useKokoro = succeeded
+        if succeeded { await loadVoiceNames() }
     }
 
     private func removeKokoro() {
+        #if canImport(KokoroSwift)
+        KokoroSpeechEngine.shared.purge()
+        #endif
         store.removeDownload()
+        voiceNames = []
         VoiceEngine.useKokoro = false
         useKokoro = false
     }
