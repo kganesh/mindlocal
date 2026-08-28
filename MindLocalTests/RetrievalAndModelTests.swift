@@ -1131,7 +1131,11 @@ final class RetrievalAndModelTests: XCTestCase {
     /// separated on the UUID-string tie-break in the ranking sort.
     @MainActor
     func test_memoryGraphRetriever_tonightQuestion_ranksTonightAboveNextWeek() {
-        let now = Date()
+        // Pinned to midday, not `Date()`. "tonight" resolves to the whole of
+        // today and stops at midnight, so an event at now+3h falls outside the
+        // window whenever the suite runs after 21:00 — the test then failed on
+        // the clock rather than on the retrieval it is checking.
+        let now = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
         let me = Person(name: "Ganesh", isMe: true)
         let lilly = Person(name: "Lilly")
         let spouse = PersonRelationship(subject: lilly, type: .spouse, object: me)
