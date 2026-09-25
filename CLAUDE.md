@@ -1,9 +1,14 @@
 # MindLocal
 
-A private, on-device iPhone journal. You write or speak about your day, an
-on-device Foundation Model extracts structure from it (people, activities,
-outcomes, decisions), and you can ask questions about your own history later.
-Nothing leaves the device.
+A private iPhone journal. You write or speak about your day, a Foundation Model
+extracts structure from it (people, activities, outcomes, decisions), and you can
+ask questions about your own history later. Storage is local-only and there is no
+backend.
+
+Model work is on-device today. `ModelRouter` can route generation to Private
+Cloud Compute, but the path is gated off behind `privateCloudComputeEnabled`
+pending Apple's managed entitlement — see "Model routing" below before turning
+it on.
 
 See `README.md` for what the app does and `docs/domain-model.md` for the
 north-star spec. This file covers what you need to know to work in the code.
@@ -99,6 +104,49 @@ built. A view model outlives a Settings change. Each of the three view models ha
 a `syncEngine()` for this, called on the mic path. If you add a fourth, it needs
 the same. Note also that `SpeechEngine.currentEngineName` reports the
 *preference*, which can differ from the engine an existing view model is holding.
+
+## Model routing
+
+`ModelRouter` and `RoutedSession` (`Services/ModelRouter.swift`) sit between the
+services and `LanguageModelSession`. Nothing else constructs a session directly —
+keep it that way, or a call site silently opts out of both PCC and the fallback.
+
+PCC is **off** by default. `privateCloudComputeEnabled` must be flipped to
+`true` in the same change that adds `com.apple.developer.private-cloud-compute`
+to `MindLocal.entitlements` — the two move together, and the flag exists because
+PCC traps the process (SIGTRAP) on an unentitled app rather than failing
+gracefully, `isAvailable` is itself the crash, and iOS has no runtime entitlement
+probe (`SecTaskCopyValueForEntitlement` is macOS-only). Once on, PCC is used
+whenever `PrivateCloudComputeLanguageModel().isAvailable`, for its 32K context
+window against the on-device ~4K. It falls back to the on-device
+model on `.guardrailViolation`, `.refusal`, `.rateLimited`, `.concurrentRequests`
+and any `PrivateCloudComputeLanguageModel.Error` (network, daily quota, service
+down). It deliberately does not retry `decodingFailure`, `unsupportedGuide` or
+`exceededContextWindowSize`: those are properties of the prompt and fail the same
+way on either model.
+
+**Why the fallback carries weight.** Both services build their
+`SystemLanguageModel` with `.permissiveContentTransformations`, because the
+default guardrails refuse ordinary journal content and refuse questions naming
+real people — the app's primary query shape (see the comment on
+`AdviceService.answerModel`). `PrivateCloudComputeLanguageModel` has one
+zero-argument initialiser and exposes no guardrails setting, so that policy
+cannot be relaxed for PCC. Refusals land on the on-device model, which still
+holds the permissive configuration.
+
+**Unmeasured.** The missing guardrails parameter is an API fact; how often PCC
+actually refuses this content is not. If it refuses often, the Advise path pays
+PCC latency and answers on-device anyway, and routing Advise through PCC stops
+earning its keep. Measure on a device — ask a "who is <name>" question and watch
+whether it falls back — before trusting the arrangement.
+
+**`RoutedSession` is single-shot.** A refusal retries on a *fresh* on-device
+session, so a multi-turn transcript would not survive it. Every current call site
+is single-shot. Anything needing continuity must hold a real
+`LanguageModelSession`.
+
+**Eligibility.** PCC for third-party apps requires App Store Small Business
+Program enrolment, under 2M first-time downloads, and an application to Apple.
 
 ## The Advise path
 

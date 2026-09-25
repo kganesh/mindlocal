@@ -26,12 +26,12 @@ final class ExtractionService: ExtractionServicing {
     )
 
     func extract(from transcript: String) async throws -> DecisionDraft {
-        guard Self.model.isAvailable else {
+        guard Self.model.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else {
             throw ExtractionError.modelUnavailable
         }
-        let session = LanguageModelSession(
-            model: Self.model,
-            instructions: Prompts.extractionInstructions
+        let session = RoutedSession(
+            instructions: Prompts.extractionInstructions,
+            onDevice: Self.model
         )
         let response = try await session.respond(
             to: Prompts.extractionPrompt(transcript: transcript),
@@ -41,12 +41,12 @@ final class ExtractionService: ExtractionServicing {
     }
 
     func extractExperience(from transcript: String) async throws -> ExperienceDraft {
-        guard Self.model.isAvailable else {
+        guard Self.model.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else {
             throw ExtractionError.modelUnavailable
         }
-        let session = LanguageModelSession(
-            model: Self.model,
-            instructions: Prompts.experienceExtractionInstructions
+        let session = RoutedSession(
+            instructions: Prompts.experienceExtractionInstructions,
+            onDevice: Self.model
         )
         let response = try await session.respond(
             to: Prompts.experienceExtractionPrompt(transcript: transcript),
@@ -58,24 +58,24 @@ final class ExtractionService: ExtractionServicing {
     func enhanceWording(_ text: String) async throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return text }
-        guard Self.model.isAvailable else {
+        guard Self.model.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else {
             throw ExtractionError.modelUnavailable
         }
-        let session = LanguageModelSession(
-            model: Self.model,
-            instructions: Prompts.wordingEnhancerInstructions
+        let session = RoutedSession(
+            instructions: Prompts.wordingEnhancerInstructions,
+            onDevice: Self.model
         )
         let response = try await session.respond(to: trimmed)
         return response.content
     }
 
     func followUpQuestion(draftSummary: String, missingField: String) async throws -> String {
-        guard Self.model.isAvailable else {
+        guard Self.model.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else {
             throw ExtractionError.modelUnavailable
         }
-        let session = LanguageModelSession(
-            model: Self.model,
-            instructions: Prompts.followUpInstructions
+        let session = RoutedSession(
+            instructions: Prompts.followUpInstructions,
+            onDevice: Self.model
         )
         let response = try await session.respond(
             to: Prompts.followUpPrompt(draftSummary: draftSummary, missingField: missingField)

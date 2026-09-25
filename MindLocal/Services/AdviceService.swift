@@ -171,10 +171,10 @@ final class AdviceService: AdvisingServicing {
     private static let answerSampling = GenerationOptions.SamplingMode.random(top: 3, seed: 7)
 
     func extractIntent(from question: String) async throws -> QueryIntentDraft {
-        guard Self.intentModel.isAvailable else { throw AdviceError.modelUnavailable }
-        let session = LanguageModelSession(
-            model: Self.intentModel,
-            instructions: Prompts.queryIntentInstructions
+        guard Self.intentModel.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else { throw AdviceError.modelUnavailable }
+        let session = RoutedSession(
+            instructions: Prompts.queryIntentInstructions,
+            onDevice: Self.intentModel
         )
         let response = try await session.respond(
             to: Prompts.queryIntentPrompt(question: question),
@@ -192,11 +192,11 @@ final class AdviceService: AdvisingServicing {
                 graphContext: String = "") async throws -> String {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { throw AdviceError.noQuestion }
-        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
+        guard Self.answerModel.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else { throw AdviceError.modelUnavailable }
 
-        let session = LanguageModelSession(
-            model: Self.answerModel,
-            instructions: Prompts.advisorInstructions
+        let session = RoutedSession(
+            instructions: Prompts.advisorInstructions,
+            onDevice: Self.answerModel
         )
         let response = try await session.respond(
             to: Prompts.advisorPrompt(
@@ -204,7 +204,7 @@ final class AdviceService: AdvisingServicing {
                 context: Self.context(
                     decisions: decisions, experiences: experiences,
                     reminders: reminders, events: events, people: people,
-                    graphContext: graphContext
+                    graphContext: graphContext,
                 )
             ),
             // maximumResponseTokens is set explicitly rather than left as a
@@ -238,11 +238,11 @@ final class AdviceService: AdvisingServicing {
     async throws -> (answer: GroundedAnswer, report: GroundingReport) {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { throw AdviceError.noQuestion }
-        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
+        guard Self.answerModel.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else { throw AdviceError.modelUnavailable }
 
-        let session = LanguageModelSession(
-            model: Self.answerModel,
-            instructions: Prompts.groundedAdvisorInstructions
+        let session = RoutedSession(
+            instructions: Prompts.groundedAdvisorInstructions,
+            onDevice: Self.answerModel
         )
         let response = try await session.respond(
             to: Prompts.advisorPrompt(
@@ -250,7 +250,7 @@ final class AdviceService: AdvisingServicing {
                 context: Self.context(
                     decisions: decisions, experiences: experiences,
                     reminders: reminders, events: events, people: people,
-                    graphContext: packedContext.text
+                    graphContext: packedContext.text,
                 )
             ),
             generating: GroundedAnswer.self,
@@ -274,11 +274,11 @@ final class AdviceService: AdvisingServicing {
         guard !people.isEmpty else {
             return "I don't have anyone by that name in your People list."
         }
-        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
+        guard Self.answerModel.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else { throw AdviceError.modelUnavailable }
 
-        let session = LanguageModelSession(
-            model: Self.answerModel,
-            instructions: Prompts.whoIsInstructions
+        let session = RoutedSession(
+            instructions: Prompts.whoIsInstructions,
+            onDevice: Self.answerModel
         )
         let response = try await session.respond(
             to: Prompts.whoIsPrompt(question: q, context: Self.context(decisions: [], experiences: [], people: people)),
@@ -292,11 +292,11 @@ final class AdviceService: AdvisingServicing {
                      weather: String?,
                      decisions: [DecisionSummary],
                      experiences: [ExperienceSummary]) async throws -> String {
-        guard Self.answerModel.isAvailable else { throw AdviceError.modelUnavailable }
+        guard Self.answerModel.isAvailable || ModelRouter.isPrivateCloudComputeAvailable else { throw AdviceError.modelUnavailable }
 
-        let session = LanguageModelSession(
-            model: Self.answerModel,
-            instructions: Prompts.eventAdvisorInstructions
+        let session = RoutedSession(
+            instructions: Prompts.eventAdvisorInstructions,
+            onDevice: Self.answerModel
         )
         let formatter = DateFormatter()
         formatter.dateStyle = .medium

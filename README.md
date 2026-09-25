@@ -5,9 +5,18 @@ day, and an on-device model turns it into something you can ask questions of
 later: who was there, what you decided, how it turned out, what you keep
 repeating.
 
-Nothing leaves the device. There are no accounts, no servers and no network
-calls in the core loop. The language model, the transcription and the speech
-synthesis all run on the phone.
+There are no accounts and no servers of ours — MindLocal has no backend, and
+your journal is stored only on your phone. Transcription and speech synthesis
+run entirely on the device.
+
+Language model work runs on-device today. Support for Apple's Private Cloud
+Compute — which offers a far larger context window (32K against roughly 4K) — is
+implemented but switched off, pending the managed entitlement Apple grants on
+request. While it is off, nothing about the model path has changed: no journal
+text leaves the phone. If it is switched on, entry and question text would be
+sent to Apple's Private Cloud Compute, which is built so that Apple cannot read
+it and retains nothing after the request — but it is a network call, and this
+README will need rewriting again at that point.
 
 > This started as "DecisionMemory", a scaffold for capturing decisions. It grew
 > into a daily journal that still tracks decisions as one kind of entry among
