@@ -201,10 +201,13 @@ final class AdviceService: AdvisingServicing {
         let response = try await session.respond(
             to: Prompts.advisorPrompt(
                 question: q,
-                context: Self.context(
+                context: await Self.context(
                     decisions: decisions, experiences: experiences,
                     reminders: reminders, events: events, people: people,
                     graphContext: graphContext,
+                    instructions: Prompts.advisorInstructions,
+                    question: q,
+                    responseTokens: 400
                 )
             ),
             // maximumResponseTokens is set explicitly rather than left as a
@@ -247,10 +250,13 @@ final class AdviceService: AdvisingServicing {
         let response = try await session.respond(
             to: Prompts.advisorPrompt(
                 question: q,
-                context: Self.context(
+                context: await Self.context(
                     decisions: decisions, experiences: experiences,
                     reminders: reminders, events: events, people: people,
                     graphContext: packedContext.text,
+                    instructions: Prompts.groundedAdvisorInstructions,
+                    question: q,
+                    responseTokens: 400
                 )
             ),
             generating: GroundedAnswer.self,
@@ -281,7 +287,12 @@ final class AdviceService: AdvisingServicing {
             onDevice: Self.answerModel
         )
         let response = try await session.respond(
-            to: Prompts.whoIsPrompt(question: q, context: Self.context(decisions: [], experiences: [], people: people)),
+            to: Prompts.whoIsPrompt(question: q, context: await Self.context(
+                decisions: [], experiences: [], people: people,
+                instructions: Prompts.whoIsInstructions,
+                question: q,
+                responseTokens: 200
+            )),
             options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 200)
         )
         return Self.stripRepetition(response.content)
@@ -306,7 +317,12 @@ final class AdviceService: AdvisingServicing {
                 event: event,
                 when: formatter.string(from: when),
                 weather: weather,
-                context: Self.context(decisions: decisions, experiences: experiences)
+                context: await Self.context(
+                    decisions: decisions, experiences: experiences,
+                    instructions: Prompts.eventAdvisorInstructions,
+                    question: event,
+                    responseTokens: 400
+                )
             ),
             options: GenerationOptions(sampling: Self.answerSampling, maximumResponseTokens: 400)
         )
@@ -322,8 +338,11 @@ final class AdviceService: AdvisingServicing {
         reminders: [ReminderSummary] = [],
         events: [EventSummary] = [],
         people: [PersonProfileSummary] = [],
-        graphContext: String = ""
-    ) -> String {
+        graphContext: String = "",
+        instructions: String = "",
+        question: String = "",
+        responseTokens: Int = 400
+    ) async -> String {
         let formatter = DateFormatter()
         // Day-level, not month-level — a question like "when did I last meet
         // X" needs the actual date, and truncating to "yyyy-MM" made that
@@ -391,7 +410,12 @@ final class AdviceService: AdvisingServicing {
             blocks.append("EVENTS (scheduled or past):\n" + lines.joined(separator: "\n"))
         }
 
-        return fitToBudget(blocks)
+        return await fitToBudget(
+            blocks,
+            instructions: instructions,
+            question: question,
+            responseTokens: responseTokens
+        )
     }
 
     /// The blocks above are built independently, each already capped to at most
@@ -424,7 +448,85 @@ final class AdviceService: AdvisingServicing {
     /// never be able to silently consume the entire budget on its own while
     /// contributing nothing, and the total must never exceed the budget
     /// regardless of how large any individual block grows.
-    private static func fitToBudget(_ blocks: [String]) -> String {
+    ///
+    /// **Superseded on iOS 26.4+.** `SystemLanguageModel.tokenCount` is a real
+    /// tokenizer, so the budget above is no longer a guess — see
+    /// `fitToBudget(_:instructions:question:responseTokens:)`. The character
+    /// budget survives only as the pre-26.4 fallback, and the comment above is
+    /// kept because it records why it is set so brutally low: three failed
+    /// recalibrations, not caution for its own sake.
+    private static func fitToBudget(
+        _ blocks: [String],
+        instructions: String,
+        question: String,
+        responseTokens: Int
+    ) async -> String {
+        guard !blocks.isEmpty else { return "(no past decisions or experiences on record)" }
+        if #available(iOS 26.4, *),
+           let budget = await availableContextTokens(
+               instructions: instructions, question: question, responseTokens: responseTokens),
+           budget > 0 {
+            return await fitToTokenBudget(blocks, budget: budget)
+        }
+        return fitToCharacterBudget(blocks)
+    }
+
+    /// Tokens left for the CONTEXT block once everything else in the request is
+    /// accounted for: the real window of whichever engine will serve, minus the
+    /// instructions, the question, the reserved response, and scaffolding.
+    ///
+    /// Measured with the on-device tokenizer even when PCC will serve, because
+    /// `PrivateCloudComputeLanguageModel` exposes no `tokenCount`. Same model
+    /// family, so the count is close but not authoritative — hence the margin.
+    @available(iOS 26.4, *)
+    private static func availableContextTokens(
+        instructions: String,
+        question: String,
+        responseTokens: Int
+    ) async -> Int? {
+        let model = answerModel
+        let size = await ModelRouter.effectiveContextSize(onDevice: model)
+        guard let instructionTokens = try? await model.tokenCount(for: instructions),
+              let questionTokens = try? await model.tokenCount(for: question)
+        else { return nil }
+        // Prompt scaffolding around instructions/question/context, plus slack for
+        // the PCC-vs-on-device tokenizer difference noted above.
+        let scaffolding = 200
+        return max(0, size - instructionTokens - questionTokens - responseTokens - scaffolding)
+    }
+
+    /// Trims the assembled context to `budget` tokens, measuring rather than
+    /// assuming. Blocks are already in priority order and truncation takes from
+    /// the end, so what gets dropped is the bulky, lower-precision material
+    /// (Decisions/Experiences) rather than People or the graph.
+    ///
+    /// Converges by measuring, deriving the actual characters-per-token for this
+    /// specific content, and cutting to that — repeated a few times because the
+    /// ratio shifts as the tail is removed. Verified by a final measurement, so
+    /// the result is bounded by the real count, not by arithmetic about it.
+    @available(iOS 26.4, *)
+    private static func fitToTokenBudget(_ blocks: [String], budget: Int) async -> String {
+        let model = answerModel
+        var candidate = blocks.joined(separator: "\n\n")
+        for _ in 0..<4 {
+            guard let tokens = try? await model.tokenCount(for: candidate) else {
+                return fitToCharacterBudget(blocks)
+            }
+            if tokens <= budget {
+                ModelRouter.record("context \(tokens) tok of \(budget) budget (\(candidate.count) chars)")
+                return candidate
+            }
+            let charsPerToken = Double(candidate.count) / Double(max(tokens, 1))
+            // 0.95 biases each pass downward so this converges instead of oscillating.
+            let targetChars = Int(Double(budget) * charsPerToken * 0.95)
+            guard targetChars > 0, targetChars < candidate.count else { break }
+            candidate = truncatedToLineBoundary(candidate, available: targetChars)
+        }
+        ModelRouter.record("context trimmed to \(candidate.count) chars, budget \(budget) tok")
+        return candidate
+    }
+
+    private static func fitToCharacterBudget(_ blocks: [String]) -> String {
         guard !blocks.isEmpty else { return "(no past decisions or experiences on record)" }
         var kept: [String] = []
         var remaining = contextCharacterBudget

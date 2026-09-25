@@ -76,7 +76,7 @@ final class AdviceViewModel {
         await complete(
             requestID: requestID,
             debugContext: {
-                AdviceService.context(
+                await AdviceService.context(
                     decisions: decisions, experiences: experiences,
                     reminders: reminders, events: events,
                     people: people, graphContext: graphContext
@@ -125,7 +125,7 @@ final class AdviceViewModel {
         }
         await complete(
             requestID: requestID,
-            debugContext: { AdviceService.context(decisions: [], experiences: [], people: people) },
+            debugContext: { await AdviceService.context(decisions: [], experiences: [], people: people) },
             answer: { try await self.advisor.answerWhoIs(question: q, people: people) }
         )
     }
@@ -135,11 +135,11 @@ final class AdviceViewModel {
     /// failures to the same user-facing errors — so adding another dedicated
     /// question type doesn't mean re-copying this plumbing.
     private func complete(requestID: UUID,
-                          debugContext buildDebugContext: () -> String,
+                          debugContext buildDebugContext: () async -> String,
                           answer produceAnswer: () async throws -> String) async {
         guard activeRequestID == requestID else { return }
         #if DEBUG
-        debugContext = buildDebugContext()
+        debugContext = await buildDebugContext()
         debugGroundingReport = nil
         #endif
         do {
