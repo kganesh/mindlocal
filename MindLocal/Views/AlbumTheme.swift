@@ -121,6 +121,39 @@ struct AlbumIconTile: View {
     }
 }
 
+/// A selectable filter pill.
+///
+/// Replaces a toolbar Menu, which hides the available filters behind a tap and
+/// gives no indication of which one is active beyond a slightly different icon.
+/// A row of capsules shows the options and the current state at once — the
+/// pattern ResumeLocal uses for its status chips, in the album palette.
+struct AlbumFilterCapsule: View {
+    let label: String
+    var symbol: String? = nil
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let symbol {
+                    Image(systemName: symbol).font(.caption)
+                }
+                Text(label).font(.subheadline.weight(isSelected ? .semibold : .regular))
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 34)
+            .foregroundStyle(isSelected ? AlbumTheme.onAccent : AlbumTheme.secondary)
+            .background(isSelected ? AlbumTheme.accent : AlbumTheme.wash, in: Capsule())
+            .overlay {
+                Capsule().strokeBorder(isSelected ? .clear : AlbumTheme.rule, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
 struct AlbumPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 

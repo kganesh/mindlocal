@@ -25,6 +25,33 @@ struct ExperienceListView: View {
         Set(filtered.map { Calendar.current.startOfDay(for: $0.timelineDate) }).sorted(by: >)
     }
 
+    /// Horizontally scrolling so three tones plus "All" never crowd, and so
+    /// more filters can be added later without a redesign.
+    private var toneFilterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                AlbumFilterCapsule(label: "All", isSelected: toneFilter == nil) {
+                    withAnimation(.snappy(duration: 0.18)) { toneFilter = nil }
+                }
+                ForEach(ExperienceTone.allCases) { tone in
+                    AlbumFilterCapsule(
+                        label: tone.label,
+                        symbol: tone.symbol,
+                        isSelected: toneFilter == tone
+                    ) {
+                        // Tapping the active filter clears it — otherwise the
+                        // only way back to All is to aim for a different pill.
+                        withAnimation(.snappy(duration: 0.18)) {
+                            toneFilter = (toneFilter == tone) ? nil : tone
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+        .scrollClipDisabled()
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -32,6 +59,13 @@ struct ExperienceListView: View {
                     .padding(.vertical, 16)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+
+                if !experiences.isEmpty {
+                    toneFilterRow
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 12, trailing: 0))
+                }
 
                 if experiences.isEmpty {
                     ContentUnavailableView {
@@ -87,15 +121,6 @@ struct ExperienceListView: View {
                         .accessibilityLabel("Mood trends")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Menu {
-                        Button("All feelings") { toneFilter = nil }
-                        ForEach(ExperienceTone.allCases) { tone in
-                            Button(tone.label) { toneFilter = tone }
-                        }
-                    } label: {
-                        Image(systemName: toneFilter == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    }
-                    .accessibilityLabel(toneFilter.map { "Filter: \($0.label)" } ?? "Filter entries")
                     Button { showingCapture = true } label: { Image(systemName: "square.and.pencil") }
                         .accessibilityLabel("Write an entry")
                 }

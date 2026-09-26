@@ -26,8 +26,31 @@ struct AdviceView: View {
                         TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
                             .lineLimit(1...4)
                             .padding(12)
+                            // Room for the clear button, so a long question does
+                            // not run underneath it.
+                            .padding(.trailing, 30)
                             .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 16))
                             .focused($isQuestionFocused)
+                            .overlay(alignment: .trailing) {
+                                if !viewModel.question.isEmpty {
+                                    Button {
+                                        viewModel.question = ""
+                                        // Keep the keyboard up: clearing is
+                                        // almost always the start of retyping,
+                                        // not the end of asking.
+                                        isQuestionFocused = true
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 17))
+                                            .foregroundStyle(AlbumTheme.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.trailing, 10)
+                                    .accessibilityLabel("Clear question")
+                                    .transition(.opacity)
+                                }
+                            }
+                            .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
 
                         Button {
                             toggleMic()
@@ -231,10 +254,7 @@ struct AdviceView: View {
 
                     Spacer(minLength: 0)
 
-                    Text("Grounded in your \(decisions.count) decision\(decisions.count == 1 ? "" : "s"), \(experiences.count) experience\(experiences.count == 1 ? "" : "s"), \(reminders.count) reminder\(reminders.count == 1 ? "" : "s"), and \(events.count) event\(events.count == 1 ? "" : "s"). Runs on-device.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                    groundedFooter
                 }
                 .padding(24)
             }
@@ -262,6 +282,83 @@ struct AdviceView: View {
         }
     }
 
+    /// Example questions the user can tap, rather than read.
+    ///
+    /// "What do I even ask it?" is the hardest moment on this screen, and the
+    /// old version answered it with two examples set in quotation marks that
+    /// could not be acted on — the reader had to retype them. These fill the
+    /// field, which also demonstrates the shape of a question that works here.
+    private var suggestions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("TRY ASKING")
+                .font(.caption.weight(.medium))
+                .tracking(1.6)
+                .foregroundStyle(AlbumTheme.secondary)
+
+            ForEach(Self.starterQuestions, id: \.self) { question in
+                Button {
+                    viewModel.question = question
+                } label: {
+                    HStack(spacing: 10) {
+                        AlbumIconTile(symbol: "sparkle", size: 28)
+                        Text(question)
+                            .font(.callout)
+                            .foregroundStyle(AlbumTheme.ink)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(AlbumTheme.rule, lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static let starterQuestions = [
+        "How do I usually handle money decisions?",
+        "What helps me have a good day?",
+        "Who have I been spending time with lately?"
+    ]
+
+    /// What the answers are drawn from.
+    ///
+    /// This was a caption at the bottom, which buried the app's whole claim:
+    /// answers come from your own writing and nothing else. Shown as counts it
+    /// also grows visibly as the journal does, which the sentence never did.
+    private var groundedFooter: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 18) {
+                corpusStat(decisions.count, "decisions")
+                corpusStat(experiences.count, "experiences")
+                corpusStat(events.count, "events")
+            }
+            Label("Answers come from your own words", systemImage: "lock")
+                .font(.caption2)
+                .foregroundStyle(AlbumTheme.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
+    }
+
+    private func corpusStat(_ count: Int, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text("\(count)")
+                .font(AlbumTheme.heading(.title2))
+                .foregroundStyle(AlbumTheme.dateAccent)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(AlbumTheme.secondary)
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
         switch viewModel.phase {
@@ -269,7 +366,7 @@ struct AdviceView: View {
             if decisions.isEmpty && experiences.isEmpty {
                 hint("Save a few decisions or experiences first — answers draw on your history.")
             } else {
-                hint("Try: \"How do I usually handle money decisions?\" or \"What helps me have a good day?\"")
+                suggestions
             }
         case .thinking:
             ProgressView("Thinking…")
