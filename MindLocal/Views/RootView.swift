@@ -13,12 +13,12 @@ struct RootView: View {
         case .unavailable(.deviceNotEligible):
             UnavailableView(
                 title: "Device Not Supported",
-                message: "Decision Memory needs Apple Intelligence, which this device doesn't support."
+                message: "MindLocal needs Apple Intelligence, which this device doesn't support."
             )
         case .unavailable(.appleIntelligenceNotEnabled):
             UnavailableView(
                 title: "Turn On Apple Intelligence",
-                message: "Enable Apple Intelligence in Settings to use Decision Memory."
+                message: "Enable Apple Intelligence in Settings to use MindLocal."
             )
         case .unavailable(.modelNotReady):
             UnavailableView(
@@ -50,10 +50,17 @@ struct MainTabView: View {
             Tab("People", systemImage: "person.2") {
                 PeopleListView()
             }
-            Tab("Advise", systemImage: "sparkles") {
+            Tab("Ask", systemImage: "bubble.left") {
                 AdviceView()
             }
         }
+        .tint(AlbumTheme.accent)
+        .toolbarBackground(AlbumTheme.background, for: .tabBar)
+        // Same omission as the navigation bar had: setting the colour without
+        // setting visibility leaves the bar transparent at scroll edge, and
+        // scroll content runs underneath it. On Today that clipped the bottom
+        // off "Your moments will collect here, one entry at a time."
+        .toolbarBackground(.visible, for: .tabBar)
         // Tapping the nightly reminder opens the voice check-in.
         .fullScreenCover(isPresented: $router.isActive) {
             JournalConversationView()

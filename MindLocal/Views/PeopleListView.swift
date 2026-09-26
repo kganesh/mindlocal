@@ -26,6 +26,7 @@ struct PeopleListView: View {
     @Query(sort: \Person.name) private var people: [Person]
     @Environment(\.modelContext) private var modelContext
     @State private var mode: PeopleViewMode = .list
+    @State private var searchText = ""
 
     var body: some View {
         NavigationStack {
@@ -44,7 +45,9 @@ struct PeopleListView: View {
                     }
                 }
             }
+            .albumScreen()
             .navigationTitle("People")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
@@ -72,19 +75,49 @@ struct PeopleListView: View {
         }
     }
 
+    private var visiblePeople: [Person] {
+        people.filter { person in
+            searchText.isEmpty || person.fullDisplayName.localizedCaseInsensitiveContains(searchText)
+                || person.aliases.contains { $0.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+
     private var listView: some View {
         List {
-            ForEach(people) { person in
+            AlbumHeading(title: "Your people.", subtitle: "Shared moments, remembered details.")
+                .padding(.vertical, 16)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            if visiblePeople.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+            ForEach(visiblePeople) { person in
                 NavigationLink {
                     PersonDetailView(person: person)
                 } label: {
-                    HStack {
-                        Label(person.displayName(among: people), systemImage: person.isMe ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
-                        Spacer()
-                        Text("\(person.experiences.count)")
-                            .foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 14) {
+                        AlbumMonogram(name: person.isMe ? "Me" : person.name)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(person.displayName(among: people))
+                                .font(AlbumTheme.heading(.title3))
+                                .foregroundStyle(AlbumTheme.ink)
+                            if person.isMe {
+                                Text("You").font(.caption).foregroundStyle(AlbumTheme.secondary)
+                            } else if !person.occupation.isEmpty {
+                                Text(person.occupation).font(.caption).foregroundStyle(AlbumTheme.secondary)
+                            }
+                            if let latest = person.experiences.max(by: { $0.timelineDate < $1.timelineDate }) {
+                                Text("Last mentioned \(latest.timelineDate.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.caption)
+                                    .foregroundStyle(AlbumTheme.secondary)
+                            }
+                        }
                     }
+                    .padding(.vertical, 10)
                 }
+                .listRowBackground(Color.clear)
                 .swipeActions(edge: .trailing, allowsFullSwipe: !person.isMe) {
                     // Deleting "Me" nullifies every relationship edge that pointed
                     // at it (orphaned, not removed) and loses the whole kinship
@@ -100,11 +133,123 @@ struct PeopleListView: View {
                 }
             }
         }
+        .listStyle(.plain)
+        .searchable(text: $searchText, prompt: "Find someone")
+    }
+}
+
+/// Reading shared moments comes first; profile maintenance stays one tap away.
+struct PersonDetailView: View {
+    @Bindable var person: Person
+    @State private var showingEditor = false
+    @State private var showingMap = false
+    @Query private var events: [Event]
+
+    private var entries: [Experience] {
+        person.experiences.sorted { $0.timelineDate > $1.timelineDate }
+    }
+
+    var body: some View {
+        List {
+            VStack(alignment: .leading, spacing: 16) {
+                AlbumMonogram(name: person.name)
+                AlbumHeading(title: person.fullDisplayName,
+                             subtitle: person.isMe ? "Your moments, collected." : nil)
+                if !person.occupation.isEmpty {
+                    Text(person.occupation).font(.subheadline).foregroundStyle(AlbumTheme.secondary)
+                }
+                if let latest = entries.first {
+                    Text("Last mentioned \(latest.timelineDate.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.caption).foregroundStyle(AlbumTheme.secondary)
+                }
+            }
+            .padding(.vertical, 16)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            if !person.reminders.isEmpty {
+                Section("For next time") {
+                    ForEach(person.reminders.sorted { $0.createdAt < $1.createdAt }) { reminder in
+                        Button {
+                            reminder.isDone ? reminder.markNotDone() : reminder.markDone()
+                            Task { await EventReminderNotificationService.rescheduleAll(for: person, events: events) }
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: reminder.isDone ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(AlbumTheme.accent)
+                                Text(reminder.text)
+                                    .strikethrough(reminder.isDone)
+                                    .foregroundStyle(AlbumTheme.ink)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(reminder.isDone ? "Mark as not done" : "Mark as done")
+                        .listRowBackground(AlbumTheme.surface)
+                    }
+                }
+            }
+
+            if !person.likes.isEmpty || !person.dislikes.isEmpty {
+                Section("Remembered details") {
+                    if !person.likes.isEmpty {
+                        LabeledContent("Likes", value: person.likes.joined(separator: ", "))
+                    }
+                    if !person.dislikes.isEmpty {
+                        LabeledContent("Dislikes", value: person.dislikes.joined(separator: ", "))
+                    }
+                }
+                .listRowBackground(AlbumTheme.surface)
+            }
+
+            Section("Shared moments") {
+                if entries.isEmpty {
+                    Text("Entries that mention \(person.name) will collect here.")
+                        .font(.subheadline)
+                        .foregroundStyle(AlbumTheme.secondary)
+                        .listRowBackground(Color.clear)
+                }
+                ForEach(entries) { entry in
+                    NavigationLink { DiaryPageView(experience: entry) } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(entry.timelineDate.formatted(date: .abbreviated, time: .omitted))
+                                .font(.caption).foregroundStyle(AlbumTheme.dateAccent)
+                            ExperienceRow(experience: entry)
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .albumScreen()
+        .navigationTitle("People")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Edit details") { showingEditor = true }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showingMap = true } label: { Image(systemName: "point.3.connected.trianglepath.dotted") }
+                    .accessibilityLabel("People map")
+            }
+        }
+        .sheet(isPresented: $showingEditor) {
+            NavigationStack {
+                PersonProfileEditor(person: person)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showingEditor = false }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showingMap) { PeopleGraphSheet(focusName: person.fullDisplayName) }
     }
 }
 
 /// A person's entries (filter-by-person) plus lightweight editing of their names.
-struct PersonDetailView: View {
+private struct PersonProfileEditor: View {
     @Bindable var person: Person
     @Environment(\.modelContext) private var modelContext
     @Query private var allRelationships: [PersonRelationship]
@@ -382,6 +527,7 @@ struct PersonDetailView: View {
                 }
             }
         }
+        .albumScreen()
         .navigationTitle(person.fullDisplayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

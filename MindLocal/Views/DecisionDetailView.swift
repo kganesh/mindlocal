@@ -74,6 +74,7 @@ struct DecisionDetailView: View {
             }
             // M2: related-decisions section via embedding similarity (spec §4).
         }
+        .albumScreen()
         .navigationTitle(decision.title)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingOutcomeSheet) {

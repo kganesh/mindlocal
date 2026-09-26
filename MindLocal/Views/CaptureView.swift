@@ -49,6 +49,7 @@ struct CaptureView: View {
                     errorView(message)
                 }
             }
+            .albumScreen()
             .navigationTitle("New Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -70,83 +71,92 @@ struct CaptureView: View {
     }
 
     private var inputView: some View {
-        VStack(spacing: 24) {
-            DatePicker("Date & time", selection: $viewModel.occurredAt, displayedComponents: [.date, .hourAndMinute])
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                AlbumHeading(title: "A moment to keep.", subtitle: "Write a little, or say it out loud.")
+                DatePicker("Date & time", selection: $viewModel.occurredAt, displayedComponents: [.date, .hourAndMinute])
+                    .padding(.horizontal, 4)
+
+                HStack {
+                    Button {
+                        pickingLocation = true
+                    } label: {
+                        Label(viewModel.location.isEmpty ? "Add location" : viewModel.location,
+                              systemImage: "mappin.circle")
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    if !viewModel.location.isEmpty {
+                        Button {
+                            viewModel.location = ""
+                            viewModel.latitude = nil
+                            viewModel.longitude = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .accessibilityLabel("Clear location")
+                    }
+                }
                 .padding(.horizontal, 4)
 
-            HStack {
-                Button {
-                    pickingLocation = true
-                } label: {
-                    Label(viewModel.location.isEmpty ? "Add location" : viewModel.location,
-                          systemImage: "mappin.circle")
-                        .lineLimit(1)
-                }
-                Spacer()
-                if !viewModel.location.isEmpty {
-                    Button {
-                        viewModel.location = ""
-                        viewModel.latitude = nil
-                        viewModel.longitude = nil
-                    } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                    }
-                    .accessibilityLabel("Clear location")
-                }
-            }
-            .padding(.horizontal, 4)
-
-            TextEditor(text: $viewModel.typedText)
-                .frame(minHeight: 140)
-                .padding(8)
-                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
-                .focused($editorFocused)
-                .overlay(alignment: .topLeading) {
-                    if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
-                        Text("What happened? Speak or type freely — mention any decisions you made.")
-                            .foregroundStyle(.secondary)
-                            .padding(16)
-                            .allowsHitTesting(false)
-                    }
-                }
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button {
-                            editorFocused = false
-                        } label: {
-                            Image(systemName: "checkmark")
-                                .fontWeight(.semibold)
+                TextEditor(text: $viewModel.typedText)
+                    .frame(minHeight: 220)
+                    .font(.body)
+                    .lineSpacing(6)
+                    .scrollContentBackground(.hidden)
+                    .accessibilityLabel("Journal entry")
+                    .padding(8)
+                    .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 18))
+                    .focused($editorFocused)
+                    .overlay(alignment: .topLeading) {
+                        if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
+                            Text("What would you like to remember?")
+                                .foregroundStyle(.secondary)
+                                .padding(16)
+                                .allowsHitTesting(false)
                         }
-                        .accessibilityLabel("Done")
                     }
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button {
+                                editorFocused = false
+                            } label: {
+                                Image(systemName: "checkmark")
+                                    .fontWeight(.semibold)
+                            }
+                            .accessibilityLabel("Done")
+                        }
+                    }
+                    .onChange(of: viewModel.speech.transcript) { _, newValue in
+                        if viewModel.speech.isRecording { viewModel.typedText = newValue }
+                    }
+
+                if wordCount >= wordLimit - 50 {
+                    Text("\(wordCount) of \(wordLimit) words")
+                        .font(.caption)
+                        .foregroundStyle(wordCount > wordLimit ? .red : .secondary)
                 }
-                .onChange(of: viewModel.speech.transcript) { _, newValue in
-                    if viewModel.speech.isRecording { viewModel.typedText = newValue }
+
+                micButton
+
+                Button {
+                    Task { await viewModel.submit() }
+                } label: {
+                    Text("Review entry").frame(maxWidth: .infinity)
                 }
+                .buttonStyle(AlbumPrimaryButtonStyle())
+                .disabled(isInputEmpty || wordCount > wordLimit)
 
-            HStack {
-                Spacer()
-                Text("\(wordCount) / \(wordLimit) words")
-                    .font(.caption)
-                    .foregroundStyle(wordCount > wordLimit ? .red : .secondary)
+                if wordCount > wordLimit {
+                    Text("Keep it under \(wordLimit) words — trim a little to continue.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
-
-            micButton
-
-            Button("Continue") {
-                Task { await viewModel.submit() }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isInputEmpty || wordCount > wordLimit)
-
-            if wordCount > wordLimit {
-                Text("Keep it under \(wordLimit) words — trim a little to continue.")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
+            .padding(24)
         }
-        .padding()
+        .scrollDismissesKeyboard(.interactively)
         .task { await prefillLocationIfAuthorized() }
     }
 
@@ -185,8 +195,10 @@ struct CaptureView: View {
                 }
             }
         } label: {
-            Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                .font(.system(size: 64))
+            Label(viewModel.speech.isRecording ? "Stop dictation" : "Speak instead",
+                  systemImage: viewModel.speech.isRecording ? "stop.circle.fill" : "mic")
+                .font(.body)
+                .frame(minHeight: 44)
                 .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
         }
         .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Start recording")

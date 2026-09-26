@@ -74,6 +74,7 @@ struct HowIDecideView: View {
                     Text("How you want to decide. MindLocal will draw on these when it advises you.")
                 }
             }
+            .albumScreen()
             .navigationTitle("How I Decide")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

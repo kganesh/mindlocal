@@ -92,6 +92,7 @@ struct SettingsView: View {
                     Text("MindLocal keeps your journal on your device. Only weather forecasts and the optional Whisper model download use the network.")
                 }
             }
+            .albumScreen()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

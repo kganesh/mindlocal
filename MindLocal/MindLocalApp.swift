@@ -14,6 +14,7 @@ struct MindLocalApp: App {
         WindowGroup {
             RootView()
                 .environment(checkInRouter)
+                .tint(AlbumTheme.accent)
         }
         .modelContainer(SharedStore.container)
     }

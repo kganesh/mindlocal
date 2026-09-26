@@ -1,17 +1,17 @@
 import SwiftUI
 import SwiftData
 
-/// The visual of a single diary page — warm paper, a dated header, and the
-/// narrative set in handwriting. Used both standalone (DiaryPageView) and as a
+/// A dated journal page with readable prose and connected memories.
+/// Used both standalone (DiaryPageView) and as a
 /// page inside the flip-through reader (JournalReaderView).
 struct DiaryPageContent: View {
     @Bindable var experience: Experience
     @Query(sort: \Person.name) private var allPeople: [Person]
     @State private var showingPeopleMap = false
 
-    private let paper = Color(red: 0.98, green: 0.96, blue: 0.89)
-    private let ink   = Color(red: 0.20, green: 0.16, blue: 0.12)
-    private let noteBackground = Color(red: 0.92, green: 0.86, blue: 0.70).opacity(0.35)
+    private let paper = AlbumTheme.background
+    private let ink = AlbumTheme.ink
+    private let noteBackground = AlbumTheme.wash
 
     /// The narrative to read — the original note if we have it, else the summary.
     private var bodyText: String {
@@ -33,32 +33,36 @@ struct DiaryPageContent: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text(experience.timelineDate.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
-                    .font(.custom("Caveat-Bold", size: 26))
-                    .foregroundStyle(ink.opacity(0.65))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(AlbumTheme.dateAccent)
+
+                Text(experience.title)
+                    .font(AlbumTheme.heading())
+                    .foregroundStyle(ink)
+                    .accessibilityAddTraits(.isHeader)
 
                 if experience.hasLocation {
                     HStack(spacing: 4) {
                         Image(systemName: "mappin.and.ellipse")
                         Text(experience.location)
                     }
-                    .font(.custom("Caveat-Regular", size: 20))
-                    .foregroundStyle(ink.opacity(0.55))
+                    .font(.subheadline)
+                    .foregroundStyle(AlbumTheme.secondary)
                 }
 
                 Rectangle()
-                    .fill(ink.opacity(0.15))
+                    .fill(AlbumTheme.rule)
                     .frame(height: 1)
 
                 EnrichedDiaryBody(
                     text: bodyText,
                     linkedPeople: experience.linkedPeople,
-                    allPeople: allPeople,
                     ink: ink
                 )
 
                 if !experience.learning.isEmpty {
                     Text("- \(experience.learning)")
-                        .font(.custom("Caveat-Bold", size: 26))
+                        .font(AlbumTheme.heading(.title3))
                         .foregroundStyle(ink.opacity(0.8))
                         .padding(.top, 4)
                 }
@@ -67,35 +71,42 @@ struct DiaryPageContent: View {
                     Image(systemName: experience.tone.symbol)
                     Text(experience.tone.label)
                 }
-                .font(.custom("Caveat-Regular", size: 22))
+                .font(.subheadline)
                 .foregroundStyle(experience.tone.tint)
                 .padding(.top, 6)
 
                 if experience.hasHealthContext {
-                    HStack(spacing: 16) {
-                        if let hours = experience.sleepHours {
-                            healthChip("bed.double.fill", String(format: "%.1f h", hours))
-                        }
-                        if let steps = experience.steps {
-                            healthChip("figure.walk", steps.formatted())
-                        }
-                        if let count = experience.workoutCount, count > 0 {
-                            healthChip("figure.run", count == 1 ? "1 workout" : "\(count) workouts")
-                        }
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 16) { healthContext }
+                        VStack(alignment: .leading, spacing: 10) { healthContext }
                     }
-                    .font(.custom("Caveat-Regular", size: 18))
-                    .foregroundStyle(ink.opacity(0.5))
+                    .font(.caption)
+                    .foregroundStyle(AlbumTheme.secondary)
                 }
 
                 if hasEnrichment {
                     enrichmentNotes
                 }
             }
-            .padding(28)
-            .frame(maxWidth: .infinity, minHeight: 480, alignment: .topLeading)
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(paper)
+        .tint(AlbumTheme.accent)
+    }
+
+    @ViewBuilder
+    private var healthContext: some View {
+        if let hours = experience.sleepHours {
+            healthChip("bed.double.fill", String(format: "%.1f h", hours))
+        }
+        if let steps = experience.steps {
+            healthChip("figure.walk", steps.formatted())
+        }
+        if let count = experience.workoutCount, count > 0 {
+            healthChip("figure.run", count == 1 ? "1 workout" : "\(count) workouts")
+        }
     }
 
     private func healthChip(_ symbol: String, _ text: String) -> some View {
@@ -107,9 +118,9 @@ struct DiaryPageContent: View {
 
     private var enrichmentNotes: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("MindLocal noticed", systemImage: "sparkles")
-                .font(.custom("Caveat-Bold", size: 24))
-                .foregroundStyle(ink.opacity(0.72))
+            Label("Connected memories", systemImage: "bookmark")
+                .font(AlbumTheme.heading(.title2))
+                .foregroundStyle(AlbumTheme.secondary)
 
             if !experience.linkedPeople.isEmpty {
                 enrichmentGroup("People", systemImage: "person.2") {
@@ -182,7 +193,7 @@ struct DiaryPageContent: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(noteBackground, in: RoundedRectangle(cornerRadius: 8))
+        .background(noteBackground, in: RoundedRectangle(cornerRadius: 16))
         .padding(.top, 8)
         .sheet(isPresented: $showingPeopleMap) {
             PeopleGraphSheet(focusName: diaryMapFocusName)
@@ -202,7 +213,7 @@ struct DiaryPageContent: View {
         VStack(alignment: .leading, spacing: 6) {
             Label(title, systemImage: systemImage)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(ink.opacity(0.58))
+                .foregroundStyle(AlbumTheme.secondary)
             FlowTagLayout {
                 content()
             }
@@ -219,49 +230,47 @@ struct DiaryPageContent: View {
     }
 }
 
-/// Handwritten diary text that turns resolved person names into tappable links
+/// Diary text that turns resolved person names into tappable links
 /// after extraction has linked the entry to graph nodes.
 private struct EnrichedDiaryBody: View {
     let text: String
     let linkedPeople: [Person]
-    let allPeople: [Person]
     let ink: Color
 
-    private var paragraphs: [String] {
-        text.components(separatedBy: .newlines)
+    @State private var selectedPerson: Person?
+
+    private var attributedText: AttributedString {
+        var result = AttributedString()
+        for segment in segments(in: text) {
+            var part = AttributedString(segment.text)
+            if case .person(let person) = segment.kind {
+                part.link = URL(string: "mindlocal-person://" + person.id.uuidString)
+            }
+            result.append(part)
+        }
+        return result
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                if paragraph.isEmpty {
-                    Color.clear.frame(height: 10)
-                } else {
-                    FlowTagLayout(horizontalSpacing: 0, verticalSpacing: 4) {
-                        ForEach(segments(in: paragraph)) { segment in
-                            switch segment.kind {
-                            case .plain:
-                                Text(segment.text)
-                                    .foregroundStyle(ink)
-                            case .person(let person):
-                                NavigationLink {
-                                    PersonDetailView(person: person)
-                                } label: {
-                                    Text(segment.text)
-                                        .foregroundStyle(Color.accentColor)
-                                        .underline(true, color: Color.accentColor.opacity(0.45))
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(person.displayName(among: allPeople))
-                            }
-                        }
-                    }
+        Text(attributedText)
+            .font(.body)
+            .lineSpacing(7)
+            .foregroundStyle(ink)
+            .tint(AlbumTheme.accent)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { url in
+                guard url.scheme == "mindlocal-person",
+                      let id = url.host,
+                      let person = linkedPeople.first(where: { $0.id.uuidString.caseInsensitiveCompare(id) == .orderedSame }) else {
+                    return .systemAction
                 }
+                selectedPerson = person
+                return .handled
+            })
+            .navigationDestination(item: $selectedPerson) { person in
+                PersonDetailView(person: person)
             }
-        }
-        .font(.custom("Caveat-Regular", size: 30))
-        .lineSpacing(6)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var matchCandidates: [PersonMatchCandidate] {
@@ -356,7 +365,7 @@ private struct DiaryTextSegment: Identifiable {
     }
 }
 
-/// A compact wrapping layout for handwritten tokens and extraction chips.
+/// A compact wrapping layout for extraction chips.
 private struct FlowTagLayout: Layout {
     var horizontalSpacing: CGFloat = 8
     var verticalSpacing: CGFloat = 8
@@ -393,7 +402,7 @@ private struct FlowTagLayout: Layout {
         var currentHeight: CGFloat = 0
 
         for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
+            let size = subviews[index].sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
             let spacing = currentItems.isEmpty ? CGFloat.zero : horizontalSpacing
             if !currentItems.isEmpty, currentWidth + spacing + size.width > maxWidth {
                 rows.append(FlowRow(items: currentItems, height: currentHeight))
@@ -429,7 +438,7 @@ struct DiaryPageView: View {
 
     var body: some View {
         DiaryPageContent(experience: experience)
-            .ignoresSafeArea(edges: .bottom)
+            .albumScreen()
             .navigationTitle(experience.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

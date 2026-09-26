@@ -11,6 +11,8 @@ struct ExperiencePreviewView: View {
     var body: some View {
         if viewModel.experienceDraft != nil {
             Form {
+                AlbumHeading(title: "Keep what matters.", subtitle: "Review the details found in your words.")
+                    .listRowBackground(Color.clear)
                 Section("Experience") {
                     TextField("Title", text: binding(\.title))
                     TextField("What happened", text: binding(\.summary), axis: .vertical)
@@ -128,13 +130,14 @@ struct ExperiencePreviewView: View {
                     }
                 }
                 Section {
-                    Button("Save Experience") { onSave() }
+                    Button("Save entry") { onSave() }
                         .frame(maxWidth: .infinity)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(AlbumPrimaryButtonStyle())
                     Button("Discard", role: .destructive) { viewModel.discard() }
                         .frame(maxWidth: .infinity)
                 }
             }
+            .albumScreen()
             .navigationTitle("Review")
         }
     }

@@ -42,6 +42,7 @@ struct JournalConversationView: View {
                     errorView(message)
                 }
             }
+            .albumScreen()
             .navigationTitle("Nightly check-in")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -56,14 +57,14 @@ struct JournalConversationView: View {
         VStack(spacing: 24) {
             Image(systemName: "moon.stars.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.indigo)
-            Text("Let's capture your day")
-                .font(.title2.weight(.semibold))
+                .foregroundStyle(AlbumTheme.accent)
+            Text("A little room for your day.")
+                .font(AlbumTheme.heading(.title))
             Text("I'll ask a few questions. Type, paste, or talk — tap Next when you're done with each answer.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Start") { Task { await viewModel.start() } }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(AlbumPrimaryButtonStyle())
                 .controlSize(.large)
         }
         .padding()
@@ -119,7 +120,7 @@ struct JournalConversationView: View {
                 Button(viewModel.isLastQuestion ? "Finish" : "Next") {
                     Task { await viewModel.advance() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(AlbumPrimaryButtonStyle())
             }
         }
         .padding()
@@ -161,7 +162,7 @@ struct JournalConversationView: View {
                 }
             }
             Button("Done") { dismiss() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(AlbumPrimaryButtonStyle())
                 .controlSize(.large)
         }
         .padding()

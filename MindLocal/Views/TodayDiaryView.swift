@@ -23,14 +23,9 @@ struct TodayDiaryView: View {
     @State private var addSheet: AddSheet?
     @State private var showingAsk = false
     @State private var showingTimeline = false
+    @State private var showingSettings = false
     @State private var peopleConfirmed = false
     @FocusState private var editorFocused: Bool
-
-    private let paper = Color(red: 0.98, green: 0.96, blue: 0.89)
-    private let paperShadow = Color(red: 0.36, green: 0.28, blue: 0.18).opacity(0.18)
-    private let ink = Color(red: 0.20, green: 0.16, blue: 0.12)
-    private let rule = Color(red: 0.50, green: 0.42, blue: 0.30).opacity(0.18)
-    private let table = Color(red: 0.93, green: 0.89, blue: 0.79)
 
     private var todayEntries: [Experience] {
         experiences
@@ -60,17 +55,25 @@ struct TodayDiaryView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 28) {
+                    header
                     diaryPage
                     todayMemoryStack
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
             }
-            .background(table.ignoresSafeArea())
-            .navigationTitle("Today")
+            .albumScreen()
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("MindLocal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                    .accessibilityLabel("Settings")
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showingTimeline = true } label: {
                         Image(systemName: "calendar")
@@ -91,6 +94,7 @@ struct TodayDiaryView: View {
                     JournalConversationView()
                 }
             }
+            .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingAsk) { AdviceView() }
             .sheet(isPresented: $showingTimeline) { CalendarView() }
             .sheet(isPresented: $pickingLocation) {
@@ -119,107 +123,137 @@ struct TodayDiaryView: View {
     }
 
     private var diaryPage: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    AlbumIconTile(symbol: "square.and.pencil")
+                    Text("YOUR WORDS")
+                        .font(.caption.weight(.medium))
+                        .tracking(1.6)
+                        .foregroundStyle(AlbumTheme.secondary)
+                }
 
-            Rectangle()
-                .fill(rule)
-                .frame(height: 1)
-
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $viewModel.typedText)
-                    .font(.custom("Caveat-Regular", size: 30))
-                    .lineSpacing(6)
-                    .foregroundStyle(ink)
-                    .frame(minHeight: 260)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
-                    .focused($editorFocused)
-                    .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isRecording { viewModel.typedText = newValue }
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $viewModel.typedText)
+                        .font(.body)
+                        .lineSpacing(7)
+                        .foregroundStyle(AlbumTheme.ink)
+                        .frame(minHeight: 200)
+                        .scrollContentBackground(.hidden)
+                        .focused($editorFocused)
+                        .accessibilityLabel("Today's journal entry")
+                        .onChange(of: viewModel.speech.transcript) { _, newValue in
+                            if viewModel.speech.isRecording { viewModel.typedText = newValue }
+                        }
+                    if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
+                        Text("What would you like to remember?")
+                            .font(.body)
+                            .foregroundStyle(AlbumTheme.secondary)
+                            .padding(.top, 8)
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
-                if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
-                    Text("Write today's diary log here...")
-                        .font(.custom("Caveat-Regular", size: 30))
-                        .foregroundStyle(ink.opacity(0.38))
-                        .padding(.top, 8)
-                        .padding(.leading, 5)
-                        .allowsHitTesting(false)
+                }
+
+                if viewModel.speech.isRecording {
+                    Label("Listening — take your time", systemImage: "waveform")
+                        .font(.caption)
+                        .foregroundStyle(AlbumTheme.accent)
+                } else {
+                    Text("A little is enough. Start wherever you are.")
+                        .font(.caption)
+                        .foregroundStyle(AlbumTheme.secondary)
+                }
+            }
+            .padding(20)
+            .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 20))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(AlbumTheme.rule, lineWidth: 1)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    reviewButton
+                    voiceButton
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    reviewButton
+                    voiceButton
                 }
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    Task { await toggleMic() }
-                } label: {
-                    Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.fill")
-                        .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
-                }
-                .modifier(PageIconButtonStyle(tint: viewModel.speech.isRecording ? .red : .accentColor))
-                .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate diary log")
-
-                Button {
-                    showingAsk = true
-                } label: {
-                    Label("Ask", systemImage: "sparkles")
-                }
-                .modifier(PageTextButtonStyle())
-
-                Spacer()
-
-                Button {
-                    editorFocused = false
-                    applyPageLocationToDraft()
-                    Task { await viewModel.submit() }
-                } label: {
-                    Label(saveButtonTitle, systemImage: "checkmark.circle")
-                }
-                .modifier(PageTextButtonStyle(prominent: true))
-                .disabled(!canSubmit)
-            }
+            Label("Private on your device", systemImage: "lock")
+                .font(.caption)
+                .foregroundStyle(AlbumTheme.secondary)
+                .frame(maxWidth: .infinity)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(paper, in: RoundedRectangle(cornerRadius: 8))
-        .shadow(color: paperShadow, radius: 14, x: 0, y: 8)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button { editorFocused = false } label: {
-                    Image(systemName: "checkmark").fontWeight(.semibold)
-                }
-                .accessibilityLabel("Done")
+                Button("Done") { editorFocused = false }
             }
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
-                    .font(.custom("Caveat-Bold", size: 30))
-                    .foregroundStyle(ink.opacity(0.75))
-
-                Button {
-                    pickingLocation = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: weatherSymbol)
-                        Text(contextLine)
-                            .lineLimit(2)
-                        if loadingWeather {
-                            ProgressView()
-                                .controlSize(.mini)
-                        }
-                    }
-                    .font(.custom("Caveat-Regular", size: 21))
-                    .foregroundStyle(ink.opacity(0.55))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Location and weather")
+    private var reviewButton: some View {
+        Button {
+            editorFocused = false
+            applyPageLocationToDraft()
+            Task { await viewModel.submit() }
+        } label: {
+            HStack(spacing: 8) {
+                if viewModel.phase == .extracting { ProgressView().tint(AlbumTheme.secondary) }
+                Text(saveButtonTitle)
             }
-            Spacer(minLength: 8)
-            addMenu
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(AlbumPrimaryButtonStyle())
+        .disabled(!canSubmit)
+    }
+
+    private var voiceButton: some View {
+        Button {
+            Task { await toggleMic() }
+        } label: {
+            Label(viewModel.speech.isRecording ? "Stop" : "Speak",
+                  systemImage: viewModel.speech.isRecording ? "stop.fill" : "mic")
+                .font(.body)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 48)
+                .background(AlbumTheme.wash, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
+        .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate journal entry")
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                AlbumHeading(
+                    eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()),
+                    title: "The little things.",
+                    subtitle: "A moment for yourself, in your own words."
+                )
+                addMenu
+            }
+            Button {
+                pickingLocation = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: weatherSymbol)
+                    Text(contextLine)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if loadingWeather { ProgressView().controlSize(.mini) }
+                }
+                .font(.caption)
+                .foregroundStyle(AlbumTheme.secondary)
+                .frame(minHeight: 44, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Location and weather: \(contextLine)")
         }
     }
 
@@ -231,13 +265,16 @@ struct TodayDiaryView: View {
             Button { addSheet = .event } label: {
                 Label("Event", systemImage: "calendar.badge.plus")
             }
+            Button { showingAsk = true } label: {
+                Label("Ask about your memories", systemImage: "bubble.left")
+            }
             Button { addSheet = .conversation } label: {
                 Label("Voice Check-In", systemImage: "moon.stars")
             }
         } label: {
             Image(systemName: "plus")
         }
-        .modifier(PageIconButtonStyle(tint: ink.opacity(0.74)))
+        .modifier(PageIconButtonStyle(tint: AlbumTheme.accent))
         .accessibilityLabel("Add")
     }
 
@@ -247,15 +284,15 @@ struct TodayDiaryView: View {
                 EmptyTodayIndex()
             } else {
                 HStack {
-                    Label("Today's pages", systemImage: "book.closed")
-                        .font(.headline)
+                    Text("Today’s moments")
+                        .font(AlbumTheme.heading(.title2))
                     Spacer()
                     Text("\(todayEntries.count + todayEvents.count)")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(.thinMaterial, in: Capsule())
+                        .background(AlbumTheme.wash, in: Capsule())
                 }
                 .padding(.horizontal, 4)
 
@@ -341,7 +378,7 @@ struct TodayDiaryView: View {
     }
 
     private var saveButtonTitle: String {
-        viewModel.phase == .extracting ? "Saving..." : "Save"
+        viewModel.phase == .extracting ? "Preparing…" : "Review entry"
     }
 
     private var reviewPresented: Binding<Bool> {
@@ -526,6 +563,7 @@ private struct TodayCaptureReviewSheet: View {
                     ProgressView("Understanding your note...")
                 }
             }
+            .albumScreen()
             .navigationTitle("Review")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -545,46 +583,30 @@ private struct PageIconButtonStyle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .font(.system(size: 18, weight: .semibold))
+            .font(.body.weight(.medium))
             .foregroundStyle(tint)
-            .frame(width: 36, height: 36)
-            .background(Color.white.opacity(0.36), in: Circle())
-            .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
-    }
-}
-
-private struct PageTextButtonStyle: ViewModifier {
-    var prominent = false
-
-    func body(content: Content) -> some View {
-        content
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(prominent ? Color.white : Color.primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(prominent ? Color.accentColor : Color.white.opacity(0.36), in: Capsule())
-            .overlay {
-                if !prominent {
-                    Capsule().stroke(Color.black.opacity(0.06), lineWidth: 1)
-                }
-            }
+            .frame(width: 44, height: 44)
+            .background(AlbumTheme.wash, in: Circle())
     }
 }
 
 private struct EmptyTodayIndex: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "bookmark")
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-            Text("Saved memories for today will appear here after you write, add an experience, or create an event.")
+        HStack(alignment: .center, spacing: 12) {
+            AlbumIconTile(symbol: "bookmark", tint: AlbumTheme.dateAccent)
+            Text("Your moments will collect here, one entry at a time.")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AlbumTheme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        // Outlined rather than filled: a filled box beside the real text field
+        // reads as a second input. This is a note, not a control.
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(AlbumTheme.rule, lineWidth: 1)
+        }
     }
 }
 
@@ -603,7 +625,7 @@ private struct ExperienceMemoryCard: View {
                 Image(systemName: experience.tone.symbol)
                     .foregroundStyle(experience.tone.tint)
                 Text(experience.title)
-                    .font(.headline)
+                    .font(AlbumTheme.heading(.title3))
                     .lineLimit(1)
                 Spacer()
                 Text(experience.timelineDate, style: .time)
@@ -612,9 +634,9 @@ private struct ExperienceMemoryCard: View {
             }
 
             Text(text)
-                .font(.custom("Caveat-Regular", size: 24))
+                .font(.body)
                 .lineSpacing(4)
-                .foregroundStyle(Color(red: 0.20, green: 0.16, blue: 0.12))
+                .foregroundStyle(AlbumTheme.ink)
                 .lineLimit(4)
 
             if !experience.linkedPeople.isEmpty {
@@ -628,7 +650,7 @@ private struct ExperienceMemoryCard: View {
                                     .font(.caption.weight(.medium))
                                     .padding(.horizontal, 9)
                                     .padding(.vertical, 5)
-                                    .background(.thinMaterial, in: Capsule())
+                                    .background(AlbumTheme.wash, in: Capsule())
                             }
                             .buttonStyle(.plain)
                         }
@@ -638,7 +660,7 @@ private struct ExperienceMemoryCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -677,6 +699,6 @@ private struct EventMemoryCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 16))
     }
 }

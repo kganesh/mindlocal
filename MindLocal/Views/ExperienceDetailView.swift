@@ -173,6 +173,7 @@ struct ExperienceDetailView: View {
                 Text("Fix a typo here, then re-run extraction to refresh the fields above from the corrected note. This replaces the previously extracted details, decisions, conflicts, and reminders.")
             }
         }
+        .albumScreen()
         .navigationTitle(experience.title)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $pickingLocation) {

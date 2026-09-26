@@ -62,6 +62,7 @@ struct PeopleConfirmView: View {
             }
         }
         .padding()
+        .albumScreen()
         .navigationTitle("Confirm people")
         .navigationBarTitleDisplayMode(.inline)
         .alert("New person", isPresented: $namingNew) {

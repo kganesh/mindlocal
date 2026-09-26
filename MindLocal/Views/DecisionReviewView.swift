@@ -28,9 +28,8 @@ struct DecisionReviewView: View {
                 } else {
                     List {
                         Section {
-                            Text("How did these turn out? Your answers help MindLocal learn what works for you.")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                            AlbumHeading(title: "How did it turn out?", subtitle: "A moment to look back, in your own time.")
+                                .listRowBackground(Color.clear)
                         }
                         ForEach(due) { decision in
                             Section {
@@ -40,6 +39,7 @@ struct DecisionReviewView: View {
                     }
                 }
             }
+            .albumScreen()
             .navigationTitle("Revisit")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -50,7 +50,7 @@ struct DecisionReviewView: View {
 
     private func card(for decision: Decision) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(decision.title).font(.headline)
+            Text(decision.title).font(AlbumTheme.heading(.title3))
             if !decision.statement.isEmpty {
                 Text(decision.statement)
                     .font(.subheadline)
@@ -60,13 +60,13 @@ struct DecisionReviewView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
-            HStack(spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 10) {
                 ForEach(quickResults) { result in
                     Button {
                         record(result, for: decision)
                     } label: {
                         Text(result.label)
-                            .font(.caption.weight(.medium))
+                            .font(.body.weight(.medium))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)

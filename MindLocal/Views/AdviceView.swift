@@ -19,12 +19,14 @@ struct AdviceView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 24) {
+                    AlbumHeading(title: "Remember when.", subtitle: "A little perspective, from your own words.")
+                        .padding(.bottom, 8)
                     HStack(alignment: .bottom, spacing: 8) {
-                        TextField("Ask about a decision or experience…", text: $viewModel.question, axis: .vertical)
+                        TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
                             .lineLimit(1...4)
                             .padding(12)
-                            .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+                            .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 16))
                             .focused($isQuestionFocused)
 
                         Button {
@@ -222,7 +224,7 @@ struct AdviceView: View {
                         Label("Ask", systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(AlbumPrimaryButtonStyle())
                     .disabled(!viewModel.canAsk)
 
                     content
@@ -234,10 +236,12 @@ struct AdviceView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .padding()
+                .padding(24)
             }
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Advise")
+            .albumScreen()
+            .navigationTitle("Ask")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { showingHowIDecide = true } label: {
@@ -274,8 +278,8 @@ struct AdviceView: View {
         case .answer(let text):
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label("Answer", systemImage: "sparkles")
-                        .font(.caption.weight(.semibold))
+                    Label("From your journal", systemImage: "book")
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
@@ -286,6 +290,8 @@ struct AdviceView: View {
                     .accessibilityLabel(speaker.isSpeaking ? "Stop reading" : "Read aloud")
                 }
                 Text(text.renderedMarkdown)
+                    .font(.body)
+                    .lineSpacing(6)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 #if DEBUG
@@ -304,7 +310,7 @@ struct AdviceView: View {
                 #endif
             }
             .padding()
-            .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
+            .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 20))
         case .error(let message):
             Label(message, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.red)
