@@ -162,6 +162,25 @@ enum ModelRouter {
     /// window is guaranteed to exceed the on-device one too — retrying those
     /// just turns one error into the same error, more slowly.
     private static func fallsBackToDevice(_ error: Error) -> Bool {
+        // There are TWO error enums, and PCC throws the other one.
+        // LanguageModelSession.GenerationError and LanguageModelError both carry
+        // .guardrailViolation and .refusal, and handling only the first meant a
+        // real PCC refusal — "Response may contain sensitive or unsafe content"
+        // on the entirely benign question "what is the next event I should be
+        // looking forward to?" — was classed as not retryable and surfaced to the
+        // user as an error, instead of retrying on-device where
+        // .permissiveContentTransformations would very likely have answered it.
+        // The fallback existed for exactly this case and never fired.
+        if #available(iOS 27.0, *), let modelError = error as? LanguageModelError {
+            switch modelError {
+            case .guardrailViolation, .refusal, .rateLimited, .timeout:
+                return true
+            default:
+                // .contextSizeExceeded deliberately excluded: a prompt too large
+                // for PCC's window cannot fit the on-device one either.
+                return false
+            }
+        }
         if let generation = error as? LanguageModelSession.GenerationError {
             switch generation {
             case .guardrailViolation, .refusal, .rateLimited, .concurrentRequests:
