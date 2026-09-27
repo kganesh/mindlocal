@@ -106,6 +106,76 @@ struct AlbumHeading: View {
 /// a wall. Borrowed structurally only — ResumeLocal fills them with saturated
 /// blue on near-black, which suits a utility. Here they take the album palette,
 /// so the device is shared but the voice is not.
+// MARK: - Semantic roles
+//
+// The tokens above name LEVELS: background, surface, wash, accent. Views then
+// each decide which level a button or a field should be, which is why the same
+// control ends up on `surface` in one screen and `wash` in another.
+//
+// These name ROLES instead. A view asks for AlbumTheme.Button.primaryFill and
+// does not have to know or agree which level that is. Changing what a button
+// looks like becomes one edit here rather than a search across 28 files, and a
+// second palette later is a matter of repointing these, not rewriting views.
+//
+// Every value resolves to an existing token. Nothing new is introduced, so this
+// changes no pixels on its own.
+
+extension AlbumTheme {
+
+    enum Button {
+        /// The one action a screen wants you to take.
+        static let primaryFill = AlbumTheme.accent
+        static let primaryLabel = AlbumTheme.onAccent
+
+        /// Everything else. Present, not competing.
+        static let secondaryFill = AlbumTheme.wash
+        static let secondaryLabel = AlbumTheme.accent
+        static let secondaryBorder = AlbumTheme.rule
+
+        /// Unavailable, not merely quiet — distinct from secondary on purpose,
+        /// or a disabled primary reads as a secondary action you could take.
+        static let disabledFill = AlbumTheme.wash
+        static let disabledLabel = AlbumTheme.secondary
+
+        /// Deleting an entry, clearing a journal. Warm rather than alarm-red, to
+        /// sit with the palette without losing the warning.
+        static let destructive = AlbumTheme.dateAccent
+    }
+
+    enum Field {
+        /// Raised, so the place you type is distinct from the page it sits on.
+        static let background = AlbumTheme.surface
+        static let text = AlbumTheme.ink
+        static let placeholder = AlbumTheme.secondary
+        static let border = AlbumTheme.rule
+        /// The only cue that keyboard input lands here rather than elsewhere.
+        static let focusedBorder = AlbumTheme.accent
+        /// Clear buttons and character counts, which should not compete with
+        /// what has been typed.
+        static let accessory = AlbumTheme.secondary
+    }
+
+    enum TabBar {
+        /// Matches the page, so the bar reads as part of it rather than a shelf
+        /// bolted underneath.
+        static let background = AlbumTheme.background
+        static let selectedIcon = AlbumTheme.accent
+        static let selectedBackground = AlbumTheme.wash
+        static let unselectedIcon = AlbumTheme.secondary
+    }
+
+    /// Depth, named by what it means rather than how light it is.
+    enum Layer {
+        /// The page itself.
+        static let page = AlbumTheme.background
+        /// Cards and fields sitting on the page.
+        static let raised = AlbumTheme.surface
+        /// Chips, pills, inset wells — recessed into it.
+        static let sunken = AlbumTheme.wash
+        static let hairline = AlbumTheme.rule
+    }
+}
+
 struct AlbumIconTile: View {
     let symbol: String
     var tint: Color = AlbumTheme.accent
@@ -143,10 +213,10 @@ struct AlbumFilterCapsule: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 34)
-            .foregroundStyle(isSelected ? AlbumTheme.onAccent : AlbumTheme.secondary)
-            .background(isSelected ? AlbumTheme.accent : AlbumTheme.wash, in: Capsule())
+            .foregroundStyle(isSelected ? AlbumTheme.Button.primaryLabel : AlbumTheme.Button.disabledLabel)
+            .background(isSelected ? AlbumTheme.Button.primaryFill : AlbumTheme.Button.secondaryFill, in: Capsule())
             .overlay {
-                Capsule().strokeBorder(isSelected ? .clear : AlbumTheme.rule, lineWidth: 1)
+                Capsule().strokeBorder(isSelected ? .clear : AlbumTheme.Button.secondaryBorder, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -163,8 +233,9 @@ struct AlbumPrimaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
             .frame(minHeight: 48)
-            .foregroundStyle(isEnabled ? AlbumTheme.onAccent : AlbumTheme.secondary)
-            .background(isEnabled ? AlbumTheme.accent : AlbumTheme.wash, in: RoundedRectangle(cornerRadius: 24))
+            .foregroundStyle(isEnabled ? AlbumTheme.Button.primaryLabel : AlbumTheme.Button.disabledLabel)
+            .background(isEnabled ? AlbumTheme.Button.primaryFill : AlbumTheme.Button.disabledFill,
+                        in: RoundedRectangle(cornerRadius: 24))
             .opacity(configuration.isPressed ? 0.8 : 1)
     }
 }

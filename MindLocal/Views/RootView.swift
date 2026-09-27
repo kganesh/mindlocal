@@ -55,7 +55,7 @@ struct MainTabView: View {
             }
         }
         .tint(AlbumTheme.accent)
-        .toolbarBackground(AlbumTheme.background, for: .tabBar)
+        .toolbarBackground(AlbumTheme.TabBar.background, for: .tabBar)
         // Same omission as the navigation bar had: setting the colour without
         // setting visibility leaves the bar transparent at scroll edge, and
         // scroll content runs underneath it. On Today that clipped the bottom
