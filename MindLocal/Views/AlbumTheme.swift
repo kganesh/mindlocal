@@ -1,6 +1,14 @@
 import SwiftUI
 import UIKit
 
+/// What is painted behind a screen. Every theme so far is a flat colour; Night
+/// Sky is not, and the difference has to live on the palette so that adding a
+/// theme still means adding a palette and touching no view.
+enum AlbumBackdrop: Hashable {
+    case plain
+    case nightSky
+}
+
 /// A complete set of colours. Adding a theme means adding one of these, not
 /// touching any view.
 struct AlbumPalette: Identifiable, Hashable {
@@ -15,8 +23,15 @@ struct AlbumPalette: Identifiable, Hashable {
     let wash: Color
     let rule: Color
     let dateAccent: Color
+    /// Defaulted so the flat-colour palettes below are unchanged.
+    var backdrop: AlbumBackdrop = .plain
 
-    static let all: [AlbumPalette] = [.album, .ink, .dusk]
+    /// A painted sky only works dark. Light mode would put a starfield behind
+    /// cream cards, so this palette opts the whole app into the dark appearance
+    /// rather than defining a light variant it cannot honour.
+    var forcesDarkAppearance: Bool { backdrop == .nightSky }
+
+    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night]
 
     static func named(_ id: String?) -> AlbumPalette {
         all.first { $0.id == id } ?? .album
@@ -63,6 +78,23 @@ struct AlbumPalette: Identifiable, Hashable {
         wash:       hex(light: 0xE8E4EC, dark: 0x2D2836),
         rule:       hex(light: 0xD6D0DC, dark: 0x3E3748),
         dateAccent: hex(light: 0x9A4A5E, dark: 0xE8A2B4)
+    )
+
+    /// A night sky: deep blue-black walls, starlight blue actions, a warm
+    /// moon-gold for dates. Both hex values are identical on every token
+    /// because this theme is dark in either system appearance.
+    static let night = AlbumPalette(
+        id: "night", name: "Night Sky",
+        background: hex(light: 0x070A15, dark: 0x070A15),
+        surface:    hex(light: 0x141B31, dark: 0x141B31),
+        accent:     hex(light: 0x9DB8F2, dark: 0x9DB8F2),
+        onAccent:   hex(light: 0x0A1024, dark: 0x0A1024),
+        ink:        hex(light: 0xE9ECF8, dark: 0xE9ECF8),
+        secondary:  hex(light: 0x99A2C2, dark: 0x99A2C2),
+        wash:       hex(light: 0x1C2440, dark: 0x1C2440),
+        rule:       hex(light: 0x2B3558, dark: 0x2B3558),
+        dateAccent: hex(light: 0xF0C67D, dark: 0xF0C67D),
+        backdrop: .nightSky
     )
 
     private static func hex(light: UInt32, dark: UInt32) -> Color {
@@ -357,7 +389,12 @@ private struct AlbumScreenModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scrollContentBackground(.hidden)
-            .background(AlbumTheme.background.ignoresSafeArea())
+            .background {
+                switch AlbumTheme.palette.backdrop {
+                case .plain:    AlbumTheme.background.ignoresSafeArea()
+                case .nightSky: AlbumStarfield()
+                }
+            }
             .foregroundStyle(AlbumTheme.ink)
             .tint(AlbumTheme.accent)
             .toolbarBackground(AlbumTheme.background, for: .navigationBar)
