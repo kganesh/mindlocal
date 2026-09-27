@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage(AlbumTheme.paletteKey) private var paletteID = AlbumPalette.album.id
     @AppStorage(AdviceGroundingSettings.enabledKey) private var groundedAnswersEnabled = false
     @AppStorage("reminderEnabled") private var reminderEnabled = false
     @AppStorage("reminderHour")    private var reminderHour = 22   // 10 PM
@@ -14,9 +15,48 @@ struct SettingsView: View {
 
     @State private var confirmingWipe = false
 
+    private func swatch(_ color: Color) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: 16, height: 16)
+            .overlay(Circle().strokeBorder(AlbumTheme.rule, lineWidth: 1))
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    ForEach(AlbumPalette.all) { palette in
+                        Button {
+                            paletteID = palette.id
+                        } label: {
+                            HStack(spacing: 12) {
+                                // Three swatches rather than one, because the
+                                // difference between themes is the relationship
+                                // between page, accent and date, not any single
+                                // colour.
+                                HStack(spacing: 4) {
+                                    swatch(palette.background)
+                                    swatch(palette.accent)
+                                    swatch(palette.dateAccent)
+                                }
+                                Text(palette.name)
+                                    .foregroundStyle(AlbumTheme.ink)
+                                Spacer()
+                                if paletteID == palette.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(AlbumTheme.accent)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text("Theme")
+                } footer: {
+                    Text("Each theme adapts to light and dark on its own.")
+                }
+
                 Section {
                     Toggle("Nightly reminder", isOn: $reminderEnabled)
                     if reminderEnabled {

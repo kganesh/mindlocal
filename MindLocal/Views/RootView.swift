@@ -35,6 +35,11 @@ struct RootView: View {
 }
 
 struct MainTabView: View {
+    /// AlbumTheme's tokens are statics read from 28 files, so changing the
+    /// palette does not invalidate any view on its own. Watching the same key
+    /// here rebuilds the tree, and every token is re-read on the way down.
+    @AppStorage(AlbumTheme.paletteKey) private var paletteID = AlbumPalette.album.id
+
     @Environment(NightlyCheckInRouter.self) private var checkInRouter
     @Environment(\.modelContext) private var modelContext
 
@@ -55,6 +60,7 @@ struct MainTabView: View {
             }
         }
         .tint(AlbumTheme.accent)
+        .id(paletteID)
         .toolbarBackground(AlbumTheme.TabBar.background, for: .tabBar)
         // Same omission as the navigation bar had: setting the colour without
         // setting visibility leaves the bar transparent at scroll edge, and

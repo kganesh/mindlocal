@@ -1,6 +1,83 @@
 import SwiftUI
 import UIKit
 
+/// A complete set of colours. Adding a theme means adding one of these, not
+/// touching any view.
+struct AlbumPalette: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let background: Color
+    let surface: Color
+    let accent: Color
+    let onAccent: Color
+    let ink: Color
+    let secondary: Color
+    let wash: Color
+    let rule: Color
+    let dateAccent: Color
+
+    static let all: [AlbumPalette] = [.album, .ink, .dusk]
+
+    static func named(_ id: String?) -> AlbumPalette {
+        all.first { $0.id == id } ?? .album
+    }
+
+    /// Warm neutral paper, sage actions, terracotta dates. The default.
+    static let album = AlbumPalette(
+        id: "album", name: "Album",
+        background: hex(light: 0xF1EDE4, dark: 0x1A1815),
+        surface:    hex(light: 0xFFFDF8, dark: 0x252220),
+        accent:     hex(light: 0x245540, dark: 0xBCD6C0),
+        onAccent:   hex(light: 0xFFFFFF, dark: 0x183326),
+        ink:        hex(light: 0x2A2722, dark: 0xF2EFE7),
+        secondary:  hex(light: 0x6B655C, dark: 0xB5AFA5),
+        wash:       hex(light: 0xE8E3D8, dark: 0x312D29),
+        rule:       hex(light: 0xD8D2C4, dark: 0x423D37),
+        dateAccent: hex(light: 0x9C4B36, dark: 0xE5AA91)
+    )
+
+    /// Near-monochrome. Deep charcoal, a single blue-black accent, amber dates.
+    /// For reading rather than browsing.
+    static let ink = AlbumPalette(
+        id: "ink", name: "Ink",
+        background: hex(light: 0xF4F4F2, dark: 0x141416),
+        surface:    hex(light: 0xFFFFFF, dark: 0x1F1F22),
+        accent:     hex(light: 0x2B3A4A, dark: 0xA9C0D6),
+        onAccent:   hex(light: 0xFFFFFF, dark: 0x16202B),
+        ink:        hex(light: 0x1B1B1D, dark: 0xF0F0F2),
+        secondary:  hex(light: 0x66666B, dark: 0xAAAAB0),
+        wash:       hex(light: 0xE9E9E7, dark: 0x2A2A2E),
+        rule:       hex(light: 0xD9D9D6, dark: 0x3A3A3F),
+        dateAccent: hex(light: 0x8A5A1E, dark: 0xE2B472)
+    )
+
+    /// Cooler and dimmer, plum accents. Easier at night.
+    static let dusk = AlbumPalette(
+        id: "dusk", name: "Dusk",
+        background: hex(light: 0xF2F0F4, dark: 0x17151C),
+        surface:    hex(light: 0xFFFFFF, dark: 0x221F29),
+        accent:     hex(light: 0x543A6B, dark: 0xC6AEDC),
+        onAccent:   hex(light: 0xFFFFFF, dark: 0x241A2E),
+        ink:        hex(light: 0x25222B, dark: 0xF0EDF3),
+        secondary:  hex(light: 0x666070, dark: 0xB2AABB),
+        wash:       hex(light: 0xE8E4EC, dark: 0x2D2836),
+        rule:       hex(light: 0xD6D0DC, dark: 0x3E3748),
+        dateAccent: hex(light: 0x9A4A5E, dark: 0xE8A2B4)
+    )
+
+    private static func hex(light: UInt32, dark: UInt32) -> Color {
+        Color(uiColor: UIColor { traits in
+            let value = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(
+                red: CGFloat((value >> 16) & 0xFF) / 255,
+                green: CGFloat((value >> 8) & 0xFF) / 255,
+                blue: CGFloat(value & 0xFF) / 255,
+                alpha: 1
+            )
+        })
+    }
+}
+
 /// Shared colors adapt together so the journal stays readable in both appearances.
 enum AlbumTheme {
     // The three planes need visible steps between them or the screen reads as
@@ -24,15 +101,28 @@ enum AlbumTheme {
     // So the walls are warm neutral — echoing the cream paper of light mode —
     // and the colour lives in the accents: sage for actions, terracotta
     // (dateAccent) for dates. Both now have something to contrast with.
-    static let background = adaptive(light: 0xF1EDE4, dark: 0x1A1815)
-    static let surface = adaptive(light: 0xFFFDF8, dark: 0x252220)
-    static let accent = adaptive(light: 0x245540, dark: 0xBCD6C0)
-    static let onAccent = adaptive(light: 0xFFFFFF, dark: 0x183326)
-    static let ink = adaptive(light: 0x2A2722, dark: 0xF2EFE7)
-    static let secondary = adaptive(light: 0x6B655C, dark: 0xB5AFA5)
-    static let wash = adaptive(light: 0xE8E3D8, dark: 0x312D29)
-    static let rule = adaptive(light: 0xD8D2C4, dark: 0x423D37)
-    static let dateAccent = adaptive(light: 0x9C4B36, dark: 0xE5AA91)
+    /// The active palette. Every token below reads from this, so swapping it
+    /// changes the whole app.
+    ///
+    /// Stored as a raw value in UserDefaults rather than held in an observable
+    /// object, because these tokens are statics read from 28 files. The root
+    /// view watches the same key and re-renders the tree when it changes, which
+    /// is what makes the swap take effect without rewriting every view.
+    static var palette: AlbumPalette {
+        AlbumPalette.named(UserDefaults.standard.string(forKey: paletteKey))
+    }
+
+    static let paletteKey = "albumPalette"
+
+    static var background: Color { palette.background }
+    static var surface: Color { palette.surface }
+    static var accent: Color { palette.accent }
+    static var onAccent: Color { palette.onAccent }
+    static var ink: Color { palette.ink }
+    static var secondary: Color { palette.secondary }
+    static var wash: Color { palette.wash }
+    static var rule: Color { palette.rule }
+    static var dateAccent: Color { palette.dateAccent }
 
     /// Spacing scale.
     ///
@@ -58,17 +148,6 @@ enum AlbumTheme {
         .system(style, design: .serif, weight: .regular)
     }
 
-    private static func adaptive(light: UInt32, dark: UInt32) -> Color {
-        Color(uiColor: UIColor { traits in
-            let hex = traits.userInterfaceStyle == .dark ? dark : light
-            return UIColor(
-                red: CGFloat((hex >> 16) & 0xFF) / 255,
-                green: CGFloat((hex >> 8) & 0xFF) / 255,
-                blue: CGFloat(hex & 0xFF) / 255,
-                alpha: 1
-            )
-        })
-    }
 }
 
 struct AlbumHeading: View {
