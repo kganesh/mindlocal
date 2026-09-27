@@ -67,7 +67,16 @@ enum ModelRouter {
     /// session detaches the moment the app leaves the foreground. A file
     /// survives all three, and can be pulled later with
     /// `devicectl device copy from --domain-type appDataContainer`.
-    static func record(_ line: String) {
+    ///
+    /// Debug builds only. It is diagnostic instrumentation, and a release that
+    /// grows a file in the app container forever — into every device backup —
+    /// is not something a tester signed up for. The call sites stay; this
+    /// becomes nothing.
+    static func record(_ line: @autoclosure () -> String) {
+        #if !DEBUG
+        return
+        #else
+        let line = line()
         let stamp = ISO8601DateFormatter().string(from: Date())
         let entry = "\(stamp)  \(line)\n"
         guard let dir = FileManager.default.urls(
@@ -80,6 +89,7 @@ enum ModelRouter {
         } else {
             try? Data(entry.utf8).write(to: url)
         }
+        #endif
     }
 
     /// Whether PCC can serve this device and OS right now. Mirrors
