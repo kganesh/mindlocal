@@ -259,7 +259,10 @@ struct TodayDiaryView: View {
             Task { await toggleMic() }
         } label: {
             Image(systemName: viewModel.speech.isRecording ? "stop.fill" : "mic")
-                .font(.body)
+                // Matched to the send arrow by eye, not by number. Same weight,
+                // two points larger: a mic is a tall narrow glyph with no fill
+                // behind it, so at the arrow's exact size it reads smaller.
+                .font(.system(size: 19, weight: .semibold))
                 .frame(width: 38, height: 38)
         }
         .buttonStyle(.plain)
