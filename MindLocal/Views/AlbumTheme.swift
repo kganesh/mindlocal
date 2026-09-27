@@ -7,6 +7,9 @@ import UIKit
 enum AlbumBackdrop: Hashable {
     case plain
     case nightSky
+    case ocean
+    case galaxy
+    case rain
 }
 
 /// A complete set of colours. Adding a theme means adding one of these, not
@@ -26,12 +29,13 @@ struct AlbumPalette: Identifiable, Hashable {
     /// Defaulted so the flat-colour palettes below are unchanged.
     var backdrop: AlbumBackdrop = .plain
 
-    /// A painted sky only works dark. Light mode would put a starfield behind
-    /// cream cards, so this palette opts the whole app into the dark appearance
-    /// rather than defining a light variant it cannot honour.
-    var forcesDarkAppearance: Bool { backdrop == .nightSky }
+    /// A painted backdrop only works dark. Light mode would put a starfield or
+    /// a deep ocean behind cream cards, so these palettes opt the whole app
+    /// into the dark appearance rather than defining a light variant they
+    /// cannot honour.
+    var forcesDarkAppearance: Bool { backdrop != .plain }
 
-    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night]
+    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .ocean, .galaxy, .rain]
 
     static func named(_ id: String?) -> AlbumPalette {
         all.first { $0.id == id } ?? .album
@@ -95,6 +99,55 @@ struct AlbumPalette: Identifiable, Hashable {
         rule:       hex(light: 0x2B3558, dark: 0x2B3558),
         dateAccent: hex(light: 0xF0C67D, dark: 0xF0C67D),
         backdrop: .nightSky
+    )
+
+    /// Underwater: teal walls that deepen downward, seafoam actions, and a warm
+    /// coral for dates — the one thing on screen that is not blue-green, so
+    /// dates still read as dates. Dark in either system appearance.
+    static let ocean = AlbumPalette(
+        id: "ocean", name: "Ocean",
+        background: hex(light: 0x04161F, dark: 0x04161F),
+        surface:    hex(light: 0x0C2C3A, dark: 0x0C2C3A),
+        accent:     hex(light: 0x74D6CE, dark: 0x74D6CE),
+        onAccent:   hex(light: 0x04211F, dark: 0x04211F),
+        ink:        hex(light: 0xE4F3F4, dark: 0xE4F3F4),
+        secondary:  hex(light: 0x93B4BE, dark: 0x93B4BE),
+        wash:       hex(light: 0x12384A, dark: 0x12384A),
+        rule:       hex(light: 0x1F4C5E, dark: 0x1F4C5E),
+        dateAccent: hex(light: 0xF2A17F, dark: 0xF2A17F),
+        backdrop: .ocean
+    )
+
+    /// Deep violet-black, lavender actions, a warm amber for dates picked up
+    /// from the galactic core. Dark in either system appearance.
+    static let galaxy = AlbumPalette(
+        id: "galaxy", name: "Galaxy",
+        background: hex(light: 0x0A0718, dark: 0x0A0718),
+        surface:    hex(light: 0x1B1533, dark: 0x1B1533),
+        accent:     hex(light: 0xC0A6F5, dark: 0xC0A6F5),
+        onAccent:   hex(light: 0x130A29, dark: 0x130A29),
+        ink:        hex(light: 0xEDE8F8, dark: 0xEDE8F8),
+        secondary:  hex(light: 0xA69CC4, dark: 0xA69CC4),
+        wash:       hex(light: 0x241C40, dark: 0x241C40),
+        rule:       hex(light: 0x362C5A, dark: 0x362C5A),
+        dateAccent: hex(light: 0xF3C07C, dark: 0xF3C07C),
+        backdrop: .galaxy
+    )
+
+    /// Wet slate, petrichor green actions, lamplight amber for dates — the
+    /// warm note the rain is lit by. Dark in either system appearance.
+    static let rain = AlbumPalette(
+        id: "rain", name: "Rain",
+        background: hex(light: 0x0D1316, dark: 0x0D1316),
+        surface:    hex(light: 0x1A2429, dark: 0x1A2429),
+        accent:     hex(light: 0xA3C9AF, dark: 0xA3C9AF),
+        onAccent:   hex(light: 0x102118, dark: 0x102118),
+        ink:        hex(light: 0xE6EDEF, dark: 0xE6EDEF),
+        secondary:  hex(light: 0x99A8AE, dark: 0x99A8AE),
+        wash:       hex(light: 0x212D33, dark: 0x212D33),
+        rule:       hex(light: 0x2F3D45, dark: 0x2F3D45),
+        dateAccent: hex(light: 0xE9BB8E, dark: 0xE9BB8E),
+        backdrop: .rain
     )
 
     private static func hex(light: UInt32, dark: UInt32) -> Color {
@@ -393,6 +446,9 @@ private struct AlbumScreenModifier: ViewModifier {
                 switch AlbumTheme.palette.backdrop {
                 case .plain:    AlbumTheme.background.ignoresSafeArea()
                 case .nightSky: AlbumStarfield()
+                case .ocean:    AlbumOceanDepths()
+                case .galaxy:   AlbumGalaxy()
+                case .rain:     AlbumRainfall()
                 }
             }
             .foregroundStyle(AlbumTheme.ink)

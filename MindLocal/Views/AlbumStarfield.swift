@@ -113,18 +113,3 @@ struct AlbumStarfield: View {
         }
     }
 }
-
-/// Deterministic values, so the sky is the same one every launch.
-private struct SeededGenerator: RandomNumberGenerator {
-    private var state: UInt64
-
-    init(seed: UInt64) { state = seed == 0 ? 0x9E37_79B9 : seed }
-
-    mutating func next() -> UInt64 {
-        // xorshift64*: small, no dependencies, and good enough for placing dots.
-        state ^= state >> 12
-        state ^= state << 25
-        state ^= state >> 27
-        return state &* 2_685_821_657_736_338_717
-    }
-}
