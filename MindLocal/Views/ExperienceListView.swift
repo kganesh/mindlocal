@@ -30,17 +30,16 @@ struct ExperienceListView: View {
     private var toneFilterRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                AlbumFilterCapsule(label: "All", isSelected: toneFilter == nil) {
-                    withAnimation(.snappy(duration: 0.18)) { toneFilter = nil }
-                }
+                // No "All" pill. Nothing selected already means everything, and
+                // a pill for "do not filter" adds a control for the state you
+                // are in by default. Tapping the active tone clears it, which is
+                // how you get back.
                 ForEach(ExperienceTone.allCases) { tone in
                     AlbumFilterCapsule(
                         label: tone.label,
                         symbol: tone.symbol,
                         isSelected: toneFilter == tone
                     ) {
-                        // Tapping the active filter clears it — otherwise the
-                        // only way back to All is to aim for a different pill.
                         withAnimation(.snappy(duration: 0.18)) {
                             toneFilter = (toneFilter == tone) ? nil : tone
                         }

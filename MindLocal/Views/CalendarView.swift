@@ -9,7 +9,6 @@ struct CalendarView: View {
     @Query private var experiences: [Experience]
     @Environment(\.modelContext) private var modelContext
     @State private var addSheet: AddSheet?
-    @State private var showingSettings = false
     @State private var showingRevisit = false
     @State private var importMessage: String?
     private let calendarImporter = CalendarImportService()
@@ -78,12 +77,6 @@ struct CalendarView: View {
             }
             .navigationTitle("Timeline")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showingSettings = true } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("Settings")
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button { addSheet = .conversation } label: { Label("Talk about my day", systemImage: "moon.stars") }
@@ -105,7 +98,6 @@ struct CalendarView: View {
                 Text(importMessage ?? "")
             }
             .task { await calendarImporter.importIfAuthorized(into: modelContext) }
-            .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingRevisit) { DecisionReviewView() }
             .sheet(item: $addSheet) { sheet in
                 switch sheet {

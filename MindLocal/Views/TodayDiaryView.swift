@@ -21,7 +21,6 @@ struct TodayDiaryView: View {
     @State private var loadingWeather = false
     @State private var pickingLocation = false
     @State private var addSheet: AddSheet?
-    @State private var showingAsk = false
     @State private var showingTimeline = false
     @State private var showingSettings = false
     @State private var peopleConfirmed = false
@@ -68,17 +67,23 @@ struct TodayDiaryView: View {
             .navigationTitle("MindLocal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Add is the primary action on this screen, so it takes the
+                // trailing slot where the thumb reaches. Timeline and Settings
+                // are both navigation rather than action, so they share the
+                // leading side.
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingSettings = true } label: {
-                        Image(systemName: "slider.horizontal.3")
-                    }
-                    .accessibilityLabel("Settings")
+                    addMenu
                 }
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
                     Button { showingTimeline = true } label: {
                         Image(systemName: "calendar")
                     }
                     .accessibilityLabel("Timeline")
+
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                    .accessibilityLabel("Settings")
                 }
             }
             .sheet(item: $addSheet) { sheet in
@@ -95,7 +100,6 @@ struct TodayDiaryView: View {
                 }
             }
             .sheet(isPresented: $showingSettings) { SettingsView() }
-            .sheet(isPresented: $showingAsk) { AdviceView() }
             .sheet(isPresented: $showingTimeline) { CalendarView() }
             .sheet(isPresented: $pickingLocation) {
                 LocationPickerView { name, lat, lon in
@@ -231,14 +235,11 @@ struct TodayDiaryView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                AlbumHeading(
-                    eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()),
-                    title: "The little things.",
-                    subtitle: "A moment for yourself, in your own words."
-                )
-                addMenu
-            }
+            AlbumHeading(
+                eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()),
+                title: "The little things.",
+                subtitle: "A moment for yourself, in your own words."
+            )
             Button {
                 pickingLocation = true
             } label: {
@@ -265,16 +266,12 @@ struct TodayDiaryView: View {
             Button { addSheet = .event } label: {
                 Label("Event", systemImage: "calendar.badge.plus")
             }
-            Button { showingAsk = true } label: {
-                Label("Ask about your memories", systemImage: "bubble.left")
-            }
             Button { addSheet = .conversation } label: {
                 Label("Voice Check-In", systemImage: "moon.stars")
             }
         } label: {
             Image(systemName: "plus")
         }
-        .modifier(PageIconButtonStyle(tint: AlbumTheme.accent))
         .accessibilityLabel("Add")
     }
 
