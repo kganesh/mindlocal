@@ -69,7 +69,7 @@ struct MainTabView: View {
         // Same omission as the navigation bar had: setting the colour without
         // setting visibility leaves the bar transparent at scroll edge, and
         // scroll content runs underneath it. On Today that clipped the bottom
-        // off "Your moments will collect here, one entry at a time."
+        // off the last card on the page.
         .toolbarBackground(.visible, for: .tabBar)
         // Tapping the nightly reminder opens the voice check-in.
         .fullScreenCover(isPresented: $router.isActive) {

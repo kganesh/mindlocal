@@ -285,9 +285,11 @@ struct TodayDiaryView: View {
 
     private var todayMemoryStack: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if todayEntries.isEmpty && todayEvents.isEmpty {
-                EmptyTodayIndex()
-            } else {
+            // Nothing at all when the day is empty. The writing card above says
+            // what to do and the placeholder inside it asks the question, so a
+            // second outlined box repeating that in other words was one more
+            // thing to read before writing anything.
+            if !(todayEntries.isEmpty && todayEvents.isEmpty) {
                 HStack {
                     Text("Today’s moments")
                         .font(AlbumTheme.heading(.title2))
@@ -592,26 +594,6 @@ private struct PageIconButtonStyle: ViewModifier {
             .foregroundStyle(tint)
             .frame(width: 44, height: 44)
             .background(AlbumTheme.wash, in: Circle())
-    }
-}
-
-private struct EmptyTodayIndex: View {
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            AlbumIconTile(symbol: "bookmark", tint: AlbumTheme.dateAccent)
-            Text("Your moments will collect here, one entry at a time.")
-                .font(.callout)
-                .foregroundStyle(AlbumTheme.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // Outlined rather than filled: a filled box beside the real text field
-        // reads as a second input. This is a note, not a control.
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(AlbumTheme.rule, lineWidth: 1)
-        }
     }
 }
 
