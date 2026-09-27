@@ -8,7 +8,6 @@ struct CalendarView: View {
     @Query private var decisions: [Decision]
     @Query private var experiences: [Experience]
     @Environment(\.modelContext) private var modelContext
-    @State private var addSheet: AddSheet?
     @State private var showingRevisit = false
     @State private var importMessage: String?
     private let calendarImporter = CalendarImportService()
@@ -71,7 +70,7 @@ struct CalendarView: View {
                     ContentUnavailableView(
                         "Nothing Yet",
                         systemImage: "calendar",
-                        description: Text("Tap + to add an entry or an event.")
+                        description: Text("Entries you write and events you import will appear here.")
                     )
                 }
             }
@@ -79,18 +78,14 @@ struct CalendarView: View {
             .navigationTitle("Timeline")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button { addSheet = .conversation } label: { Label("Talk about my day", systemImage: "moon.stars") }
-                        Button { addSheet = .entry } label: { Label("New Entry", systemImage: "square.and.pencil") }
-                        Button { addSheet = .event } label: { Label("New Event", systemImage: "calendar.badge.plus") }
-                        Divider()
-                        Button { Task { await importCalendar() } } label: {
-                            Label("Import from Calendar", systemImage: "calendar.badge.clock")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
+                    // One action, so no menu. A "+" that opens a sheet of one
+                    // item is a door with a corridor behind it, and "+" is the
+                    // wrong glyph now that nothing here is composed by hand —
+                    // Today owns creating entries.
+                    Button { Task { await importCalendar() } } label: {
+                        Image(systemName: "calendar.badge.clock")
                     }
-                    .accessibilityLabel("Add")
+                    .accessibilityLabel("Import from Calendar")
                 }
             }
             .alert("Calendar", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
@@ -100,17 +95,6 @@ struct CalendarView: View {
             }
             .task { await calendarImporter.importIfAuthorized(into: modelContext) }
             .sheet(isPresented: $showingRevisit) { DecisionReviewView() }
-            .sheet(item: $addSheet) { sheet in
-                switch sheet {
-                case .conversation: JournalConversationView()
-                case .entry: CaptureView()
-                case .event:
-                    EventFormView {
-                        modelContext.insert($0)
-                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
-                    }
-                }
-            }
         }
     }
 
@@ -167,10 +151,6 @@ struct CalendarView: View {
         }
     }
 
-    enum AddSheet: String, Identifiable {
-        case conversation, entry, event
-        var id: String { rawValue }
-    }
 }
 
 /// A single timeline entry — event, decision, or experience.
