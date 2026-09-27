@@ -160,9 +160,13 @@ struct TodayDiaryView: View {
                     }
                 }
 
+                // Clear sits innermost: it is the only one of the three that
+                // comes and goes, so its arrival cannot shift the two that are
+                // always there.
                 HStack(alignment: .bottom, spacing: 12) {
                     hintLine
                     Spacer(minLength: 8)
+                    if !viewModel.typedText.isEmpty { clearButton }
                     voiceButton
                     reviewButton
                 }
@@ -173,6 +177,7 @@ struct TodayDiaryView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(AlbumTheme.rule, lineWidth: 1)
             }
+            .animation(.snappy(duration: 0.15), value: viewModel.typedText.isEmpty)
 
             Label("Private on your device", systemImage: "lock")
                 .font(.caption)
@@ -230,6 +235,29 @@ struct TodayDiaryView: View {
         .buttonStyle(.plain)
         .disabled(!canSubmit)
         .accessibilityLabel(saveButtonTitle)
+    }
+
+    /// Start over. Clears the saved draft too, via `discard()` — a half-written
+    /// entry that comes back on the next launch is not what "clear" means.
+    private var clearButton: some View {
+        Button {
+            Task {
+                // Stop dictation first. The transcript observer would otherwise
+                // put the tail back into the field a moment after it is
+                // emptied, and the field would refill on its own.
+                await viewModel.speech.finishRecording()
+                viewModel.discard()
+                editorFocused = true
+            }
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 20))
+                .frame(width: 38, height: 38)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(AlbumTheme.Field.accessory)
+        .accessibilityLabel("Clear entry")
+        .transition(.opacity)
     }
 
     private var voiceButton: some View {
