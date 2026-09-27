@@ -64,7 +64,10 @@ struct TodayDiaryView: View {
             }
             .albumScreen()
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("MindLocal")
+            // No title. The page names itself two lines down, in type meant to
+            // be read, and a bar title repeating the app's name over it said
+            // nothing the icon had not already said.
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Add is the primary action on this screen, so it takes the
@@ -245,7 +248,7 @@ struct TodayDiaryView: View {
         VStack(alignment: .leading, spacing: 16) {
             AlbumHeading(
                 eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()),
-                title: "The little things.",
+                title: "the little things",
                 subtitle: "A moment for yourself, in your own words."
             )
             Button {
