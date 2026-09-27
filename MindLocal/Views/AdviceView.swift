@@ -22,16 +22,29 @@ struct AdviceView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     AlbumHeading(title: "Remember when.", subtitle: "A little perspective, from your own words.")
                         .padding(.bottom, 8)
-                    HStack(alignment: .bottom, spacing: 8) {
-                        TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
-                            .lineLimit(1...4)
-                            .padding(12)
-                            // Room for the clear button, so a long question does
-                            // not run underneath it.
-                            .padding(.trailing, 30)
-                            .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 16))
-                            .focused($isQuestionFocused)
-                            .overlay(alignment: .trailing) {
+                    // Both controls live inside the field now, stacked at the
+                    // bottom-trailing corner so they stay put as the field grows
+                    // rather than riding up with the last line. Clear sits inner,
+                    // mic outer: clear only exists while there is text, and a
+                    // control that appears and disappears should not shift the
+                    // one beside it.
+                    TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
+                        .lineLimit(3...8)
+                        .frame(minHeight: 96, alignment: .top)
+                        .padding(14)
+                        // Room for whichever controls are showing.
+                        .padding(.trailing, viewModel.question.isEmpty ? 52 : 88)
+                        .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 18))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18)
+                                .strokeBorder(
+                                    isQuestionFocused ? AlbumTheme.Field.focusedBorder : AlbumTheme.Field.border,
+                                    lineWidth: isQuestionFocused ? 1.5 : 1
+                                )
+                        }
+                        .focused($isQuestionFocused)
+                        .overlay(alignment: .bottomTrailing) {
+                            HStack(spacing: 10) {
                                 if !viewModel.question.isEmpty {
                                     Button {
                                         viewModel.question = ""
@@ -41,37 +54,40 @@ struct AdviceView: View {
                                         isQuestionFocused = true
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 17))
-                                            .foregroundStyle(AlbumTheme.secondary)
+                                            .font(.system(size: 20))
+                                            .foregroundStyle(AlbumTheme.Field.accessory)
                                     }
                                     .buttonStyle(.plain)
-                                    .padding(.trailing, 10)
                                     .accessibilityLabel("Clear question")
                                     .transition(.opacity)
                                 }
-                            }
-                            .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
-                            // Declared on the field, not on an ancestor. Inside a
-                            // TabView a keyboard toolbar attached further up the
-                            // hierarchy silently fails to render, which is why the
-                            // first attempt at this produced no Done button at all.
-                            .toolbar {
-                                ToolbarItemGroup(placement: .keyboard) {
-                                    Spacer()
-                                    Button("Done") { isQuestionFocused = false }
-                                        .font(.body.weight(.semibold))
-                                }
-                            }
 
-                        Button {
-                            toggleMic()
-                        } label: {
-                            Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                                .font(.system(size: 34))
-                                .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
+                                Button {
+                                    toggleMic()
+                                } label: {
+                                    Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                                        .font(.system(size: 30))
+                                        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
+                            }
+                            .padding(.trailing, 12)
+                            .padding(.bottom, 12)
                         }
-                        .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
-                    }
+                        .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
+                        .animation(.snappy(duration: 0.15), value: isQuestionFocused)
+                        // Declared on the field, not on an ancestor. Inside a
+                        // TabView a keyboard toolbar attached further up the
+                        // hierarchy silently fails to render, which is why the
+                        // first attempt at this produced no Done button at all.
+                        .toolbar {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button("Done") { isQuestionFocused = false }
+                                    .font(.body.weight(.semibold))
+                            }
+                        }
                     // Stream the spoken question into the field while recording.
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isRecording { viewModel.question = newValue }
