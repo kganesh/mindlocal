@@ -70,7 +70,7 @@ struct ReadAloudSettingsView: View {
                             preview.speak(sample)
                         } label: {
                             HStack {
-                                Text(label(for: name)).foregroundStyle(.primary)
+                                Text(KokoroVoicePicker.label(for: name)).foregroundStyle(.primary)
                                 Spacer()
                                 if name == selectedVoice {
                                     Image(systemName: "checkmark").foregroundStyle(.tint)
@@ -147,15 +147,6 @@ struct ReadAloudSettingsView: View {
         voiceNames = []
         VoiceEngine.useKokoro = false
         useKokoro = false
-    }
-
-    /// "af_heart" → "Heart (American)". The first letter is the accent, the
-    /// second the speaker's gender; only the accent is worth surfacing.
-    private func label(for name: String) -> String {
-        let parts = name.split(separator: "_")
-        guard parts.count == 2, let accent = parts[0].first else { return name }
-        let display = parts[1].capitalized
-        return "\(display) (\(accent == "a" ? "American" : "British"))"
     }
 
     private var footer: String {

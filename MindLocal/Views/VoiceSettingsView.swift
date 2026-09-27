@@ -1,8 +1,92 @@
 import SwiftUI
 import AVFoundation
 
-/// The read-aloud voice list. Push-friendly (no own NavigationStack) so it works
-/// inside Settings or as a standalone sheet. Tapping a voice previews it.
+/// The read-aloud voice list shown from Ask. Only Kokoro voices appear here:
+/// Apple's system voices are a fallback the app picks on its own, not a choice
+/// worth putting in front of someone mid-question, and the old list of 40-odd
+/// "Bad News"/"Bubbles" novelty voices read as noise. When Kokoro is off or its
+/// model isn't downloaded there is nothing to choose, so the screen says so and
+/// offers no rows. The full Apple list still lives in Settings → Read-Aloud.
+struct KokoroVoicePicker: View {
+    @State private var voiceNames: [String] = []
+    @State private var selectedVoice = KokoroVoicePicker.currentVoice
+    @State private var speaker = SpeechSpeaker()
+
+    private let sample = "This is how MindLocal will read your advice aloud."
+
+    private static var currentVoice: String {
+        #if canImport(KokoroSwift)
+        return KokoroSpeechEngine.selectedVoice
+        #else
+        return ""
+        #endif
+    }
+
+    var body: some View {
+        List {
+            if VoiceEngine.isKokoroActive, !voiceNames.isEmpty {
+                Section {
+                    ForEach(voiceNames, id: \.self) { name in
+                        Button {
+                            select(name)
+                        } label: {
+                            HStack {
+                                Text(Self.label(for: name)).foregroundStyle(AlbumTheme.ink)
+                                Spacer()
+                                if name == selectedVoice {
+                                    Image(systemName: "checkmark").foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Read-Aloud Voice")
+                } footer: {
+                    Text("Tap a voice to hear it.")
+                }
+            } else {
+                Section {
+                    Label("The Kokoro voice is off.", systemImage: "waveform.slash")
+                        .foregroundStyle(AlbumTheme.secondary)
+                } footer: {
+                    Text("Turn it on in Settings → Read-Aloud to choose a voice. Until then MindLocal reads aloud with Apple's built-in voice.")
+                }
+            }
+        }
+        .albumScreen()
+        .navigationTitle("Voice")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await loadVoiceNames() }
+        .onDisappear { speaker.stop() }
+    }
+
+    private func select(_ name: String) {
+        #if canImport(KokoroSwift)
+        selectedVoice = name
+        KokoroSpeechEngine.selectedVoice = name
+        speaker.speak(sample)
+        #endif
+    }
+
+    private func loadVoiceNames() async {
+        #if canImport(KokoroSwift)
+        guard VoiceEngine.isKokoroActive, voiceNames.isEmpty else { return }
+        voiceNames = await KokoroSpeechEngine.shared.voiceNames()
+        #endif
+    }
+
+    /// "af_heart" → "Heart (American)". The first letter is the accent, the
+    /// second the speaker's gender; only the accent is worth surfacing.
+    static func label(for name: String) -> String {
+        let parts = name.split(separator: "_")
+        guard parts.count == 2, let accent = parts[0].first else { return name }
+        let display = parts[1].capitalized
+        return "\(display) (\(accent == "a" ? "American" : "British"))"
+    }
+}
+
+/// Apple's system voices. Reachable only from Settings → Read-Aloud, as the
+/// fallback the app uses when Kokoro is off.
 struct VoicePicker: View {
     @AppStorage("selectedVoiceId") private var selectedVoiceId = ""
     @State private var speaker = SpeechSpeaker()
@@ -36,7 +120,7 @@ struct VoicePicker: View {
                 Text("Tap a voice to preview it. Download Enhanced or Premium voices in Settings → Accessibility → Spoken Content → Voices; they'll appear here.")
             }
         }
-        .navigationTitle("Voice")
+        .navigationTitle("Apple Voices")
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { speaker.stop() }
     }
@@ -70,7 +154,7 @@ struct VoiceSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            VoicePicker()
+            KokoroVoicePicker()
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
                 }
