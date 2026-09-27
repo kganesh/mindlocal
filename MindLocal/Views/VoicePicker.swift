@@ -9,11 +9,42 @@ struct VoicePicker: View {
 
     private let sample = "This is how MindLocal will read your advice aloud."
 
+    /// The installed voices for this language, in a list where no two rows look
+    /// the same.
+    ///
+    /// Matching on the language alone takes in en-US, en-GB, en-AU, en-IE,
+    /// en-IN and en-ZA, and Apple reuses names across regions — there is a
+    /// Daniel in several of them. The same voice also ships at more than one
+    /// quality. Both are real differences, so the fix is to show them rather
+    /// than to hide rows: the region and the quality go on the row, and only
+    /// genuine repeats of all three are dropped.
+    ///
+    /// Sorted with this device's own region first, since that is the one most
+    /// people want, then by quality, then by name.
     private var voices: [AVSpeechSynthesisVoice] {
-        let prefix = String((Locale.current.language.languageCode?.identifier ?? "en").prefix(2))
-        return AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix(prefix) }
-            .sorted { rank($0.quality) != rank($1.quality) ? rank($0.quality) > rank($1.quality) : $0.name < $1.name }
+        let language = String((Locale.current.language.languageCode?.identifier ?? "en").prefix(2))
+        let home = Locale.current.identifier.replacingOccurrences(of: "_", with: "-")
+
+        var seen = Set<String>()
+        let unique = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix(language) }
+            .filter { seen.insert("\($0.name)|\($0.language)|\($0.quality.rawValue)").inserted }
+
+        return unique.sorted { a, b in
+            let aHome = a.language == home, bHome = b.language == home
+            if aHome != bHome { return aHome }
+            if a.language != b.language { return a.language < b.language }
+            if rank(a.quality) != rank(b.quality) { return rank(a.quality) > rank(b.quality) }
+            return a.name < b.name
+        }
+    }
+
+    /// "English (United Kingdom) · Enhanced" — what tells two rows with the
+    /// same name apart.
+    private func detail(for voice: AVSpeechSynthesisVoice) -> String {
+        let locale = Locale.current.localizedString(forIdentifier: voice.language)
+            ?? voice.language
+        return "\(locale) · \(qualityLabel(voice.quality))"
     }
 
     var body: some View {
@@ -24,7 +55,7 @@ struct VoicePicker: View {
                     speaker.speak(sample)
                 }
                 ForEach(voices, id: \.identifier) { voice in
-                    row(name: voice.name, detail: qualityLabel(voice.quality),
+                    row(name: voice.name, detail: detail(for: voice),
                         isSelected: voice.identifier == selectedVoiceId) {
                         selectedVoiceId = voice.identifier
                         speaker.speak(sample)
