@@ -488,6 +488,13 @@ private struct AlbumScreenModifier: ViewModifier {
     func body(content: Content) -> some View {
         let base = content
             .scrollContentBackground(.hidden)
+            // Fill first, then paint. A background is sized to the view it
+            // backs, so a screen whose content is a plain centred VStack — the
+            // nightly check-in, every phase of it — got a backdrop the size of
+            // its card and system grey everywhere else. Scrolling screens
+            // already fill, so this changes nothing for them, and a small view
+            // centred in the space it is given stays exactly where it was.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 switch AlbumTheme.palette.backdrop {
                 case .plain:    AlbumTheme.background.ignoresSafeArea()

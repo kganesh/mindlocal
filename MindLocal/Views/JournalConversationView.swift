@@ -30,6 +30,7 @@ struct JournalConversationView: View {
                     conversationView(index)
                 case .processing:
                     ProgressView("Making sense of your day…")
+                        .tint(AlbumTheme.accent)
                 case .saved:
                     if !peopleConfirmed && !peopleToConfirm.isEmpty {
                         PeopleConfirmView(mentions: peopleToConfirm, assignments: $viewModel.peopleAssignments) {
@@ -82,14 +83,21 @@ struct JournalConversationView: View {
 
             // Type, paste, or dictate — the mic streams into this field.
             TextEditor(text: $viewModel.currentAnswer)
+                .scrollContentBackground(.hidden)
+                .foregroundStyle(AlbumTheme.ink)
                 .frame(minHeight: 140, maxHeight: 240)
                 .padding(8)
-                .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+                .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(answerFocused ? AlbumTheme.Field.focusedBorder : AlbumTheme.Field.border,
+                                      lineWidth: answerFocused ? 1.5 : 1)
+                }
                 .focused($answerFocused)
                 .overlay(alignment: .topLeading) {
                     if viewModel.currentAnswer.isEmpty {
                         Text(viewModel.speech.isRecording ? "Listening…" : "Type, paste, or tap the mic to speak")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AlbumTheme.Field.placeholder)
                             .padding(16)
                             .allowsHitTesting(false)
                     }
@@ -108,7 +116,7 @@ struct JournalConversationView: View {
             } label: {
                 Image(systemName: viewModel.speech.isRecording ? "waveform.circle.fill" : "mic.circle")
                     .font(.system(size: 44))
-                    .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
+                    .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
                     .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
             }
             .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate answer")
@@ -139,7 +147,7 @@ struct JournalConversationView: View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.green)
+                .foregroundStyle(AlbumTheme.accent)
             Text("Saved your day")
                 .font(.title2.weight(.semibold))
             Text(viewModel.savedWithoutAI
