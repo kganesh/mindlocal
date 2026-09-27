@@ -77,13 +77,30 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
         finish?()
     }
 
-    /// The user's chosen voice if set, otherwise the highest-quality installed
-    /// voice for their language (premium > enhanced > default).
+    /// The voice this app prefers when nobody has chosen one.
+    ///
+    /// Resolved by name rather than identifier, because the identifier differs
+    /// by quality tier and region — and Nicky is a downloaded voice, so on a
+    /// device that has never fetched her there is nothing to resolve. That is
+    /// the case the fallback below exists for.
+    static let preferredVoiceName = "Nicky"
+
+    /// The user's chosen voice, or `defaultVoice()` when they have not chosen.
     static func bestVoice() -> AVSpeechSynthesisVoice? {
         if let id = UserDefaults.standard.string(forKey: "selectedVoiceId"), !id.isEmpty,
            let chosen = AVSpeechSynthesisVoice(identifier: id) {
             return chosen
         }
+        return defaultVoice()
+    }
+
+    /// What the app picks for someone who has never chosen: the preferred voice
+    /// at the best quality installed, otherwise the highest-quality installed
+    /// voice for their language (premium > enhanced > default).
+    ///
+    /// Separate from `bestVoice` so the picker can name the voice behind
+    /// "Automatic" without having to disturb a stored preference to find out.
+    static func defaultVoice() -> AVSpeechSynthesisVoice? {
         let prefix = String((Locale.current.language.languageCode?.identifier ?? "en").prefix(2))
         let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix(prefix) }
         func rank(_ quality: AVSpeechSynthesisVoiceQuality) -> Int {
@@ -93,6 +110,11 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
             default: 1
             }
         }
+        let preferred = voices
+            .filter { $0.name.caseInsensitiveCompare(preferredVoiceName) == .orderedSame }
+            .max { rank($0.quality) < rank($1.quality) }
+        if let preferred { return preferred }
+
         return voices.max { rank($0.quality) < rank($1.quality) }
             ?? AVSpeechSynthesisVoice(language: Locale.current.identifier)
     }

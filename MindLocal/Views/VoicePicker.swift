@@ -39,6 +39,13 @@ struct VoicePicker: View {
         }
     }
 
+    /// What Automatic will actually pick, named rather than implied. "Best
+    /// installed" told the reader nothing about which voice they would hear.
+    private var automaticDetail: String {
+        guard let voice = SystemSpeechEngine.defaultVoice() else { return "Best installed" }
+        return "\(voice.name) · \(qualityLabel(voice.quality))"
+    }
+
     /// "English (United Kingdom) · Enhanced" — what tells two rows with the
     /// same name apart.
     private func detail(for voice: AVSpeechSynthesisVoice) -> String {
@@ -50,7 +57,7 @@ struct VoicePicker: View {
     var body: some View {
         List {
             Section {
-                row(name: "Automatic (best installed)", detail: nil, isSelected: selectedVoiceId.isEmpty) {
+                row(name: "Automatic", detail: automaticDetail, isSelected: selectedVoiceId.isEmpty) {
                     selectedVoiceId = ""
                     speaker.speak(sample)
                 }
