@@ -22,18 +22,18 @@ struct AdviceView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     AlbumHeading(title: "Remember when.", subtitle: "A little perspective, from your own words.")
                         .padding(.bottom, 8)
-                    // Both controls live inside the field now, stacked at the
+                    // Every control lives inside the field, pinned to the
                     // bottom-trailing corner so they stay put as the field grows
-                    // rather than riding up with the last line. Clear sits inner,
-                    // mic outer: clear only exists while there is text, and a
-                    // control that appears and disappears should not shift the
-                    // one beside it.
+                    // rather than riding up with the last line. Order is clear,
+                    // mic, send: clear is the only one that appears and
+                    // disappears, so it goes innermost where its arrival cannot
+                    // shift the two that are always there.
                     TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
                         .lineLimit(3...8)
                         .frame(minHeight: 96, alignment: .top)
                         .padding(14)
                         // Room for whichever controls are showing.
-                        .padding(.trailing, viewModel.question.isEmpty ? 52 : 88)
+                        .padding(.trailing, viewModel.question.isEmpty ? 106 : 136)
                         .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 18))
                         .overlay {
                             RoundedRectangle(cornerRadius: 18)
@@ -62,15 +62,38 @@ struct AdviceView: View {
                                     .transition(.opacity)
                                 }
 
+                                // Same pair, same order, same shapes as the
+                                // writing card on Today: a bare mic glyph, then
+                                // a filled arrow that sends.
                                 Button {
                                     toggleMic()
                                 } label: {
-                                    Image(systemName: viewModel.speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                                        .font(.system(size: 30))
-                                        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
+                                    Image(systemName: viewModel.speech.isRecording ? "stop.fill" : "mic")
+                                        .font(.body)
+                                        .frame(width: 38, height: 38)
+                                        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.secondary)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
+
+                                Button {
+                                    submitQuestion()
+                                } label: {
+                                    Group {
+                                        if viewModel.phase == .thinking {
+                                            ProgressView().tint(AlbumTheme.onAccent)
+                                        } else {
+                                            Image(systemName: "arrow.up").font(.body.weight(.semibold))
+                                        }
+                                    }
+                                    .frame(width: 54, height: 38)
+                                    .foregroundStyle(viewModel.canAsk ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
+                                    .background(viewModel.canAsk ? AlbumTheme.accent : AlbumTheme.Button.disabledFill,
+                                                in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!viewModel.canAsk)
+                                .accessibilityLabel("Ask")
                             }
                             .padding(.trailing, 12)
                             .padding(.bottom, 12)
@@ -92,206 +115,6 @@ struct AdviceView: View {
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isRecording { viewModel.question = newValue }
                     }
-
-                    Button {
-                        isQuestionFocused = false
-                        guard let request = viewModel.beginAsk() else { return }
-                        let query = request.question
-                        Task {
-                            // What is this question asking FOR — a tone, topic,
-                            // count, sort? Read once, up front, so both the
-                            // structured and semantic passes can use it.
-                            let intent = await viewModel.extractIntent(for: query)
-
-                            // Anyone named in the question gets their actual
-                            // People-graph profile included as ground truth, not
-                            // just whatever text happens to rank as similar.
-                            // Computed up front (cheap) since it also gates the
-                            // "who is X" fast path below.
-                            let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
-                            let peopleSummaries = mentionedPeople.map {
-                                PersonProfileSummary(
-                                    id: $0.id,
-                                    text: PersonContextBuilder.profile(for: $0, relationships: relationships)
-                                )
-                            }
-
-                            // Route every "who_is"-classified question here,
-                            // whether or not a known person was resolved —
-                            // askWhoIs/answerWhoIs handles both outcomes
-                            // deterministically-safely: a resolved person
-                            // answers from their People profile alone (no
-                            // decisions/experiences/graph-context noise to
-                            // blend in), and an unresolved name gets a plain
-                            // "I don't have anyone by that name" with no model
-                            // call at all — falling through to the generic
-                            // pipeline for an unresolved name was what let the
-                            // model fabricate a relationship for someone never
-                            // saved as a Person, citing an entry that never
-                            // mentioned them.
-                            // A "who_is" classification is only safe to act on
-                            // when the question actually names someone. The
-                            // classifier keys on the word "who", so "who have I
-                            // been spending time with lately?" comes back as
-                            // who_is even though it names nobody — and the
-                            // deterministic branch then answers "I don't have
-                            // anyone by that name in your People list", which is
-                            // a non-sequitur to a question that asked for a list.
-                            //
-                            // Requiring either a resolved person or a candidate
-                            // name keeps the guard doing its job (an unknown NAME
-                            // still never reaches the model) while letting
-                            // aggregate questions about people fall through to
-                            // the pipeline that can actually answer them.
-                            let namesSomeone = !peopleSummaries.isEmpty
-                                || WhoIsQuestionDetector.candidateName(in: query) != nil
-                            guard intent.questionType != "who_is" || !namesSomeone else {
-                                await viewModel.askWhoIs(
-                                    requestID: request.id, question: query,
-                                    people: peopleSummaries
-                                )
-                                return
-                            }
-
-                            // Backstop for the same hole when the classifier
-                            // misses it. questionType comes from a model call
-                            // whose failure fallback is "generic" — the unsafe
-                            // path — so a failed or wrong classification sent
-                            // "who is Tommy?" (never saved as a Person) into
-                            // the generic pipeline with full graph context,
-                            // which answered "Tommy is your brother". Only
-                            // fires when NOTHING resolved, so a question about
-                            // a real person is never diverted here.
-                            if mentionedPeople.isEmpty,
-                               let candidate = WhoIsQuestionDetector.candidateName(in: query) {
-                                // Two very different answers hide behind "not in
-                                // People": the name is unknown, or it's been
-                                // journaled about and simply never added. The
-                                // second is answerable from the graph's own
-                                // unresolved-mention nodes, deterministically.
-                                let snapshot = graphSnapshots.first?.graph ?? .empty
-                                if let mention = UnresolvedPersonFinder.find(
-                                    name: candidate, in: snapshot
-                                ) {
-                                    await viewModel.answerDirectly(
-                                        requestID: request.id, text: mention.answerText
-                                    )
-                                } else {
-                                    await viewModel.askWhoIs(
-                                        requestID: request.id, question: query, people: []
-                                    )
-                                }
-                                return
-                            }
-
-                            // A question can name someone the app has never
-                            // heard of while asking about something else
-                            // entirely ("did Nora's birthday happen last
-                            // week"). Handing that to the model let it answer
-                            // from the nearest similar fact — it took Akhil's
-                            // birthday and put Nora's name on it. Refuse
-                            // deterministically instead.
-                            if let refusal = UnknownPersonGuard.refusal(
-                                for: query, people: people,
-                                graph: graphSnapshots.first?.graph ?? .empty
-                            ) {
-                                await viewModel.answerDirectly(
-                                    requestID: request.id, text: refusal
-                                )
-                                return
-                            }
-
-                            // Resolved here rather than inside the graph
-                            // retriever alone, because its time window has to
-                            // gate BOTH context paths. QueryIntentDraft has no
-                            // time dimension at all, so a purely temporal
-                            // question ("what did I do last week") is
-                            // unstructured as far as the lists below are
-                            // concerned, and semantic similarity cannot tell
-                            // July from August.
-                            let memoryIntent = MemoryQueryResolver.resolve(
-                                query: query, people: people,
-                                relationships: relationships, now: .now
-                            )
-                            let window = memoryIntent.timeRange
-                            let experiences = TimeWindowFilter.within(
-                                experiences, window: window, date: \.timelineDate)
-                            let decisions = TimeWindowFilter.within(
-                                decisions, window: window, date: \.timelineDate)
-                            let events = TimeWindowFilter.within(
-                                events, window: window, date: \.date)
-                            let reminders = TimeWindowFilter.within(
-                                reminders, window: window, date: \.createdAt)
-
-                            // Deterministic, guaranteed-correct matches for
-                            // whatever structure was found (e.g. "3 unpleasant
-                            // experiences recently") — empty when the question
-                            // has no such structure.
-                            let structuredExperiences = intent.hasStructure
-                                ? StructuredQueryRetriever.matchedExperiences(intent: intent, among: experiences)
-                                : []
-                            let structuredDecisions = intent.hasStructure
-                                ? StructuredQueryRetriever.matchedDecisions(intent: intent, among: decisions)
-                                : []
-                            let structuredEvents = intent.hasStructure
-                                ? StructuredQueryRetriever.matchedEvents(intent: intent, among: events)
-                                : []
-
-                            // Retrieve the entries most relevant to the question
-                            // (semantic), not just the most recent.
-                            let relevantExperiences = SemanticRetriever.topK(
-                                experiences, query: query, k: 10,
-                                text: EmbeddingService.experienceText, embedding: { $0.embedding }
-                            )
-                            let relevantDecisions = SemanticRetriever.topK(
-                                decisions, query: query, k: 8,
-                                text: EmbeddingService.decisionText, embedding: { $0.embedding }
-                            )
-                            let relevantReminders = SemanticRetriever.topK(
-                                reminders, query: query, k: 6,
-                                text: EmbeddingService.reminderText, embedding: { $0.embedding }
-                            )
-                            let relevantEvents = SemanticRetriever.topK(
-                                events, query: query, k: 6,
-                                text: EmbeddingService.eventText, embedding: { $0.embedding }
-                            )
-
-                            // Structured matches lead (they're the definitive
-                            // answer to the question's specific filter), then
-                            // semantic hits fill in general context, deduped.
-                            let mergedExperiences = mergeUnique(structuredExperiences, relevantExperiences, id: \.id)
-                            let mergedDecisions = mergeUnique(structuredDecisions, relevantDecisions, id: \.id)
-                            let mergedEvents = mergeUnique(structuredEvents, relevantEvents, id: \.id)
-
-                            let decisionSummaries = mergedDecisions.map(DecisionSummary.init)
-                            let experienceSummaries = mergedExperiences.map(ExperienceSummary.init)
-                            let reminderSummaries = relevantReminders.map(ReminderSummary.init)
-                            let eventSummaries = mergedEvents.map(EventSummary.init)
-                            let graph = graphSnapshots.first?.graph ?? .empty
-                            let graphResult = MemoryGraphRetriever.retrieve(
-                                intent: memoryIntent,
-                                graph: graph,
-                                now: .now,
-                                limit: 24
-                            )
-                            let packed = MemoryGraphContextPacker.packWithManifest(graphResult)
-
-                            await viewModel.ask(
-                                requestID: request.id, question: query,
-                                decisions: decisionSummaries, experiences: experienceSummaries,
-                                reminders: reminderSummaries, events: eventSummaries,
-                                people: peopleSummaries, graphContext: packed.text,
-                                // nil keeps the plain-prose path; non-nil routes
-                                // through the grounded, citation-checked one.
-                                packedContext: AdviceGroundingSettings.isEnabled ? packed : nil
-                            )
-                        }
-                    } label: {
-                        Label("Ask", systemImage: "sparkles")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(AlbumPrimaryButtonStyle())
-                    .disabled(!viewModel.canAsk)
 
                     content
 
@@ -330,6 +153,203 @@ struct AdviceView: View {
             .sheet(isPresented: $showingVoiceSettings) { VoiceSettingsView() }
             .sheet(isPresented: $showingHowIDecide) { HowIDecideView() }
             .onDisappear { speaker.stop() }
+        }
+    }
+
+    /// The whole retrieval-and-answer pipeline, lifted out of the button label
+    /// so the button can live inside the question field.
+    private func submitQuestion() {
+        isQuestionFocused = false
+        guard let request = viewModel.beginAsk() else { return }
+        let query = request.question
+        Task {
+            // What is this question asking FOR — a tone, topic,
+            // count, sort? Read once, up front, so both the
+            // structured and semantic passes can use it.
+            let intent = await viewModel.extractIntent(for: query)
+
+            // Anyone named in the question gets their actual
+            // People-graph profile included as ground truth, not
+            // just whatever text happens to rank as similar.
+            // Computed up front (cheap) since it also gates the
+            // "who is X" fast path below.
+            let mentionedPeople = PersonContextBuilder.mentionedPeople(in: query, among: people)
+            let peopleSummaries = mentionedPeople.map {
+                PersonProfileSummary(
+                    id: $0.id,
+                    text: PersonContextBuilder.profile(for: $0, relationships: relationships)
+                )
+            }
+
+            // Route every "who_is"-classified question here,
+            // whether or not a known person was resolved —
+            // askWhoIs/answerWhoIs handles both outcomes
+            // deterministically-safely: a resolved person
+            // answers from their People profile alone (no
+            // decisions/experiences/graph-context noise to
+            // blend in), and an unresolved name gets a plain
+            // "I don't have anyone by that name" with no model
+            // call at all — falling through to the generic
+            // pipeline for an unresolved name was what let the
+            // model fabricate a relationship for someone never
+            // saved as a Person, citing an entry that never
+            // mentioned them.
+            // A "who_is" classification is only safe to act on
+            // when the question actually names someone. The
+            // classifier keys on the word "who", so "who have I
+            // been spending time with lately?" comes back as
+            // who_is even though it names nobody — and the
+            // deterministic branch then answers "I don't have
+            // anyone by that name in your People list", which is
+            // a non-sequitur to a question that asked for a list.
+            //
+            // Requiring either a resolved person or a candidate
+            // name keeps the guard doing its job (an unknown NAME
+            // still never reaches the model) while letting
+            // aggregate questions about people fall through to
+            // the pipeline that can actually answer them.
+            let namesSomeone = !peopleSummaries.isEmpty
+                || WhoIsQuestionDetector.candidateName(in: query) != nil
+            guard intent.questionType != "who_is" || !namesSomeone else {
+                await viewModel.askWhoIs(
+                    requestID: request.id, question: query,
+                    people: peopleSummaries
+                )
+                return
+            }
+
+            // Backstop for the same hole when the classifier
+            // misses it. questionType comes from a model call
+            // whose failure fallback is "generic" — the unsafe
+            // path — so a failed or wrong classification sent
+            // "who is Tommy?" (never saved as a Person) into
+            // the generic pipeline with full graph context,
+            // which answered "Tommy is your brother". Only
+            // fires when NOTHING resolved, so a question about
+            // a real person is never diverted here.
+            if mentionedPeople.isEmpty,
+               let candidate = WhoIsQuestionDetector.candidateName(in: query) {
+                // Two very different answers hide behind "not in
+                // People": the name is unknown, or it's been
+                // journaled about and simply never added. The
+                // second is answerable from the graph's own
+                // unresolved-mention nodes, deterministically.
+                let snapshot = graphSnapshots.first?.graph ?? .empty
+                if let mention = UnresolvedPersonFinder.find(
+                    name: candidate, in: snapshot
+                ) {
+                    await viewModel.answerDirectly(
+                        requestID: request.id, text: mention.answerText
+                    )
+                } else {
+                    await viewModel.askWhoIs(
+                        requestID: request.id, question: query, people: []
+                    )
+                }
+                return
+            }
+
+            // A question can name someone the app has never
+            // heard of while asking about something else
+            // entirely ("did Nora's birthday happen last
+            // week"). Handing that to the model let it answer
+            // from the nearest similar fact — it took Akhil's
+            // birthday and put Nora's name on it. Refuse
+            // deterministically instead.
+            if let refusal = UnknownPersonGuard.refusal(
+                for: query, people: people,
+                graph: graphSnapshots.first?.graph ?? .empty
+            ) {
+                await viewModel.answerDirectly(
+                    requestID: request.id, text: refusal
+                )
+                return
+            }
+
+            // Resolved here rather than inside the graph
+            // retriever alone, because its time window has to
+            // gate BOTH context paths. QueryIntentDraft has no
+            // time dimension at all, so a purely temporal
+            // question ("what did I do last week") is
+            // unstructured as far as the lists below are
+            // concerned, and semantic similarity cannot tell
+            // July from August.
+            let memoryIntent = MemoryQueryResolver.resolve(
+                query: query, people: people,
+                relationships: relationships, now: .now
+            )
+            let window = memoryIntent.timeRange
+            let experiences = TimeWindowFilter.within(
+                experiences, window: window, date: \.timelineDate)
+            let decisions = TimeWindowFilter.within(
+                decisions, window: window, date: \.timelineDate)
+            let events = TimeWindowFilter.within(
+                events, window: window, date: \.date)
+            let reminders = TimeWindowFilter.within(
+                reminders, window: window, date: \.createdAt)
+
+            // Deterministic, guaranteed-correct matches for
+            // whatever structure was found (e.g. "3 unpleasant
+            // experiences recently") — empty when the question
+            // has no such structure.
+            let structuredExperiences = intent.hasStructure
+                ? StructuredQueryRetriever.matchedExperiences(intent: intent, among: experiences)
+                : []
+            let structuredDecisions = intent.hasStructure
+                ? StructuredQueryRetriever.matchedDecisions(intent: intent, among: decisions)
+                : []
+            let structuredEvents = intent.hasStructure
+                ? StructuredQueryRetriever.matchedEvents(intent: intent, among: events)
+                : []
+
+            // Retrieve the entries most relevant to the question
+            // (semantic), not just the most recent.
+            let relevantExperiences = SemanticRetriever.topK(
+                experiences, query: query, k: 10,
+                text: EmbeddingService.experienceText, embedding: { $0.embedding }
+            )
+            let relevantDecisions = SemanticRetriever.topK(
+                decisions, query: query, k: 8,
+                text: EmbeddingService.decisionText, embedding: { $0.embedding }
+            )
+            let relevantReminders = SemanticRetriever.topK(
+                reminders, query: query, k: 6,
+                text: EmbeddingService.reminderText, embedding: { $0.embedding }
+            )
+            let relevantEvents = SemanticRetriever.topK(
+                events, query: query, k: 6,
+                text: EmbeddingService.eventText, embedding: { $0.embedding }
+            )
+
+            // Structured matches lead (they're the definitive
+            // answer to the question's specific filter), then
+            // semantic hits fill in general context, deduped.
+            let mergedExperiences = mergeUnique(structuredExperiences, relevantExperiences, id: \.id)
+            let mergedDecisions = mergeUnique(structuredDecisions, relevantDecisions, id: \.id)
+            let mergedEvents = mergeUnique(structuredEvents, relevantEvents, id: \.id)
+
+            let decisionSummaries = mergedDecisions.map(DecisionSummary.init)
+            let experienceSummaries = mergedExperiences.map(ExperienceSummary.init)
+            let reminderSummaries = relevantReminders.map(ReminderSummary.init)
+            let eventSummaries = mergedEvents.map(EventSummary.init)
+            let graph = graphSnapshots.first?.graph ?? .empty
+            let graphResult = MemoryGraphRetriever.retrieve(
+                intent: memoryIntent,
+                graph: graph,
+                now: .now,
+                limit: 24
+            )
+            let packed = MemoryGraphContextPacker.packWithManifest(graphResult)
+
+            await viewModel.ask(
+                requestID: request.id, question: query,
+                decisions: decisionSummaries, experiences: experienceSummaries,
+                reminders: reminderSummaries, events: eventSummaries,
+                people: peopleSummaries, graphContext: packed.text,
+                // nil keeps the plain-prose path; non-nil routes
+                // through the grounded, citation-checked one.
+                packedContext: AdviceGroundingSettings.isEnabled ? packed : nil
+            )
         }
     }
 
