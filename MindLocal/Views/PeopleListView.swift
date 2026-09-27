@@ -5,23 +5,28 @@ import SwiftData
 enum PeopleViewMode: String, CaseIterable, Identifiable {
     case list, graph2D, graph3D
     var id: String { rawValue }
+    /// "Map", not "Graph (3D)". Every other route to this view already calls it
+    /// a people map — the toolbar buttons, the sheet title — and the dimension
+    /// count told the reader how it was built rather than what it shows. The
+    /// flat variant keeps a distinguishing name only because it would need one
+    /// if it ever came back alongside this.
     var title: String {
         switch self {
         case .list: return "List"
-        case .graph2D: return "Graph (2D)"
-        case .graph3D: return "Graph (3D)"
+        case .graph2D: return "Flat Map"
+        case .graph3D: return "Map"
         }
     }
     var systemImage: String {
         switch self {
         case .list: return "list.bullet"
-        case .graph2D: return "point.3.connected.trianglepath.dotted"
-        case .graph3D: return "move.3d"
+        case .graph2D: return "circle.grid.2x2"
+        case .graph3D: return "point.3.connected.trianglepath.dotted"
         }
     }
 
-    /// What the UI offers. `graph2D` is hidden for now — the 3D map covers the
-    /// same ground and the pair invited a comparison the 2D view lost.
+    /// What the UI offers. `graph2D` is hidden for now — the map covers the
+    /// same ground and the pair invited a comparison the flat view lost.
     ///
     /// The case stays so `PeopleGraphView` keeps compiling and this is a one-line
     /// reversal rather than a resurrection.
@@ -99,7 +104,7 @@ struct PeopleListView: View {
             // Straight to the editor, not the detail view. PersonDetailView is
             // for reading shared moments, and a person created a second ago has
             // none — it showed "Entries that mention New Person will collect
-            // here" and required another tap on "Edit details" to do the one
+            // here" and required another tap on "Edit" to do the one
             // thing the + button was asking for.
             .sheet(item: $newPerson, onDismiss: discardUnnamedPerson) { person in
                 NavigationStack {
@@ -287,7 +292,7 @@ struct PersonDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Edit details") { showingEditor = true }
+                Button("Edit") { showingEditor = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingMap = true } label: { Image(systemName: "point.3.connected.trianglepath.dotted") }
