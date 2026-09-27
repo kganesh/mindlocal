@@ -72,66 +72,73 @@ struct JournalConversationView: View {
     }
 
     private func conversationView(_ index: Int) -> some View {
-        VStack(spacing: 20) {
-            Text("Question \(index + 1) of \(viewModel.questions.count)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        // Scrollable, because the field is now as tall as the one on Today and
+        // this screen has a question above it and two buttons below. Without a
+        // scroll view the keyboard pushes End now and Next out of reach on a
+        // shorter phone. It only scrolls when it has to.
+        ScrollView {
+            VStack(spacing: 20) {
+                Text("Question \(index + 1) of \(viewModel.questions.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            Text(viewModel.questions[index])
-                .font(.title3.weight(.semibold))
-                .multilineTextAlignment(.center)
+                Text(viewModel.questions[index])
+                    .font(.title3.weight(.semibold))
+                    .multilineTextAlignment(.center)
 
-            // Type, paste, or dictate — the mic streams into this field.
-            TextEditor(text: $viewModel.currentAnswer)
-                .scrollContentBackground(.hidden)
-                .foregroundStyle(AlbumTheme.ink)
-                .frame(minHeight: 140, maxHeight: 240)
-                .padding(8)
-                .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 12))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(answerFocused ? AlbumTheme.Field.focusedBorder : AlbumTheme.Field.border,
-                                      lineWidth: answerFocused ? 1.5 : 1)
-                }
-                .focused($answerFocused)
-                .overlay(alignment: .topLeading) {
-                    if viewModel.currentAnswer.isEmpty {
-                        Text(viewModel.speech.isRecording ? "Listening…" : "Type, paste, or tap the mic to speak")
-                            .foregroundStyle(AlbumTheme.Field.placeholder)
-                            .padding(16)
-                            .allowsHitTesting(false)
+                // Type, paste, or dictate — the mic streams into this field.
+                TextEditor(text: $viewModel.currentAnswer)
+                    .scrollContentBackground(.hidden)
+                    .foregroundStyle(AlbumTheme.ink)
+                    .frame(minHeight: 200, maxHeight: 320)
+                    .padding(8)
+                    .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(answerFocused ? AlbumTheme.Field.focusedBorder : AlbumTheme.Field.border,
+                                          lineWidth: answerFocused ? 1.5 : 1)
                     }
-                }
-                .onChange(of: viewModel.speech.transcript) { _, newValue in
-                    if viewModel.speech.isTranscribing { viewModel.currentAnswer = newValue }
-                }
-                .onChange(of: answerFocused) { _, focused in
-                    // Typing shouldn't fight dictation — stop the mic when the user edits.
-                    if focused, viewModel.speech.isRecording { viewModel.stopRecording() }
-                }
+                    .focused($answerFocused)
+                    .overlay(alignment: .topLeading) {
+                        if viewModel.currentAnswer.isEmpty {
+                            Text(viewModel.speech.isRecording ? "Listening…" : "Type, paste, or tap the mic to speak")
+                                .foregroundStyle(AlbumTheme.Field.placeholder)
+                                .padding(16)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .onChange(of: viewModel.speech.transcript) { _, newValue in
+                        if viewModel.speech.isTranscribing { viewModel.currentAnswer = newValue }
+                    }
+                    .onChange(of: answerFocused) { _, focused in
+                        // Typing shouldn't fight dictation — stop the mic when the user edits.
+                        if focused, viewModel.speech.isRecording { viewModel.stopRecording() }
+                    }
 
-            Button {
-                answerFocused = false
-                Task { await viewModel.toggleMic() }
-            } label: {
-                Image(systemName: viewModel.speech.isRecording ? "waveform.circle.fill" : "mic.circle")
-                    .font(.system(size: 44))
-                    .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
-                    .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
-            }
-            .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate answer")
-
-            HStack {
-                Button("End now") { Task { await viewModel.endEarly() } }
-                    .buttonStyle(.bordered)
-                Spacer()
-                Button(viewModel.isLastQuestion ? "Finish" : "Next") {
-                    Task { await viewModel.advance() }
+                Button {
+                    answerFocused = false
+                    Task { await viewModel.toggleMic() }
+                } label: {
+                    Image(systemName: viewModel.speech.isRecording ? "waveform.circle.fill" : "mic.circle")
+                        .font(.system(size: 44))
+                        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
+                        .symbolEffect(.pulse, isActive: viewModel.speech.isRecording)
                 }
-                .buttonStyle(AlbumPrimaryButtonStyle())
+                .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate answer")
+
+                HStack {
+                    Button("End now") { Task { await viewModel.endEarly() } }
+                        .buttonStyle(.bordered)
+                    Spacer()
+                    Button(viewModel.isLastQuestion ? "Finish" : "Next") {
+                        Task { await viewModel.advance() }
+                    }
+                    .buttonStyle(AlbumPrimaryButtonStyle())
+                }
             }
+            .padding()
         }
-        .padding()
+        .scrollBounceBehavior(.basedOnSize)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
