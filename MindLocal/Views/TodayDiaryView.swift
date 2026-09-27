@@ -160,14 +160,11 @@ struct TodayDiaryView: View {
                     }
                 }
 
-                if viewModel.speech.isRecording {
-                    Label("Listening — take your time", systemImage: "waveform")
-                        .font(.caption)
-                        .foregroundStyle(AlbumTheme.accent)
-                } else {
-                    Text("A little is enough. Start wherever you are.")
-                        .font(.caption)
-                        .foregroundStyle(AlbumTheme.secondary)
+                HStack(alignment: .bottom, spacing: 12) {
+                    hintLine
+                    Spacer(minLength: 8)
+                    voiceButton
+                    reviewButton
                 }
             }
             .padding(20)
@@ -175,17 +172,6 @@ struct TodayDiaryView: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(AlbumTheme.rule, lineWidth: 1)
-            }
-
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    reviewButton
-                    voiceButton
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    reviewButton
-                    voiceButton
-                }
             }
 
             Label("Private on your device", systemImage: "lock")
@@ -201,35 +187,57 @@ struct TodayDiaryView: View {
         }
     }
 
+    @ViewBuilder
+    private var hintLine: some View {
+        if viewModel.speech.isRecording {
+            Label("Listening — take your time", systemImage: "waveform")
+                .font(.caption)
+                .foregroundStyle(AlbumTheme.accent)
+        } else {
+            Text("A little is enough. Start wherever you are.")
+                .font(.caption)
+                .foregroundStyle(AlbumTheme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Submit. Both controls live inside the writing card, at the bottom right
+    /// corner of the text — where the thing you just typed is, rather than in a
+    /// separate row of full-width buttons below it. The arrow carries no text,
+    /// so `saveButtonTitle` survives as the accessibility label and the
+    /// disabled state is what says "nothing to send yet".
     private var reviewButton: some View {
         Button {
             editorFocused = false
             applyPageLocationToDraft()
             Task { await viewModel.submit() }
         } label: {
-            HStack(spacing: 8) {
-                if viewModel.phase == .extracting { ProgressView().tint(AlbumTheme.secondary) }
-                Text(saveButtonTitle)
+            Group {
+                if viewModel.phase == .extracting {
+                    ProgressView().tint(AlbumTheme.onAccent)
+                } else {
+                    Image(systemName: "arrow.up").font(.body.weight(.semibold))
+                }
             }
-            .frame(maxWidth: .infinity)
+            .frame(width: 54, height: 38)
+            .foregroundStyle(canSubmit ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
+            .background(canSubmit ? AlbumTheme.accent : AlbumTheme.Button.disabledFill, in: Capsule())
         }
-        .buttonStyle(AlbumPrimaryButtonStyle())
+        .buttonStyle(.plain)
         .disabled(!canSubmit)
+        .accessibilityLabel(saveButtonTitle)
     }
 
     private var voiceButton: some View {
         Button {
             Task { await toggleMic() }
         } label: {
-            Label(viewModel.speech.isRecording ? "Stop" : "Speak",
-                  systemImage: viewModel.speech.isRecording ? "stop.fill" : "mic")
+            Image(systemName: viewModel.speech.isRecording ? "stop.fill" : "mic")
                 .font(.body)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 48)
-                .background(AlbumTheme.wash, in: Capsule())
+                .frame(width: 38, height: 38)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.accent)
+        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.secondary)
         .accessibilityLabel(viewModel.speech.isRecording ? "Stop dictation" : "Dictate journal entry")
     }
 
