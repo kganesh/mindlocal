@@ -10,6 +10,19 @@ enum AlbumBackdrop: Hashable {
     case ocean
     case galaxy
     case rain
+    case blueSky
+
+    /// The appearance a backdrop can only be read in. A starfield needs the
+    /// dark one and a daylit sky needs the light one; neither has a variant in
+    /// the other, so the palette takes the whole app there rather than
+    /// defining colours it cannot honour.
+    var enforcedScheme: ColorScheme? {
+        switch self {
+        case .plain: nil
+        case .nightSky, .ocean, .galaxy, .rain: .dark
+        case .blueSky: .light
+        }
+    }
 }
 
 /// A complete set of colours. Adding a theme means adding one of these, not
@@ -29,12 +42,13 @@ struct AlbumPalette: Identifiable, Hashable {
     /// Defaulted so the flat-colour palettes below are unchanged.
     var backdrop: AlbumBackdrop = .plain
 
-    /// A painted backdrop only works dark. Light mode would put a starfield or
-    /// a deep ocean behind cream cards, so these palettes opt the whole app
-    /// into the dark appearance rather than defining a light variant they
-    /// cannot honour.
-    var forcesDarkAppearance: Bool { backdrop != .plain }
+    /// The appearance this palette requires, if it requires one.
+    var enforcedScheme: ColorScheme? { backdrop.enforcedScheme }
 
+    /// What the picker offers. `blueSky` is parked, not deleted — the palette,
+    /// the backdrop case and `AlbumBlueSky` all stay, so putting it back is
+    /// adding it to this line. Anyone who had it selected falls through to
+    /// `album` by way of `named(_:)`.
     static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .ocean, .galaxy, .rain]
 
     static func named(_ id: String?) -> AlbumPalette {
@@ -148,6 +162,25 @@ struct AlbumPalette: Identifiable, Hashable {
         rule:       hex(light: 0x2F3D45, dark: 0x2F3D45),
         dateAccent: hex(light: 0xE9BB8E, dark: 0xE9BB8E),
         backdrop: .rain
+    )
+
+    /// Daylight. White cards on open sky, a strong sea blue for actions, and a
+    /// warm terracotta for dates — the only warm thing on the screen, borrowed
+    /// from the sun. Light in either system appearance.
+    ///
+    /// Not currently offered — see `all`.
+    static let blueSky = AlbumPalette(
+        id: "bluesky", name: "Blue Sky",
+        background: hex(light: 0xDCEDF9, dark: 0xDCEDF9),
+        surface:    hex(light: 0xFFFFFF, dark: 0xFFFFFF),
+        accent:     hex(light: 0x1C6EA8, dark: 0x1C6EA8),
+        onAccent:   hex(light: 0xFFFFFF, dark: 0xFFFFFF),
+        ink:        hex(light: 0x13293A, dark: 0x13293A),
+        secondary:  hex(light: 0x55707F, dark: 0x55707F),
+        wash:       hex(light: 0xCCE3F3, dark: 0xCCE3F3),
+        rule:       hex(light: 0xAFD2EA, dark: 0xAFD2EA),
+        dateAccent: hex(light: 0xB9551F, dark: 0xB9551F),
+        backdrop: .blueSky
     )
 
     private static func hex(light: UInt32, dark: UInt32) -> Color {
@@ -462,6 +495,7 @@ private struct AlbumScreenModifier: ViewModifier {
                 case .ocean:    AlbumOceanDepths()
                 case .galaxy:   AlbumGalaxy()
                 case .rain:     AlbumRainfall()
+                case .blueSky:  AlbumBlueSky()
                 }
             }
             .foregroundStyle(AlbumTheme.ink)

@@ -43,6 +43,7 @@ struct SettingsView: View {
             case .ocean:    AlbumOceanDepths()
             case .galaxy:   AlbumGalaxy()
             case .rain:     AlbumRainfall()
+            case .blueSky:  AlbumBlueSky()
             }
         }
         .frame(width: width, height: height)
@@ -84,7 +85,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Theme")
                 } footer: {
-                    Text("Album, Ink and Dusk follow your light and dark setting. The painted themes stay dark.")
+                    Text("Album, Ink and Dusk follow your light and dark setting. A painted theme keeps the appearance its backdrop needs.")
                 }
 
                 Section {

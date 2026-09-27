@@ -61,10 +61,11 @@ struct MainTabView: View {
         }
         .tint(AlbumTheme.accent)
         .id(paletteID)
-        // Night Sky has no light variant to switch to, so it takes the whole
-        // app dark rather than letting system chrome — sheets, pickers, the
-        // keyboard — come back in light while the walls stay black.
-        .preferredColorScheme(AlbumTheme.palette.forcesDarkAppearance ? .dark : nil)
+        // A painted theme has no second variant to switch to, so it takes the
+        // whole app to the appearance it needs rather than letting system
+        // chrome — sheets, pickers, the keyboard — come back in the other one
+        // while the walls stay a night sky or a summer afternoon.
+        .preferredColorScheme(AlbumTheme.palette.enforcedScheme)
         .toolbarBackground(AlbumTheme.barStyle, for: .tabBar)
         // Same omission as the navigation bar had: setting the colour without
         // setting visibility leaves the bar transparent at scroll edge, and
