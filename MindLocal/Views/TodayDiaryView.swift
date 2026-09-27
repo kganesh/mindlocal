@@ -137,28 +137,17 @@ struct TodayDiaryView: View {
                         .foregroundStyle(AlbumTheme.secondary)
                 }
 
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $viewModel.typedText)
-                        .font(.body)
-                        .lineSpacing(7)
-                        .foregroundStyle(AlbumTheme.ink)
-                        .frame(minHeight: 200)
-                        .scrollContentBackground(.hidden)
-                        .focused($editorFocused)
-                        .accessibilityLabel("Today's journal entry")
-                        .onChange(of: viewModel.speech.transcript) { _, newValue in
-                            if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
-                        }
-                    if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
-                        Text("What would you like to remember?")
-                            .font(.body)
-                            .foregroundStyle(AlbumTheme.secondary)
-                            .padding(.top, 8)
-                            .padding(.leading, 5)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
+                TextEditor(text: $viewModel.typedText)
+                    .font(.body)
+                    .lineSpacing(7)
+                    .foregroundStyle(AlbumTheme.ink)
+                    .frame(minHeight: 200)
+                    .scrollContentBackground(.hidden)
+                    .focused($editorFocused)
+                    .accessibilityLabel("Today's journal entry")
+                    .onChange(of: viewModel.speech.transcript) { _, newValue in
+                        if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
                     }
-                }
 
                 // Clear sits innermost: it is the only one of the three that
                 // comes and goes, so its arrival cannot shift the two that are
@@ -196,13 +185,16 @@ struct TodayDiaryView: View {
         }
     }
 
+    /// Encouragement while the page is empty, then nothing. Once there are
+    /// words in the card the invitation to start has been taken, and leaving it
+    /// there sits it under what the person is actually writing.
     @ViewBuilder
     private var hintLine: some View {
         if viewModel.speech.isRecording {
             Label("Listening — take your time", systemImage: "waveform")
                 .font(.caption)
                 .foregroundStyle(AlbumTheme.accent)
-        } else {
+        } else if viewModel.typedText.isEmpty {
             Text("A little is enough. Start wherever you are.")
                 .font(.caption)
                 .foregroundStyle(AlbumTheme.secondary)
@@ -301,7 +293,7 @@ struct TodayDiaryView: View {
     private var addMenu: some View {
         Menu {
             Button { addSheet = .experience } label: {
-                Label("Experience Entry", systemImage: "square.and.pencil")
+                Label("Experience", systemImage: "square.and.pencil")
             }
             Button { addSheet = .event } label: {
                 Label("Event", systemImage: "calendar.badge.plus")
