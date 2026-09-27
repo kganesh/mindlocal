@@ -49,12 +49,11 @@ struct AdviceView: View {
                                 }
                             }
 
-                        // Order is clear, mic, send: clear is the only one that
-                        // appears and disappears, so it goes innermost where its
-                        // arrival cannot shift the two that are always there.
+                        // Clear sits at the far end, away from mic and send.
+                        // It is the one destructive control here and it was a
+                        // thumb's width from the one tapped most often, so
+                        // reaching for the mic could empty the field instead.
                         HStack(spacing: 10) {
-                            Spacer(minLength: 0)
-
                             if !viewModel.question.isEmpty {
                                 Button {
                                     viewModel.question = ""
@@ -72,6 +71,8 @@ struct AdviceView: View {
                                 .accessibilityLabel("Clear question")
                                 .transition(.opacity)
                             }
+
+                            Spacer(minLength: 0)
 
                             // Same pair, same order, same shapes as the writing
                             // card on Today: a bare mic glyph, then a filled

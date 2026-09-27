@@ -149,13 +149,15 @@ struct TodayDiaryView: View {
                         if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
                     }
 
-                // Clear sits innermost: it is the only one of the three that
-                // comes and goes, so its arrival cannot shift the two that are
-                // always there.
+                // Clear sits at the far end, away from mic and send. It is the
+                // one destructive control here and it was a thumb's width from
+                // the one tapped most often. The hint it replaces is only shown
+                // while the card is empty, so the two never compete for the
+                // space.
                 HStack(alignment: .bottom, spacing: 12) {
+                    if !viewModel.typedText.isEmpty { clearButton }
                     hintLine
                     Spacer(minLength: 8)
-                    if !viewModel.typedText.isEmpty { clearButton }
                     voiceButton
                     reviewButton
                 }
