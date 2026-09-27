@@ -19,7 +19,7 @@ struct AdviceView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    AlbumHeading(title: "Remember when.", subtitle: "A little perspective, from your own words.")
+                    AlbumHeading(title: "remember when", subtitle: "A little perspective, from your own words.")
                         .padding(.bottom, 8)
                     // The controls sit on their own row under the text rather
                     // than floating in the field's bottom-right corner. Pinning

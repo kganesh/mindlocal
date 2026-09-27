@@ -149,7 +149,7 @@ struct PeopleListView: View {
 
     private var listView: some View {
         List {
-            AlbumHeading(title: "Your people.", subtitle: "Shared moments, remembered details.")
+            AlbumHeading(title: "your people", subtitle: "Shared moments, remembered details.")
                 .padding(.vertical, 16)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)

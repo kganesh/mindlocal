@@ -64,10 +64,7 @@ struct TodayDiaryView: View {
             }
             .albumScreen()
             .scrollDismissesKeyboard(.interactively)
-            // No title. The page names itself two lines down, in type meant to
-            // be read, and a bar title repeating the app's name over it said
-            // nothing the icon had not already said.
-            .navigationTitle("")
+            .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Add is the primary action on this screen, so it takes the
