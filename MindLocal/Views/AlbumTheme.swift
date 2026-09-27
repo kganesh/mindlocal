@@ -209,17 +209,13 @@ enum AlbumTheme {
     static var rule: Color { palette.rule }
     static var dateAccent: Color { palette.dateAccent }
 
-    /// What the navigation and tab bars are filled with.
+    /// What the tab bar is filled with. It is a floating capsule, so it reads
+    /// as an object sitting over the backdrop and a material suits it.
     ///
-    /// A flat colour over a painted backdrop is a slab: the sky, the rain or
-    /// the water stops dead at the bar and starts again below it. A material
-    /// fills the bar with a blurred sample of whatever is behind it, so the
-    /// backdrop carries through the bar instead of being cut off by it, and
-    /// content scrolling underneath still frosts rather than colliding with
-    /// the title.
-    ///
-    /// The flat themes keep their flat colour. There is nothing behind their
-    /// bars to see, and a material over a plain wash only adds haze.
+    /// The navigation bar is handled differently — see `AlbumScreenModifier`.
+    /// A material cannot show a starfield: blur is precisely what erases
+    /// half-point stars, and in the dark appearance every material lightens,
+    /// which is how the bar ended up a grey slab over a near-black sky.
     static var barStyle: AnyShapeStyle {
         palette.backdrop == .plain
             ? AnyShapeStyle(palette.background)
@@ -455,8 +451,9 @@ struct AlbumMonogram: View {
 }
 
 private struct AlbumScreenModifier: ViewModifier {
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
+        let base = content
             .scrollContentBackground(.hidden)
             .background {
                 switch AlbumTheme.palette.backdrop {
@@ -469,12 +466,39 @@ private struct AlbumScreenModifier: ViewModifier {
             }
             .foregroundStyle(AlbumTheme.ink)
             .tint(AlbumTheme.accent)
-            .toolbarBackground(AlbumTheme.barStyle, for: .navigationBar)
-            // Setting the colour alone leaves the bar in its scroll-edge state,
-            // where it is transparent and scroll content slides underneath it.
-            // That is what sheared the top off the "+" button and hid the date
-            // eyebrow on the Today screen entirely.
-            .toolbarBackground(.visible, for: .navigationBar)
+
+        if AlbumTheme.palette.backdrop == .plain {
+            base
+                .toolbarBackground(AlbumTheme.barStyle, for: .navigationBar)
+                // Setting the colour alone leaves the bar in its scroll-edge
+                // state, where it is transparent and scroll content slides
+                // underneath it. That is what sheared the top off the "+"
+                // button and hid the date eyebrow on the Today screen entirely.
+                .toolbarBackground(.visible, for: .navigationBar)
+        } else {
+            // No bar fill at all, so the backdrop — which already ignores the
+            // safe area — runs up behind the title and the stars stay stars.
+            // Anything opaque here defeats the point, and anything blurred
+            // erases the detail that makes it worth seeing.
+            base
+                .overlay(alignment: .top) { topScrim }
+                .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    /// The price of an unfilled bar is that scrolled content passes under the
+    /// title. This darkens the top of the screen enough to keep the title off
+    /// whatever is sliding past, without reaching full opacity anywhere — the
+    /// sky is near-black up there already, so the stars survive it.
+    private var topScrim: some View {
+        LinearGradient(
+            colors: [AlbumTheme.background.opacity(0.62), AlbumTheme.background.opacity(0)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 140)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
     }
 }
 
