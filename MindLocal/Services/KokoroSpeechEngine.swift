@@ -151,6 +151,8 @@ final class KokoroSpeechEngine: SpeechSynthesizing {
     private var allChunksScheduled = false
     private var onFinish: (() -> Void)?
 
+
+
     /// Cheap: locates the bundled voice archive and builds an audio format.
     /// No file is read and no weights are loaded here.
     private init() {
@@ -201,6 +203,7 @@ final class KokoroSpeechEngine: SpeechSynthesizing {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio,
                                                          options: [.duckOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
+        prepareGraph()
 
         self.onFinish = onFinish
         allChunksScheduled = false
@@ -210,10 +213,22 @@ final class KokoroSpeechEngine: SpeechSynthesizing {
         speakTask = Task { [weak self] in
             for chunk in chunks {
                 guard let self, !Task.isCancelled else { return }
+                let began = Date()
                 guard let samples = try? await runtime.synthesize(chunk, voice: voice,
                                                                   modelFile: modelFile),
                       !samples.isEmpty else { continue }
                 guard !Task.isCancelled else { return }
+                // Synthesis time against the audio it produced. A ratio above
+                // 1.0 means synthesis is slower than playback, and no
+                // prebuffer value fixes that on its own.
+                let audio = Double(samples.count) / (self.format?.sampleRate ?? 24000)
+                let spent = Date().timeIntervalSince(began)
+                ModelRouter.record(String(format: "kokoro %3d chars -> %.1fs audio in %.1fs (x%.2f) | %@",
+                                          chunk.count, audio, spent, spent / max(audio, 0.001),
+                                          String(chunk.prefix(48))))
+                ModelRouter.dumpAudio(samples,
+                                      sampleRate: self.format?.sampleRate ?? 24000,
+                                      label: chunk)
                 self.schedule(samples)
             }
             guard let self, !Task.isCancelled else { return }
@@ -234,6 +249,25 @@ final class KokoroSpeechEngine: SpeechSynthesizing {
 
     // MARK: - Playback
 
+    /// Wires the player to the mixer before each reply rather than once ever.
+    ///
+    /// `mainMixerNode`'s output format follows the hardware route, and on Ask
+    /// the session has just been in `.record` for dictation before flipping to
+    /// `.playback` here. A connection made under one route and used under
+    /// another is stale. Attaching still happens once, so a launch that never
+    /// speaks never touches the audio graph, and there is nothing queued at
+    /// this point because `speak` has just called `stop`.
+    private func prepareGraph() {
+        guard let format else { return }
+        if !connected {
+            audioEngine.attach(player)
+            connected = true
+        }
+        audioEngine.disconnectNodeOutput(player)
+        audioEngine.connect(player, to: audioEngine.mainMixerNode, format: format)
+        audioEngine.prepare()
+    }
+
     private func schedule(_ samples: [Float]) {
         guard let format,
               let buffer = AVAudioPCMBuffer(pcmFormat: format,
@@ -247,13 +281,6 @@ final class KokoroSpeechEngine: SpeechSynthesizing {
                             byteCount: source.count * MemoryLayout<Float>.stride)
         }
 
-        // Attach on first use rather than in init, so a launch that never
-        // speaks never touches the audio graph.
-        if !connected {
-            audioEngine.attach(player)
-            audioEngine.connect(player, to: audioEngine.mainMixerNode, format: format)
-            connected = true
-        }
         if !audioEngine.isRunning {
             do { try audioEngine.start() } catch { return }
         }

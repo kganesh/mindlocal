@@ -92,6 +92,47 @@ enum ModelRouter {
         #endif
     }
 
+    /// Writes one synthesized chunk to `Documents` as a WAV, for listening to
+    /// and measuring off the device. Debug only, like `record`.
+    ///
+    /// Reading a waveform is the only way to tell the two candidate causes of
+    /// the read-aloud static apart: noise inside the samples means the model
+    /// produced it, and silence means playback starved. Guessing between those
+    /// from a description has not worked.
+    static func dumpAudio(_ samples: [Float], sampleRate: Double, label: String) {
+        #if !DEBUG
+        return
+        #else
+        guard let dir = FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask).first else { return }
+        let slug = label.prefix(40)
+            .replacingOccurrences(of: "[^A-Za-z0-9]+", with: "-", options: .regularExpression)
+        let url = dir.appendingPathComponent("chunk-\(Int(Date().timeIntervalSince1970))-\(slug).wav")
+
+        let rate = UInt32(sampleRate)
+        let byteCount = UInt32(samples.count * 2)
+        var data = Data()
+        func append<T>(_ value: T) { withUnsafeBytes(of: value) { data.append(contentsOf: $0) } }
+
+        data.append(contentsOf: Array("RIFF".utf8))
+        append(UInt32(36 + byteCount))
+        data.append(contentsOf: Array("WAVEfmt ".utf8))
+        append(UInt32(16))              // PCM header size
+        append(UInt16(1))               // PCM
+        append(UInt16(1))               // mono
+        append(rate)
+        append(rate * 2)                // byte rate
+        append(UInt16(2))               // block align
+        append(UInt16(16))              // bits per sample
+        data.append(contentsOf: Array("data".utf8))
+        append(byteCount)
+        for sample in samples {
+            append(Int16(max(-1, min(1, sample)) * 32767))
+        }
+        try? data.write(to: url)
+        #endif
+    }
+
     /// Whether PCC can serve this device and OS right now. Mirrors
     /// `SystemLanguageModel.isAvailable` so callers can treat the two alike.
     static var isPrivateCloudComputeAvailable: Bool {
