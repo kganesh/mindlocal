@@ -368,6 +368,25 @@ struct AdviceView: View {
         }
     }
 
+    /// The weather icon the Journal uses for an entry of that mood, or a plain
+    /// bullet when the sentence carries no feeling. Stating a date is not an
+    /// emotion, and marking it as one would be the app inventing a reading.
+    @ViewBuilder
+    private func sentenceMark(for sentence: String) -> some View {
+        if let tone = SentenceToneDetector.tone(of: sentence) {
+            Image(systemName: tone.symbol)
+                .font(.footnote)
+                .foregroundStyle(tone.tint)
+                .frame(width: 18)
+                .accessibilityLabel(tone.label)
+        } else {
+            Text("•")
+                .foregroundStyle(AlbumTheme.secondary)
+                .frame(width: 18)
+                .accessibilityHidden(true)
+        }
+    }
+
     /// Example questions the user can tap, rather than read.
     ///
     /// "What do I even ask it?" is the hardest moment on this screen, and the
@@ -466,7 +485,7 @@ struct AdviceView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
-                        speaker.toggle(text.strippedMarkdown)
+                        speaker.toggle(text.withReadableDates.strippedMarkdown)
                     } label: {
                         Image(systemName: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
                     }
@@ -483,11 +502,23 @@ struct AdviceView: View {
                     }
                     .accessibilityLabel("Dismiss answer")
                 }
-                Text(text.renderedMarkdown)
-                    .font(.body)
-                    .lineSpacing(6)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // One line per sentence, each marked with the feeling in it.
+                // An answer that names three days in one paragraph is a wall to
+                // read back; separated and marked, the good days and the hard
+                // ones can be told apart without reading every word.
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(text.withReadableDates.sentences.enumerated()), id: \.offset) { _, sentence in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            sentenceMark(for: sentence)
+                            Text(sentence.renderedMarkdown)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                .font(.body)
+                .lineSpacing(6)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 #if DEBUG
                 if let report = viewModel.debugGroundingReport {
                     groundingBadge(report)

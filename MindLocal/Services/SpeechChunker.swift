@@ -58,19 +58,7 @@ struct SpeechChunker {
 
     // MARK: - Sentences
 
-    private func sentences(in text: String) -> [String] {
-        let tokenizer = NLTokenizer(unit: .sentence)
-        tokenizer.string = text
-        var result: [String] = []
-        tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
-            let sentence = text[range].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !sentence.isEmpty { result.append(sentence) }
-            return true
-        }
-        // NLTokenizer returns nothing for input it can't tokenise (e.g. only
-        // punctuation); speaking it verbatim beats dropping it silently.
-        return result.isEmpty ? [text] : result
-    }
+    private func sentences(in text: String) -> [String] { text.sentences }
 
     /// Breaks an over-long sentence at clause boundaries, then at whitespace.
     private func split(longSentence sentence: String) -> [String] {
