@@ -88,6 +88,7 @@ struct ReadAloudSettingsView: View {
                 Text("Used whenever the Kokoro voice is off or its model isn't downloaded.")
             }
         }
+        .albumScreen()
         .navigationTitle("Read-Aloud")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadVoiceNames() }

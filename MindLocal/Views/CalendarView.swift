@@ -75,6 +75,7 @@ struct CalendarView: View {
                     )
                 }
             }
+            .albumScreen()
             .navigationTitle("Timeline")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -311,6 +312,7 @@ struct EventFormView: View {
                     Text("For outdoor events with a location, advice factors in the weather forecast.")
                 }
             }
+            .albumScreen()
             .navigationTitle("New Event")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $pickingLocation) {

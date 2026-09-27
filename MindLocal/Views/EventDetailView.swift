@@ -92,6 +92,7 @@ struct EventDetailView: View {
                 Text("Grounded in your logged decisions and experiences (on-device). Weather uses Apple WeatherKit.")
             }
         }
+        .albumScreen()
         .navigationTitle("Event")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadIfNeeded() }

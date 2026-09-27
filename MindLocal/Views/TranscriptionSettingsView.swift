@@ -58,6 +58,7 @@ struct TranscriptionSettingsView: View {
                 Text("Apple's transcription is built in and always available. It shows words as you say them; Whisper works in ~1-second passes instead, but punctuates better and handles every language with one model.")
             }
         }
+        .albumScreen()
         .navigationTitle("Transcription")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Download the Whisper model?", isPresented: $confirmingDownload) {
