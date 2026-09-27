@@ -147,7 +147,7 @@ struct TodayDiaryView: View {
                         .focused($editorFocused)
                         .accessibilityLabel("Today's journal entry")
                         .onChange(of: viewModel.speech.transcript) { _, newValue in
-                            if viewModel.speech.isRecording { viewModel.typedText = newValue }
+                            if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
                         }
                     if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
                         Text("What would you like to remember?")
@@ -460,8 +460,11 @@ struct TodayDiaryView: View {
     private func toggleMic() async {
         editorFocused = false
         if viewModel.speech.isRecording {
+            // Stop and let go. Copying the transcript here reads it a second
+            // before the tail of the speech lands, and the transcript observer
+            // is already the thing that keeps this field current — including
+            // through the tail, which is what isTranscribing covers.
             viewModel.speech.stopRecording()
-            viewModel.typedText = viewModel.speech.transcript
         } else if await viewModel.speech.requestAuthorization() {
             try? await viewModel.speech.startRecording()
         }

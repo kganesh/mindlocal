@@ -97,7 +97,7 @@ final class JournalConversationViewModel {
 
     /// Capture the current answer, then move to the next question or finish.
     func advance() async {
-        captureCurrentAnswer()
+        await captureCurrentAnswer()
         if currentIndex < questions.count - 1 {
             await ask(currentIndex + 1)
         } else {
@@ -107,12 +107,16 @@ final class JournalConversationViewModel {
 
     /// End the check-in early with whatever's been said so far.
     func endEarly() async {
-        captureCurrentAnswer()
+        await captureCurrentAnswer()
         await finish()
     }
 
-    private func captureCurrentAnswer() {
-        speech.stopRecording()
+    /// Waits for the transcript before reading it. Next and Finish are tapped
+    /// the moment someone stops talking, which is exactly when the last second
+    /// of speech has not been reported yet — reading straight after a
+    /// synchronous stop saved the answer without its ending.
+    private func captureCurrentAnswer() async {
+        await speech.finishRecording()
         let typed = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
         let spoken = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         answers.append(typed.isEmpty ? spoken : typed)

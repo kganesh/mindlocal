@@ -123,7 +123,7 @@ struct AdviceView: View {
                     .animation(.snappy(duration: 0.15), value: isQuestionFocused)
                     // Stream the spoken question into the field while recording.
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isRecording { viewModel.question = newValue }
+                        if viewModel.speech.isTranscribing { viewModel.question = newValue }
                     }
 
                     content
@@ -163,9 +163,12 @@ struct AdviceView: View {
     /// so the button can live inside the question field.
     private func submitQuestion() {
         isQuestionFocused = false
-        guard let request = viewModel.beginAsk() else { return }
-        let query = request.question
         Task {
+            // The last second of dictation arrives after the mic stops, so the
+            // question is read only once the transcript is complete.
+            await viewModel.speech.finishRecording()
+            guard let request = viewModel.beginAsk() else { return }
+            let query = request.question
             // What is this question asking FOR — a tone, topic,
             // count, sort? Read once, up front, so both the
             // structured and semantic passes can use it.
@@ -503,8 +506,11 @@ struct AdviceView: View {
     private func toggleMic() {
         isQuestionFocused = false
         if viewModel.speech.isRecording {
+            // Stop and let go. Copying the transcript here reads it a second
+            // before the tail of the speech lands, and the transcript observer
+            // is already the thing that keeps this field current — including
+            // through the tail, which is what isTranscribing covers.
             viewModel.speech.stopRecording()
-            viewModel.question = viewModel.speech.transcript
         } else {
             Task {
                 if await viewModel.speech.requestAuthorization() {

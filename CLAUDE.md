@@ -189,9 +189,25 @@ tuning any of them.
   speech vanishes, it is too high. Do not re-tune by guessing: add temporary
   logging of per-frame RMS and the gate decision, collect real captures, and set
   the constants from that distribution.
-- **Dictation feels slow, cause unconfirmed.** Reported under both engines,
-  which points away from the engine. There is a live engine and cadence readout
-  under the Advise mic to narrow it down.
+- **Dictation drops the end of what you say — fixed, but read this before
+  touching the speech path.** `SpeechTranscriber`'s volatile results lag the
+  speaker by about a second, so the last words are still unreported when the
+  mic is tapped off; they arrive only in the final result, after
+  `stopRecording` has returned. Two separate bugs followed from that. The views
+  guarded their transcript observer on `isRecording`, which is false by then —
+  hence `isTranscribing`, which stays true through the tail and is what a view
+  must guard on. And anything that reads `transcript` in order to *act* on it
+  must call `finishRecording()`, not `stopRecording()`: Next, Finish, submit
+  and send all used to read a second-old transcript. Do not add a synchronous
+  read of `transcript` after a stop; that was the third instance of the same
+  mistake.
+- **Dictation still feels slower than the keyboard's mic, and that part is
+  real.** Tapping the keyboard's dictation button uses iOS system dictation, a
+  warm service. The app's mic builds a `SpeechAnalyzer`, swings the audio
+  session from `.playback` to `.record` and starts the engine on every tap —
+  and in the check-in, on every question. `requestAuthorization` is also called
+  each time. Measure before optimising, but the cost is in the start path, not
+  in recognition.
 - **`matchesText` in `MemoryGraphRetriever` keeps only words of four or more
   characters**, so a short subject is dropped from retrieval entirely and common
   words like "when", "that", "last" and "time" drive the search instead.

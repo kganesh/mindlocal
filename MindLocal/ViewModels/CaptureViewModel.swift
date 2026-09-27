@@ -57,6 +57,10 @@ final class CaptureViewModel {
     }
 
     func submit() async {
+        // Submit is tapped the moment someone stops talking, which is when the
+        // last of the speech is still being transcribed. Reading before it
+        // lands saves the entry without its ending.
+        await speech.finishRecording()
         let transcript = typedText.isEmpty ? speech.transcript : typedText
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         DraftStore.save(transcript: transcript)

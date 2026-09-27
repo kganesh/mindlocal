@@ -4,10 +4,30 @@ import AVFoundation
 
 protocol SpeechServicing: AnyObject {
     var transcript: String { get }
+    /// Audio is being captured right now. This is what a mic button reads: it
+    /// goes false the instant capture stops, so the button is live again
+    /// immediately.
     var isRecording: Bool { get }
+    /// Results are still arriving. Stays true through the tail of the speech,
+    /// after capture has stopped. This is what a view reads before copying
+    /// `transcript` into a field — the last second of speech lands here.
+    var isTranscribing: Bool { get }
     func requestAuthorization() async -> Bool
     func startRecording() async throws
     func stopRecording()
+    /// Stops and does not return until the final transcript has landed in
+    /// `transcript`. Anything that reads the transcript in order to act on it —
+    /// saving an answer, submitting a question — has to use this: `stopRecording`
+    /// returns while the tail of the speech is still being transcribed, so a
+    /// synchronous read afterwards gets the text as it stood a second ago.
+    func finishRecording() async
+}
+
+extension SpeechServicing {
+    /// Engines that have nothing outstanding when capture stops need no more
+    /// than the synchronous path.
+    func finishRecording() async { stopRecording() }
+    var isTranscribing: Bool { isRecording }
 }
 
 enum SpeechError: Error {
@@ -25,6 +45,7 @@ enum SpeechError: Error {
 final class SpeechService: SpeechServicing {
     private(set) var transcript: String = ""
     private(set) var isRecording: Bool = false
+    private(set) var isTranscribing: Bool = false
 
     private let audioEngine = AVAudioEngine()
     private var analyzer: SpeechAnalyzer?
@@ -35,13 +56,34 @@ final class SpeechService: SpeechServicing {
 
     /// Accumulated finalized text (never rewritten by later results).
     private var finalizedText: String = ""
+    /// The teardown started by `stopRecording`, so `finishRecording` can wait
+    /// on the same work rather than starting a second one.
+    private var teardownTask: Task<Void, Never>?
+
+    /// Locales whose transcription assets have been confirmed installed during
+    /// this launch. The two inventory queries in `ensureModel` are a round trip
+    /// each and run before any audio is captured, so repeating them on every
+    /// mic tap is latency paid at exactly the wrong moment. The answer only
+    /// changes if someone removes the assets in Settings mid-session, which
+    /// costs one failed start and is corrected on the next launch.
+    private static var verifiedLocales: Set<String> = []
+
+    /// Granted permissions cannot be revoked without the app being killed, so
+    /// the answer is asked for once and remembered. The check-in requested both
+    /// permissions again before every question, and those round trips sit
+    /// between the question being read aloud and the mic going live — which is
+    /// the gap the first words of an answer fall into.
+    private static var authorized = false
 
     func requestAuthorization() async -> Bool {
+        if Self.authorized { return true }
+
         let speechOK = await withCheckedContinuation { cont in
             SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0 == .authorized) }
         }
         let micOK = await AVAudioApplication.requestRecordPermission()
-        return speechOK && micOK
+        Self.authorized = speechOK && micOK
+        return Self.authorized
     }
 
     func startRecording() async throws {
@@ -108,8 +150,17 @@ final class SpeechService: SpeechServicing {
         try audioEngine.start()
         try await analyzer.start(inputSequence: inputSequence)
         isRecording = true
+        isTranscribing = true
     }
 
+    /// Stops capture immediately and keeps transcribing the tail.
+    ///
+    /// Volatile results lag the speaker by around a second, so the last thing
+    /// said is usually still unreported when the mic is tapped off — it arrives
+    /// only in the final result, which `finalizeAndFinishThroughEndOfInput`
+    /// produces after this method returns. `isTranscribing` covers that window
+    /// so the views keep copying the transcript; `isRecording` goes false now,
+    /// so the mic button can be tapped again without waiting for the tail.
     func stopRecording() {
         guard isRecording else { return }
         isRecording = false
@@ -119,28 +170,55 @@ final class SpeechService: SpeechServicing {
         inputContinuation = nil
 
         let analyzer = self.analyzer
-        Task {
+        teardownTask = Task { [weak self] in
+            guard let self else { return }
             try? await analyzer?.finalizeAndFinishThroughEndOfInput()
-            self.resultsTask?.cancel()
+
+            // Wait for the consumer to finish rather than cancelling it: the
+            // stream ends on its own once the analyzer finishes, and cancelling
+            // first is what would cut off the chunk we waited for. Bounded, so
+            // a finalize that throws cannot leave the button stuck on red.
+            let drain = self.resultsTask
+            let deadline = Task {
+                try? await Task.sleep(for: .seconds(2))
+                drain?.cancel()
+            }
+            await drain?.value
+            deadline.cancel()
+
             self.resultsTask = nil
             self.analyzer = nil
             self.transcriber = nil
+            // Only if nothing has started again in the meantime, or this would
+            // switch off a session that is already capturing.
+            if !self.isRecording { self.isTranscribing = false }
         }
+    }
+
+    func finishRecording() async {
+        stopRecording()
+        await teardownTask?.value
     }
 
     // MARK: - Helpers
 
     private func ensureModel(for transcriber: SpeechTranscriber, locale: Locale) async throws {
         let target = locale.identifier(.bcp47)
+        if Self.verifiedLocales.contains(target) { return }
+
         let supported = await SpeechTranscriber.supportedLocales.map { $0.identifier(.bcp47) }
         guard supported.contains(target) else { throw SpeechError.localeNotSupported }
 
         let installed = await SpeechTranscriber.installedLocales.map { $0.identifier(.bcp47) }
-        if installed.contains(target) { return }
+        if installed.contains(target) {
+            Self.verifiedLocales.insert(target)
+            return
+        }
 
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             try await request.downloadAndInstall()
         }
+        Self.verifiedLocales.insert(target)
     }
 
     /// Joins finalized chunks with a single space.
