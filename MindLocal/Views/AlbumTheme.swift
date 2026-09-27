@@ -332,56 +332,62 @@ struct AlbumHeading: View {
 
 extension AlbumTheme {
 
+    // Roles are computed, not stored. A `static let` is initialised once and
+    // cached for the life of the process, so a role that read `AlbumTheme.accent`
+    // at first use kept that palette's accent through every later theme change —
+    // and which screen happened to touch it first decided the colour for all of
+    // them. That is why switching themes appeared to work on some screens and
+    // not others.
     enum Button {
         /// The one action a screen wants you to take.
-        static let primaryFill = AlbumTheme.accent
-        static let primaryLabel = AlbumTheme.onAccent
+        static var primaryFill: Color { AlbumTheme.accent }
+        static var primaryLabel: Color { AlbumTheme.onAccent }
 
         /// Everything else. Present, not competing.
-        static let secondaryFill = AlbumTheme.wash
-        static let secondaryLabel = AlbumTheme.accent
-        static let secondaryBorder = AlbumTheme.rule
+        static var secondaryFill: Color { AlbumTheme.wash }
+        static var secondaryLabel: Color { AlbumTheme.accent }
+        static var secondaryBorder: Color { AlbumTheme.rule }
 
         /// Unavailable, not merely quiet — distinct from secondary on purpose,
         /// or a disabled primary reads as a secondary action you could take.
-        static let disabledFill = AlbumTheme.wash
-        static let disabledLabel = AlbumTheme.secondary
+        static var disabledFill: Color { AlbumTheme.wash }
+        static var disabledLabel: Color { AlbumTheme.secondary }
 
         /// Deleting an entry, clearing a journal. Warm rather than alarm-red, to
         /// sit with the palette without losing the warning.
-        static let destructive = AlbumTheme.dateAccent
+        static var destructive: Color { AlbumTheme.dateAccent }
     }
 
     enum Field {
         /// Raised, so the place you type is distinct from the page it sits on.
-        static let background = AlbumTheme.surface
-        static let text = AlbumTheme.ink
-        static let placeholder = AlbumTheme.secondary
-        static let border = AlbumTheme.rule
+        static var background: Color { AlbumTheme.surface }
+        static var text: Color { AlbumTheme.ink }
+        static var placeholder: Color { AlbumTheme.secondary }
+        static var border: Color { AlbumTheme.rule }
         /// The only cue that keyboard input lands here rather than elsewhere.
-        static let focusedBorder = AlbumTheme.accent
+        static var focusedBorder: Color { AlbumTheme.accent }
         /// Clear buttons and character counts, which should not compete with
         /// what has been typed.
-        static let accessory = AlbumTheme.secondary
+        static var accessory: Color { AlbumTheme.secondary }
     }
 
     enum TabBar {
         // The bar's own fill is `AlbumTheme.barStyle`, shared with the
         // navigation bar, so that both carry a painted backdrop the same way.
-        static let selectedIcon = AlbumTheme.accent
-        static let selectedBackground = AlbumTheme.wash
-        static let unselectedIcon = AlbumTheme.secondary
+        static var selectedIcon: Color { AlbumTheme.accent }
+        static var selectedBackground: Color { AlbumTheme.wash }
+        static var unselectedIcon: Color { AlbumTheme.secondary }
     }
 
     /// Depth, named by what it means rather than how light it is.
     enum Layer {
         /// The page itself.
-        static let page = AlbumTheme.background
+        static var page: Color { AlbumTheme.background }
         /// Cards and fields sitting on the page.
-        static let raised = AlbumTheme.surface
+        static var raised: Color { AlbumTheme.surface }
         /// Chips, pills, inset wells — recessed into it.
-        static let sunken = AlbumTheme.wash
-        static let hairline = AlbumTheme.rule
+        static var sunken: Color { AlbumTheme.wash }
+        static var hairline: Color { AlbumTheme.rule }
     }
 }
 
