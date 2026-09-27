@@ -22,95 +22,106 @@ struct AdviceView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     AlbumHeading(title: "Remember when.", subtitle: "A little perspective, from your own words.")
                         .padding(.bottom, 8)
-                    // Every control lives inside the field, pinned to the
-                    // bottom-trailing corner so they stay put as the field grows
-                    // rather than riding up with the last line. Order is clear,
-                    // mic, send: clear is the only one that appears and
-                    // disappears, so it goes innermost where its arrival cannot
-                    // shift the two that are always there.
-                    TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
-                        .lineLimit(3...8)
-                        .frame(minHeight: 96, alignment: .top)
-                        .padding(14)
-                        // Room for whichever controls are showing.
-                        .padding(.trailing, viewModel.question.isEmpty ? 106 : 136)
-                        .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 18))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 18)
-                                .strokeBorder(
-                                    isQuestionFocused ? AlbumTheme.Field.focusedBorder : AlbumTheme.Field.border,
-                                    lineWidth: isQuestionFocused ? 1.5 : 1
-                                )
-                        }
-                        .focused($isQuestionFocused)
-                        .overlay(alignment: .bottomTrailing) {
-                            HStack(spacing: 10) {
-                                if !viewModel.question.isEmpty {
-                                    Button {
-                                        viewModel.question = ""
-                                        // Keep the keyboard up: clearing is
-                                        // almost always the start of retyping,
-                                        // not the end of asking.
-                                        isQuestionFocused = true
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundStyle(AlbumTheme.Field.accessory)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel("Clear question")
-                                    .transition(.opacity)
+                    // The controls sit on their own row under the text rather
+                    // than floating in the field's bottom-right corner. Pinning
+                    // them there meant reserving a trailing column down the
+                    // field's whole height, so a question wrapped at about 60%
+                    // of the width even on the first line, where nothing was
+                    // beside it. A row below costs one line of height and gives
+                    // the text the full width back.
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField("Ask about your memories…", text: $viewModel.question, axis: .vertical)
+                            .lineLimit(3...8)
+                            .frame(minHeight: 66, alignment: .top)
+                            .focused($isQuestionFocused)
+                            // Declared on the field, not on an ancestor. Inside
+                            // a TabView a keyboard toolbar attached further up
+                            // the hierarchy silently fails to render, which is
+                            // why the first attempt at this produced no Done
+                            // button at all.
+                            .toolbar {
+                                ToolbarItemGroup(placement: .keyboard) {
+                                    Spacer()
+                                    Button("Done") { isQuestionFocused = false }
+                                        .font(.body.weight(.semibold))
                                 }
+                            }
 
-                                // Same pair, same order, same shapes as the
-                                // writing card on Today: a bare mic glyph, then
-                                // a filled arrow that sends.
+                        // Order is clear, mic, send: clear is the only one that
+                        // appears and disappears, so it goes innermost where its
+                        // arrival cannot shift the two that are always there.
+                        HStack(spacing: 10) {
+                            Spacer(minLength: 0)
+
+                            if !viewModel.question.isEmpty {
                                 Button {
-                                    toggleMic()
+                                    viewModel.question = ""
+                                    // Keep the keyboard up: clearing is almost
+                                    // always the start of retyping, not the end
+                                    // of asking.
+                                    isQuestionFocused = true
                                 } label: {
-                                    Image(systemName: viewModel.speech.isRecording ? "stop.fill" : "mic")
-                                        .font(.body)
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 20))
                                         .frame(width: 38, height: 38)
-                                        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.secondary)
+                                        .foregroundStyle(AlbumTheme.Field.accessory)
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
+                                .accessibilityLabel("Clear question")
+                                .transition(.opacity)
+                            }
 
-                                Button {
-                                    submitQuestion()
-                                } label: {
-                                    Group {
-                                        if viewModel.phase == .thinking {
-                                            ProgressView().tint(AlbumTheme.onAccent)
-                                        } else {
-                                            Image(systemName: "arrow.up").font(.body.weight(.semibold))
-                                        }
+                            // Same pair, same order, same shapes as the writing
+                            // card on Today: a bare mic glyph, then a filled
+                            // arrow that sends.
+                            Button {
+                                toggleMic()
+                            } label: {
+                                Image(systemName: viewModel.speech.isRecording ? "stop.fill" : "mic")
+                                    .font(.body)
+                                    .frame(width: 38, height: 38)
+                                    .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
+
+                            Button {
+                                submitQuestion()
+                            } label: {
+                                Group {
+                                    if viewModel.phase == .thinking {
+                                        ProgressView().tint(AlbumTheme.onAccent)
+                                    } else {
+                                        Image(systemName: "arrow.up").font(.body.weight(.semibold))
                                     }
-                                    .frame(width: 54, height: 38)
-                                    .foregroundStyle(viewModel.canAsk ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
-                                    .background(viewModel.canAsk ? AlbumTheme.accent : AlbumTheme.Button.disabledFill,
-                                                in: Capsule())
                                 }
-                                .buttonStyle(.plain)
-                                .disabled(!viewModel.canAsk)
-                                .accessibilityLabel("Ask")
+                                .frame(width: 54, height: 38)
+                                .foregroundStyle(viewModel.canAsk ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
+                                .background(viewModel.canAsk ? AlbumTheme.accent : AlbumTheme.Button.disabledFill,
+                                            in: Capsule())
                             }
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 12)
+                            .buttonStyle(.plain)
+                            .disabled(!viewModel.canAsk)
+                            .accessibilityLabel("Ask")
                         }
-                        .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
-                        .animation(.snappy(duration: 0.15), value: isQuestionFocused)
-                        // Declared on the field, not on an ancestor. Inside a
-                        // TabView a keyboard toolbar attached further up the
-                        // hierarchy silently fails to render, which is why the
-                        // first attempt at this produced no Done button at all.
-                        .toolbar {
-                            ToolbarItemGroup(placement: .keyboard) {
-                                Spacer()
-                                Button("Done") { isQuestionFocused = false }
-                                    .font(.body.weight(.semibold))
-                            }
-                        }
+                    }
+                    .padding(14)
+                    .background(AlbumTheme.Field.background, in: RoundedRectangle(cornerRadius: 18))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18)
+                            .strokeBorder(
+                                isQuestionFocused ? AlbumTheme.Field.focusedBorder : AlbumTheme.Field.border,
+                                lineWidth: isQuestionFocused ? 1.5 : 1
+                            )
+                    }
+                    // Tapping the card's own padding, not just the text, starts
+                    // a question. The screen-wide tap gesture below dismisses
+                    // the keyboard, so without this the quiet area inside the
+                    // field does the opposite of what it looks like it does.
+                    .contentShape(RoundedRectangle(cornerRadius: 18))
+                    .onTapGesture { isQuestionFocused = true }
+                    .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
+                    .animation(.snappy(duration: 0.15), value: isQuestionFocused)
                     // Stream the spoken question into the field while recording.
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isRecording { viewModel.question = newValue }
