@@ -182,7 +182,11 @@ struct TodayDiaryView: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { editorFocused = false }
+                Button { editorFocused = false } label: {
+                    Image(systemName: "checkmark")
+                        .fontWeight(.semibold)
+                }
+                .accessibilityLabel("Done")
             }
         }
     }

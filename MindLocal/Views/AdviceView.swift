@@ -41,8 +41,11 @@ struct AdviceView: View {
                             .toolbar {
                                 ToolbarItemGroup(placement: .keyboard) {
                                     Spacer()
-                                    Button("Done") { isQuestionFocused = false }
-                                        .font(.body.weight(.semibold))
+                                    Button { isQuestionFocused = false } label: {
+                                        Image(systemName: "checkmark")
+                                            .fontWeight(.semibold)
+                                    }
+                                    .accessibilityLabel("Done")
                                 }
                             }
 
