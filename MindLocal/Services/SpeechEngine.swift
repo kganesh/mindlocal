@@ -9,12 +9,22 @@ import Foundation
 /// Whisper ends up back at `SpeechService` rather than at an error.
 enum SpeechEngine {
 
+    /// Whether Whisper is offered at all. Off for now: Settings hides the
+    /// Transcription screen, and the getter below refuses the preference so
+    /// anyone who had already enabled it goes back to Apple's recogniser
+    /// rather than being stuck on an engine with no way to turn it off.
+    ///
+    /// The stored preference is deliberately not cleared, so turning this back
+    /// on restores each person's own choice instead of resetting everyone.
+    static let isOffered = false
+
     /// User's preference, set in Settings → Transcription. Survives relaunch.
-    /// On its own it isn't enough to select Whisper — see `make()`.
+    /// On its own it isn't enough to select Whisper — see `isOffered` and
+    /// `make()`.
     static let preferenceKey = "speech.useWhisper"
 
     static var useWhisper: Bool {
-        get { UserDefaults.standard.bool(forKey: preferenceKey) }
+        get { isOffered && UserDefaults.standard.bool(forKey: preferenceKey) }
         set { UserDefaults.standard.set(newValue, forKey: preferenceKey) }
     }
 

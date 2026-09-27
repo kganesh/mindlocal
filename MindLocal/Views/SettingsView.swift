@@ -141,10 +141,17 @@ struct SettingsView: View {
                 #endif
 
                 Section {
-                    NavigationLink {
-                        TranscriptionSettingsView()
-                    } label: {
-                        LabeledContent("Transcription", value: SpeechEngine.currentEngineName)
+                    // Whisper is the only thing the Transcription screen offers,
+                    // so while it is withdrawn the row has nothing to say. The
+                    // NavigationLink stays inside the condition rather than
+                    // being deleted, which keeps the screen compiled and makes
+                    // bringing it back a matter of SpeechEngine.isOffered.
+                    if SpeechEngine.isOffered {
+                        NavigationLink {
+                            TranscriptionSettingsView()
+                        } label: {
+                            LabeledContent("Transcription", value: SpeechEngine.currentEngineName)
+                        }
                     }
                     NavigationLink {
                         ReadAloudSettingsView()
@@ -154,13 +161,13 @@ struct SettingsView: View {
                 } header: {
                     Text("Voice")
                 } footer: {
-                    Text("Which engine turns your voice into text, and which one reads it back. Apple's run on-device with no download; Whisper and Kokoro are optional and each fetch a one-time model.")
+                    Text("Which voice reads your entries back to you. Apple's runs on-device with no download; Kokoro is optional and fetches a one-time model.")
                 }
 
                 Section {
                     LabeledContent("Version", value: "1.0")
                 } footer: {
-                    Text("MindLocal keeps your journal on your device. Only weather forecasts and the optional Whisper model download use the network.")
+                    Text("MindLocal keeps your journal on your device. Only weather forecasts and the optional voice model download use the network.")
                 }
             }
             .albumScreen()
