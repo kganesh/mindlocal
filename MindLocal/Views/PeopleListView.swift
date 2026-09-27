@@ -320,6 +320,7 @@ private struct PersonProfileEditor: View {
     @State private var addingRelationship = false
     @State private var mergingPerson = false
     @State private var showingPeopleMap = false
+    @State private var confirmingDuplicateMerge = false
     @State private var newNickname = ""
     @State private var newLike = ""
     @State private var newDislike = ""
@@ -328,6 +329,36 @@ private struct PersonProfileEditor: View {
     /// distinguisher (last name or context) becomes worth adding.
     private var sharesFirstName: Bool {
         allPeople.contains { $0 !== person && $0.name.caseInsensitiveCompare(person.name) == .orderedSame }
+    }
+
+    /// Another person with the same first *and* last name. This is what fixing a
+    /// misspelling produces: a mis-heard "Akil" is extracted as a new person, and
+    /// renaming it to "Akhil" leaves two identical nodes rather than one. Nothing
+    /// merges them on its own — merging deletes a record, so it stays a decision
+    /// the user makes — but at the moment the names line up it is offered here.
+    ///
+    /// Two different people can legitimately share a name, which is what the
+    /// context qualifier is for, so two *different* non-empty qualifiers ("work"
+    /// vs "cousin") mean the user has already said these are not the same person.
+    private var exactDuplicate: Person? {
+        let name = normalized(person.name)
+        guard !name.isEmpty else { return nil }
+        let last = normalized(person.lastName)
+        let qualifier = normalized(person.qualifier)
+
+        return allPeople.first { other in
+            guard other !== person,
+                  normalized(other.name) == name,
+                  normalized(other.lastName) == last
+            else { return false }
+            let otherQualifier = normalized(other.qualifier)
+            if qualifier.isEmpty || otherQualifier.isEmpty { return true }
+            return qualifier == otherQualifier
+        }
+    }
+
+    private func normalized(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private var entries: [Experience] {
@@ -417,6 +448,35 @@ private struct PersonProfileEditor: View {
             .sorted { $0.date < $1.date }
     }
 
+    /// The merge offer, shown the moment the two names match. It names the entry
+    /// count because that is what the user is really being asked about: which
+    /// record holds the history, and what moves where.
+    @ViewBuilder
+    private func duplicateSection(_ duplicate: Person) -> some View {
+        Section {
+            Button {
+                confirmingDuplicateMerge = true
+            } label: {
+                Label("Merge them into this one", systemImage: "arrow.triangle.merge")
+            }
+        } header: {
+            Text("Possible duplicate")
+        } footer: {
+            Text("There is already a \(person.fullDisplayName) with \(entryCount(duplicate)). Merging moves those entries, relationships and details here, keeps \"\(duplicate.name)\" as a nickname so older mentions still resolve, and removes the other record.")
+        }
+    }
+
+    private func entryCount(_ other: Person) -> String {
+        let count = other.experiences.count
+        return count == 1 ? "1 entry" : "\(count) entries"
+    }
+
+    private func mergeDuplicate() {
+        guard let duplicate = exactDuplicate else { return }
+        PersonMerger.merge(duplicate, into: person, in: modelContext)
+        MemoryGraphStore.rebuildAndPersist(in: modelContext)
+    }
+
     var body: some View {
         Form {
             Section {
@@ -431,10 +491,17 @@ private struct PersonProfileEditor: View {
             } header: {
                 Text("Name")
             } footer: {
+                // Still shown alongside the merge offer below. Two people with
+                // the same bare first name are either one person written twice
+                // or two people who need telling apart, and only the user knows
+                // which — so both routes stay on screen.
                 if sharesFirstName && person.distinguisher.isEmpty {
                     Label("Someone else is also named \(person.name). Add a last name or context to tell them apart.",
                           systemImage: "person.2.fill")
                 }
+            }
+            if let duplicate = exactDuplicate {
+                duplicateSection(duplicate)
             }
             Section {
                 TextField("Occupation (optional)", text: $person.occupation)
@@ -605,6 +672,16 @@ private struct PersonProfileEditor: View {
         }
         .sheet(isPresented: $mergingPerson) {
             MergePersonSheet(survivor: person)
+        }
+        .confirmationDialog(
+            "Merge the other \(person.fullDisplayName) into this one?",
+            isPresented: $confirmingDuplicateMerge,
+            titleVisibility: .visible
+        ) {
+            Button("Merge", role: .destructive) { mergeDuplicate() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can't be undone.")
         }
         .sheet(isPresented: $showingPeopleMap) {
             PeopleGraphSheet(focusName: person.fullDisplayName)

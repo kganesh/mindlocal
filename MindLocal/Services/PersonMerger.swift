@@ -48,10 +48,47 @@ enum PersonMerger {
             conflict.withPerson = survivor
         }
 
-        // 5. The survivor becomes the "Me" anchor if either side was.
+        // 5. Repoint reminders and scheduled events. Both hold an optional
+        //    `Person`, so deleting the duplicate would nullify them rather than
+        //    fail — the reminder survives in the store but disappears from every
+        //    screen that reads it off a person. Reminders are snapshotted first
+        //    because reassigning `person` mutates the inverse being iterated.
+        for reminder in Array(source.reminders) {
+            reminder.person = survivor
+        }
+        let events = (try? context.fetch(FetchDescriptor<Event>())) ?? []
+        for event in events where event.person === source {
+            event.person = survivor
+        }
+
+        // 6. Carry over profile facts the survivor doesn't have. Which node
+        //    survives is a UI choice, and the richer profile is often the one
+        //    being folded in — a freshly created duplicate is the survivor when
+        //    the correction is made on the new node. Nothing already recorded on
+        //    the survivor is overwritten.
+        if survivor.lastName.isEmpty { survivor.lastName = source.lastName }
+        if survivor.qualifier.isEmpty { survivor.qualifier = source.qualifier }
+        if survivor.occupation.isEmpty { survivor.occupation = source.occupation }
+        if survivor.birthdate == nil { survivor.birthdate = source.birthdate }
+        survivor.likes = mergedItems(survivor.likes, source.likes)
+        survivor.dislikes = mergedItems(survivor.dislikes, source.dislikes)
+
+        // 7. The survivor becomes the "Me" anchor if either side was.
         if source.isMe { survivor.isMe = true }
 
         context.delete(source)
+    }
+
+    /// Appends the duplicate's entries after the survivor's, dropping anything
+    /// already recorded. Both lists are newest-first, so the survivor's own
+    /// preferences stay at the top.
+    private static func mergedItems(_ existing: [String], _ incoming: [String]) -> [String] {
+        var result = existing
+        for item in incoming
+        where !result.contains(where: { $0.caseInsensitiveCompare(item) == .orderedSame }) {
+            result.append(item)
+        }
+        return result
     }
 
     /// Removes self-referential edges (subject === object) and duplicate edges of
