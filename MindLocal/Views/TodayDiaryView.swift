@@ -197,7 +197,10 @@ struct TodayDiaryView: View {
                 .font(.caption)
                 .foregroundStyle(AlbumTheme.accent)
         } else if viewModel.typedText.isEmpty {
-            Text("A little is enough. Start wherever you are.")
+            // The break is explicit so it falls between the two sentences.
+            // Left to wrap on width it landed mid-sentence, leaving "Start"
+            // alone at the end of the first line.
+            Text("A little is enough.\nStart wherever you are.")
                 .font(.caption)
                 .foregroundStyle(AlbumTheme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
