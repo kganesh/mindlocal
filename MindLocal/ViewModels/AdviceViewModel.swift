@@ -175,4 +175,15 @@ final class AdviceViewModel {
         activeRequestID = nil
         phase = .idle
     }
+
+    /// Drops the answer but keeps the question.
+    ///
+    /// Separate from `clear()` because the two are different intentions.
+    /// Dismissing an answer is usually the start of rewording the question that
+    /// produced it, and wiping the field would mean retyping it from memory. The
+    /// field has its own clear button for the case where you do want it gone.
+    func dismissAnswer() {
+        activeRequestID = nil
+        phase = .idle
+    }
 }

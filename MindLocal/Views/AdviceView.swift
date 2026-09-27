@@ -51,6 +51,17 @@ struct AdviceView: View {
                                 }
                             }
                             .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
+                            // Declared on the field, not on an ancestor. Inside a
+                            // TabView a keyboard toolbar attached further up the
+                            // hierarchy silently fails to render, which is why the
+                            // first attempt at this produced no Done button at all.
+                            .toolbar {
+                                ToolbarItemGroup(placement: .keyboard) {
+                                    Spacer()
+                                    Button("Done") { isQuestionFocused = false }
+                                        .font(.body.weight(.semibold))
+                                }
+                            }
 
                         Button {
                             toggleMic()
@@ -102,7 +113,23 @@ struct AdviceView: View {
                             // model fabricate a relationship for someone never
                             // saved as a Person, citing an entry that never
                             // mentioned them.
-                            guard intent.questionType != "who_is" else {
+                            // A "who_is" classification is only safe to act on
+                            // when the question actually names someone. The
+                            // classifier keys on the word "who", so "who have I
+                            // been spending time with lately?" comes back as
+                            // who_is even though it names nobody — and the
+                            // deterministic branch then answers "I don't have
+                            // anyone by that name in your People list", which is
+                            // a non-sequitur to a question that asked for a list.
+                            //
+                            // Requiring either a resolved person or a candidate
+                            // name keeps the guard doing its job (an unknown NAME
+                            // still never reaches the model) while letting
+                            // aggregate questions about people fall through to
+                            // the pipeline that can actually answer them.
+                            let namesSomeone = !peopleSummaries.isEmpty
+                                || WhoIsQuestionDetector.candidateName(in: query) != nil
+                            guard intent.questionType != "who_is" || !namesSomeone else {
                                 await viewModel.askWhoIs(
                                     requestID: request.id, question: query,
                                     people: peopleSummaries
@@ -258,7 +285,15 @@ struct AdviceView: View {
                 }
                 .padding(24)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .scrollDismissesKeyboard(.immediately)
+            // .interactively needs scrollable content to drag, and this screen
+            // is mostly empty — so on Ask it often has nothing to grab. Both
+            // additions below give the keyboard a way out that does not depend
+            // on there being enough content to scroll.
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isQuestionFocused { isQuestionFocused = false }
+            }
             .albumScreen()
             .navigationTitle("Ask")
             .navigationBarTitleDisplayMode(.inline)
@@ -385,6 +420,17 @@ struct AdviceView: View {
                         Image(systemName: speaker.isSpeaking ? "stop.circle.fill" : "speaker.wave.2.fill")
                     }
                     .accessibilityLabel(speaker.isSpeaking ? "Stop reading" : "Read aloud")
+
+                    Button {
+                        // Stop any read-aloud first, otherwise the voice carries
+                        // on describing an answer that is no longer on screen.
+                        speaker.stop()
+                        withAnimation(.snappy(duration: 0.2)) { viewModel.dismissAnswer() }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(AlbumTheme.secondary)
+                    }
+                    .accessibilityLabel("Dismiss answer")
                 }
                 Text(text.renderedMarkdown)
                     .font(.body)
