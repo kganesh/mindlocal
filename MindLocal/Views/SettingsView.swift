@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @AppStorage(AlbumTheme.paletteKey) private var paletteID = AlbumPalette.album.id
     @AppStorage(AdviceGroundingSettings.enabledKey) private var groundedAnswersEnabled = false
     @AppStorage("reminderEnabled") private var reminderEnabled = false
     @AppStorage("reminderHour")    private var reminderHour = 22   // 10 PM
@@ -15,77 +14,17 @@ struct SettingsView: View {
 
     @State private var confirmingWipe = false
 
-    private func swatch(_ color: Color) -> some View {
-        Circle()
-            .fill(color)
-            .frame(width: 16, height: 16)
-            .overlay(Circle().strokeBorder(AlbumTheme.rule, lineWidth: 1))
-    }
-
-    /// A miniature of what the theme actually paints. A colour chip cannot tell
-    /// Night Sky, Ocean and Galaxy apart — all three are near-black — and the
-    /// backdrop is the whole reason to pick one.
-    ///
-    /// Rendered at something near screen proportions and then scaled down,
-    /// rather than laid out small. The fields are drawn in absolute point
-    /// sizes, so a half-point star placed straight into a 47pt box would come
-    /// out the same size as one on a full screen and the tile would read as
-    /// noise instead of as a picture of the theme.
-    private func backdropPreview(_ palette: AlbumPalette) -> some View {
-        let width: CGFloat = 188
-        let height: CGFloat = 116
-        let scale: CGFloat = 0.26
-
-        return Group {
-            switch palette.backdrop {
-            case .plain:    palette.background
-            case .nightSky: AlbumStarfield()
-            case .ocean:    AlbumOceanDepths()
-            case .galaxy:   AlbumGalaxy()
-            case .rain:     AlbumRainfall()
-            case .blueSky:  AlbumBlueSky()
-            }
-        }
-        .frame(width: width, height: height)
-        .scaleEffect(scale)
-        .frame(width: width * scale, height: height * scale)
-        .clipShape(RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(AlbumTheme.rule, lineWidth: 1))
-    }
-
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    ForEach(AlbumPalette.all) { palette in
-                        Button {
-                            paletteID = palette.id
-                        } label: {
-                            HStack(spacing: 12) {
-                                // The page, then its two colours. What
-                                // separates one theme from another is the
-                                // relationship between page, accent and date,
-                                // not any single colour.
-                                HStack(spacing: 8) {
-                                    backdropPreview(palette)
-                                    swatch(palette.accent)
-                                    swatch(palette.dateAccent)
-                                }
-                                Text(palette.name)
-                                    .foregroundStyle(AlbumTheme.ink)
-                                Spacer()
-                                if paletteID == palette.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(AlbumTheme.accent)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
+                    NavigationLink {
+                        ThemeSettingsView()
+                    } label: {
+                        LabeledContent("Theme", value: AlbumTheme.palette.name)
                     }
-                } header: {
-                    Text("Theme")
                 } footer: {
-                    Text("Album, Ink and Dusk follow your light and dark setting. A painted theme keeps the appearance its backdrop needs.")
+                    Text("Colours, and what is painted behind them.")
                 }
 
                 Section {
