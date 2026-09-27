@@ -100,13 +100,13 @@ struct SettingsView: View {
                 } header: {
                     Text("Voice")
                 } footer: {
-                    Text("Which voice reads your entries back to you. Apple's runs on-device with no download; Kokoro is optional and fetches a one-time model.")
+                    Text("Which voice reads your entries and answers back to you. It runs on the device, with no download.")
                 }
 
                 Section {
                     LabeledContent("Version", value: "1.0")
                 } footer: {
-                    Text("MindLocal keeps your journal on your device. Only weather forecasts and the optional voice model download use the network.")
+                    Text("MindLocal keeps your journal on your device. Weather forecasts and answers generated on Private Cloud Compute are the only things that use the network.")
                 }
             }
             .albumScreen()

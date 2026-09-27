@@ -28,6 +28,7 @@ struct ReadAloudSettingsView: View {
 
     var body: some View {
         List {
+            if VoiceEngine.isOffered {
             Section {
                 Toggle("Kokoro voice", isOn: kokoroBinding)
                     .disabled(store.state == .unavailable || store.isDownloading)
@@ -59,9 +60,10 @@ struct ReadAloudSettingsView: View {
             } footer: {
                 Text(footer)
             }
+            }
 
             #if canImport(KokoroSwift)
-            if useKokoro, store.state == .ready, !voiceNames.isEmpty {
+            if VoiceEngine.isOffered, useKokoro, store.state == .ready, !voiceNames.isEmpty {
                 Section("Voice") {
                     ForEach(voiceNames, id: \.self) { name in
                         Button {
@@ -85,7 +87,9 @@ struct ReadAloudSettingsView: View {
             Section {
                 NavigationLink("Apple Voices") { VoicePicker() }
             } footer: {
-                Text("Used whenever the Kokoro voice is off or its model isn't downloaded.")
+                Text(VoiceEngine.isOffered
+                     ? "Used whenever the Kokoro voice is off or its model isn't downloaded."
+                     : "Entries and answers are read aloud with Apple's on-device voice. Enhanced and Premium voices download in Settings → Accessibility → Spoken Content.")
             }
         }
         .albumScreen()

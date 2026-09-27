@@ -8,10 +8,19 @@ import Foundation
 /// than to silence.
 enum VoiceEngine {
 
+    /// Whether Kokoro is offered at all. Off until the read-aloud static is
+    /// understood: a reply that breaks into noise partway through is not
+    /// something to hand a tester, and Apple's voice has never done it.
+    ///
+    /// The getter below refuses the stored preference rather than clearing it,
+    /// so anyone who had already chosen Kokoro falls back to Apple's voice now
+    /// and gets their own choice back when this is turned on again.
+    static let isOffered = false
+
     static let preferenceKey = "voice.useKokoro"
 
     static var useKokoro: Bool {
-        get { UserDefaults.standard.bool(forKey: preferenceKey) }
+        get { isOffered && UserDefaults.standard.bool(forKey: preferenceKey) }
         set { UserDefaults.standard.set(newValue, forKey: preferenceKey) }
     }
 

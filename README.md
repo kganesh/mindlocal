@@ -125,10 +125,16 @@ Whisper `base.en` is implemented and currently withdrawn behind
 `SpeechEngine.isOffered`. The preference is refused rather than cleared, so
 turning it back on restores each person's own choice.
 
-**Text to speech** is the system voice by default, or **Kokoro** running through
-MLX, opt-in from Settings with its own voice picker. `SpeechTextSanitizer`
-strips markdown before speaking, and `SpeechNumberExpander` turns figures into
-words so dates and amounts are read correctly.
+**Text to speech** is Apple's on-device voice. `SpeechTextSanitizer` strips
+markdown before speaking, and ISO dates are rewritten as words on the way out,
+so a cited day is read as "Friday 10 July 2026" rather than spelled out with
+its dashes.
+
+**Kokoro** through MLX is implemented and currently withdrawn behind
+`VoiceEngine.isOffered`, for the same reason Whisper is: a reply read aloud
+breaks into noise partway through, and the cause is not yet understood. As with
+Whisper the preference is refused rather than cleared, so turning it back on
+restores each person's own voice.
 
 ## Other things it does
 
@@ -178,7 +184,7 @@ Dependencies, both through SPM:
 | Package | Used for |
 |---|---|
 | `argmaxinc/argmax-oss-swift` | WhisperKit, the withdrawn speech-to-text engine |
-| `mlalma/kokoro-ios` | Kokoro text-to-speech, with MLX and MisakiSwift |
+| `mlalma/kokoro-ios` | Kokoro text-to-speech, withdrawn, with MLX and MisakiSwift |
 
 ## Layout
 
@@ -233,6 +239,13 @@ question outside the corpus each have their own honest answer.
 - **Dictation overwrites typed text.** Starting the mic with text already in a
   field replaces it, because the observer assigns the whole transcript. This is
   what stops the keyboard's mic and the app's mic being usable together.
+- **Kokoro read-aloud breaks into noise.** A reply plays, turns to static for a
+  stretch, then plays again. Measured, so some things are ruled out: synthesis
+  runs at 0.15-0.27x real time, so the queue is never starved, and the gaps are
+  not playback running dry. The noise is in the samples the model returns.
+  Withdrawn until that is understood. `ModelRouter.dumpAudio` writes each
+  synthesized chunk to `Documents` as a WAV in debug builds, which is the way
+  to look at it rather than reason about it.
 - **Whisper VAD thresholds are unmeasured.** `silenceFloor`,
   `confidentSpeechLevel` and `minEnergyVariation` were chosen from published
   dBFS ranges, not measured against a real microphone in a real room. Moot while
