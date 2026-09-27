@@ -209,6 +209,23 @@ enum AlbumTheme {
     static var rule: Color { palette.rule }
     static var dateAccent: Color { palette.dateAccent }
 
+    /// What the navigation and tab bars are filled with.
+    ///
+    /// A flat colour over a painted backdrop is a slab: the sky, the rain or
+    /// the water stops dead at the bar and starts again below it. A material
+    /// fills the bar with a blurred sample of whatever is behind it, so the
+    /// backdrop carries through the bar instead of being cut off by it, and
+    /// content scrolling underneath still frosts rather than colliding with
+    /// the title.
+    ///
+    /// The flat themes keep their flat colour. There is nothing behind their
+    /// bars to see, and a material over a plain wash only adds haze.
+    static var barStyle: AnyShapeStyle {
+        palette.backdrop == .plain
+            ? AnyShapeStyle(palette.background)
+            : AnyShapeStyle(.ultraThinMaterial)
+    }
+
     /// Spacing scale.
     ///
     /// The theme shared colour and type but not spacing, so each screen picked
@@ -320,9 +337,8 @@ extension AlbumTheme {
     }
 
     enum TabBar {
-        /// Matches the page, so the bar reads as part of it rather than a shelf
-        /// bolted underneath.
-        static let background = AlbumTheme.background
+        // The bar's own fill is `AlbumTheme.barStyle`, shared with the
+        // navigation bar, so that both carry a painted backdrop the same way.
         static let selectedIcon = AlbumTheme.accent
         static let selectedBackground = AlbumTheme.wash
         static let unselectedIcon = AlbumTheme.secondary
@@ -453,7 +469,7 @@ private struct AlbumScreenModifier: ViewModifier {
             }
             .foregroundStyle(AlbumTheme.ink)
             .tint(AlbumTheme.accent)
-            .toolbarBackground(AlbumTheme.background, for: .navigationBar)
+            .toolbarBackground(AlbumTheme.barStyle, for: .navigationBar)
             // Setting the colour alone leaves the bar in its scroll-edge state,
             // where it is transparent and scroll content slides underneath it.
             // That is what sheared the top off the "+" button and hid the date

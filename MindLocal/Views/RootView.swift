@@ -65,7 +65,7 @@ struct MainTabView: View {
         // app dark rather than letting system chrome — sheets, pickers, the
         // keyboard — come back in light while the walls stay black.
         .preferredColorScheme(AlbumTheme.palette.forcesDarkAppearance ? .dark : nil)
-        .toolbarBackground(AlbumTheme.TabBar.background, for: .tabBar)
+        .toolbarBackground(AlbumTheme.barStyle, for: .tabBar)
         // Same omission as the navigation bar had: setting the colour without
         // setting visibility leaves the bar transparent at scroll edge, and
         // scroll content runs underneath it. On Today that clipped the bottom
