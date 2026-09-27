@@ -19,6 +19,13 @@ enum PeopleViewMode: String, CaseIterable, Identifiable {
         case .graph3D: return "move.3d"
         }
     }
+
+    /// What the UI offers. `graph2D` is hidden for now — the 3D map covers the
+    /// same ground and the pair invited a comparison the 2D view lost.
+    ///
+    /// The case stays so `PeopleGraphView` keeps compiling and this is a one-line
+    /// reversal rather than a resurrection.
+    static var selectable: [PeopleViewMode] { [.list, .graph3D] }
 }
 
 /// Browse the people mentioned across entries — the filter-by-person surface.
@@ -26,6 +33,11 @@ struct PeopleListView: View {
     @Query(sort: \Person.name) private var people: [Person]
     @Environment(\.modelContext) private var modelContext
     @State private var mode: PeopleViewMode = .list
+    /// The person just created by the + button, presented in the editor.
+    @State private var newPerson: Person?
+    /// Held separately because `newPerson` is already nil by the time
+    /// `onDismiss` runs, and the cleanup needs to know who to check.
+    @State private var pendingPerson: Person?
     @State private var searchText = ""
 
     var body: some View {
@@ -52,7 +64,7 @@ struct PeopleListView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Picker("View", selection: $mode) {
-                            ForEach(PeopleViewMode.allCases) { m in
+                            ForEach(PeopleViewMode.selectable) { m in
                                 Label(m.title, systemImage: m.systemImage).tag(m)
                             }
                         }
@@ -63,8 +75,20 @@ struct PeopleListView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        modelContext.insert(Person(name: "New Person"))
-                        MemoryGraphStore.rebuildAndPersist(in: modelContext)
+                        // Created with an EMPTY name, so the editor shows its
+                        // "First name" placeholder rather than the literal "New
+                        // Person", which the user then had to select and delete
+                        // before typing.
+                        //
+                        // The insert has to happen now, because the editor binds
+                        // to a live model. Dismissing without typing a name
+                        // therefore has to undo it — see the sheet's onDismiss.
+                        // The graph is rebuilt on Done rather than here, since a
+                        // nameless person contributes nothing to it.
+                        let person = Person(name: "")
+                        modelContext.insert(person)
+                        newPerson = person
+                        pendingPerson = person
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -72,6 +96,42 @@ struct PeopleListView: View {
                 }
             }
             .onAppear { _ = Person.fetchOrCreateMe(in: modelContext) }
+            // Straight to the editor, not the detail view. PersonDetailView is
+            // for reading shared moments, and a person created a second ago has
+            // none — it showed "Entries that mention New Person will collect
+            // here" and required another tap on "Edit details" to do the one
+            // thing the + button was asking for.
+            .sheet(item: $newPerson, onDismiss: discardUnnamedPerson) { person in
+                NavigationStack {
+                    PersonProfileEditor(person: person)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { newPerson = nil }
+                            }
+                        }
+                }
+            }
+        }
+    }
+
+    /// Removes a person created by + who was never given a name.
+    ///
+    /// Tapping + has to insert immediately, because the editor binds to a live
+    /// model. Without this, opening the editor and closing it left a nameless
+    /// row behind every time — and before the name was blanked, a row literally
+    /// called "New Person", several of which accumulated in testing.
+    ///
+    /// Only a still-empty name is discarded. Anything typed is kept, including a
+    /// person given only a last name or a nickname.
+    private func discardUnnamedPerson() {
+        guard let person = pendingPerson else { return }
+        pendingPerson = nil
+        let named = !person.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !person.lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if named {
+            MemoryGraphStore.rebuildAndPersist(in: modelContext)
+        } else {
+            modelContext.delete(person)
         }
     }
 
@@ -585,13 +645,6 @@ struct PeopleGraphSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Map", selection: $mode) {
-                    Label("2D", systemImage: PeopleViewMode.graph2D.systemImage).tag(PeopleViewMode.graph2D)
-                    Label("3D", systemImage: PeopleViewMode.graph3D.systemImage).tag(PeopleViewMode.graph3D)
-                }
-                .pickerStyle(.segmented)
-                .padding([.horizontal, .top])
-
                 if let focusName {
                     Label(focusName, systemImage: "scope")
                         .font(.caption.weight(.medium))
@@ -599,13 +652,7 @@ struct PeopleGraphSheet: View {
                         .padding(.top, 8)
                 }
 
-                Group {
-                    if mode == .graph2D {
-                        PeopleGraphView()
-                    } else {
-                        PeopleGraph3DView()
-                    }
-                }
+                PeopleGraph3DView()
             }
             .navigationTitle("People Map")
             .navigationBarTitleDisplayMode(.inline)
