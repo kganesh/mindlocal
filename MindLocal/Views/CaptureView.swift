@@ -129,7 +129,7 @@ struct CaptureView: View {
                         }
                     }
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isRecording { viewModel.typedText = newValue }
+                        if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
                     }
 
                 if wordCount >= wordLimit - 50 {
@@ -185,8 +185,10 @@ struct CaptureView: View {
     private var micButton: some View {
         Button {
             if viewModel.speech.isRecording {
+                // Stop and let go. Copying the transcript here reads it a
+                // second before the tail of the speech lands, and the observer
+                // above already keeps this field current through the tail.
                 viewModel.speech.stopRecording()
-                viewModel.typedText = viewModel.speech.transcript
             } else {
                 Task {
                     if await viewModel.speech.requestAuthorization() {
