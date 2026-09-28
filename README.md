@@ -4,8 +4,8 @@ A private journal for your own life, on your own phone. Write or speak about you
 day, and a model turns it into something you can ask questions of later: who was
 there, what you decided, how it turned out, what you keep repeating.
 
-The app ships as **The Little Things**. MindLocal is the project, the bundle id
-and this repository.
+The app ships as **Vivid Mind**. MindLocal is the project, the bundle id and
+this repository.
 
 There are no accounts and no servers of ours. The journal is stored only on your
 phone, and transcription and speech synthesis run entirely on the device.
@@ -170,7 +170,7 @@ Requirements:
 - Swift 5 language mode with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 - File-system-synchronized folder groups: any file added under `MindLocal/` is
   compiled automatically and is not listed in the `.pbxproj`.
-- Bundle id `com.gayatrikolekar.MindLocal`, display name "The Little Things".
+- Bundle id `com.gayatrikolekar.MindLocal`, display name "Vivid Mind".
 - **Real hardware for AI and speech.** An Apple Intelligence-capable device with
   Apple Intelligence enabled. The simulator reports the on-device model as
   unavailable; `ExtractionService` has a mock path for that case.

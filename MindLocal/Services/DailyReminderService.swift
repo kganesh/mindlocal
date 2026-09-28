@@ -25,7 +25,7 @@ final class DailyReminderService {
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
 
         let content = UNMutableNotificationContent()
-        content.title = "MindLocal"
+        content.title = "Vivid Mind"
         content.body = "How was your day? Tap to share your journal."
         content.sound = .default
 

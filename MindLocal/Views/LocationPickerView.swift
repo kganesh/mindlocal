@@ -162,7 +162,7 @@ struct LocationPickerView: View {
             .alert("Location Off", isPresented: $locationDenied) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text("Enable location in Settings → MindLocal → Location, or search for a place instead.")
+                Text("Enable location in Settings → Vivid Mind → Location, or search for a place instead.")
             }
         }
     }

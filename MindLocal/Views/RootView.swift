@@ -13,12 +13,12 @@ struct RootView: View {
         case .unavailable(.deviceNotEligible):
             UnavailableView(
                 title: "Device Not Supported",
-                message: "MindLocal needs Apple Intelligence, which this device doesn't support."
+                message: "Vivid Mind needs Apple Intelligence, which this device doesn't support."
             )
         case .unavailable(.appleIntelligenceNotEnabled):
             UnavailableView(
                 title: "Turn On Apple Intelligence",
-                message: "Enable Apple Intelligence in Settings to use MindLocal."
+                message: "Enable Apple Intelligence in Settings to use Vivid Mind."
             )
         case .unavailable(.modelNotReady):
             UnavailableView(

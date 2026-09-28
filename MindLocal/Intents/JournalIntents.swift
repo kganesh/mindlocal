@@ -1,12 +1,12 @@
 import AppIntents
 import SwiftData
 
-/// "Hey Siri, log my day in MindLocal." Siri asks how the day went (listens),
+/// "Hey Siri, log my day in Vivid Mind." Siri asks how the day went (listens),
 /// extracts a structured journal entry on-device, saves it, and speaks a
 /// confirmation (talks).
 struct LogJournalEntryIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Journal Entry"
-    static var description = IntentDescription("Record how your day went in MindLocal.")
+    static var description = IntentDescription("Record how your day went in Vivid Mind.")
 
     // Runs without bringing the app forward, so Siri handles the whole exchange.
     static var openAppWhenRun: Bool = false
