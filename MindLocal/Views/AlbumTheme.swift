@@ -41,6 +41,11 @@ struct AlbumPalette: Identifiable, Hashable {
     let dateAccent: Color
     /// Defaulted so the flat-colour palettes below are unchanged.
     var backdrop: AlbumBackdrop = .plain
+    /// Whether a small moon rests on the writing card. Not part of the
+    /// backdrop: a backdrop is painted behind every screen and touches no view,
+    /// while this is attached to one card on one screen and has to be drawn by
+    /// it.
+    var companion: Bool = false
 
     /// The appearance this palette requires, if it requires one.
     var enforcedScheme: ColorScheme? { backdrop.enforcedScheme }
@@ -49,7 +54,7 @@ struct AlbumPalette: Identifiable, Hashable {
     /// the backdrop case and `AlbumBlueSky` all stay, so putting it back is
     /// adding it to this line. Anyone who had it selected falls through to
     /// `album` by way of `named(_:)`.
-    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .ocean, .galaxy, .rain]
+    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .ocean, .galaxy, .rain]
 
     static func named(_ id: String?) -> AlbumPalette {
         all.first { $0.id == id } ?? .album
@@ -113,6 +118,24 @@ struct AlbumPalette: Identifiable, Hashable {
         rule:       hex(light: 0x2B3558, dark: 0x2B3558),
         dateAccent: hex(light: 0xF0C67D, dark: 0xF0C67D),
         backdrop: .nightSky
+    )
+
+    /// The same sky, warmer, with a moon leaning on the writing card. Its own
+    /// theme rather than a switch inside Night Sky: a face is not a detail to
+    /// spring on someone who picked a starfield.
+    static let moonlight = AlbumPalette(
+        id: "moonlight", name: "Moonlight",
+        background: hex(light: 0x0A0A14, dark: 0x0A0A14),
+        surface:    hex(light: 0x1A1A2C, dark: 0x1A1A2C),
+        accent:     hex(light: 0xF2CE8A, dark: 0xF2CE8A),
+        onAccent:   hex(light: 0x201704, dark: 0x201704),
+        ink:        hex(light: 0xF2EEE4, dark: 0xF2EEE4),
+        secondary:  hex(light: 0xA8A290, dark: 0xA8A290),
+        wash:       hex(light: 0x24243A, dark: 0x24243A),
+        rule:       hex(light: 0x34344E, dark: 0x34344E),
+        dateAccent: hex(light: 0xF2CE8A, dark: 0xF2CE8A),
+        backdrop: .nightSky,
+        companion: true
     )
 
     /// Underwater: teal walls that deepen downward, seafoam actions, and a warm

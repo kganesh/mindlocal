@@ -88,6 +88,15 @@ struct ThemeSettingsView: View {
             }
         }
         .frame(width: width, height: height)
+        // Two themes can share a backdrop, so the thing that tells them apart
+        // has to be in the picture. Drawn before the scale-down, like
+        // everything else in the tile.
+        .overlay(alignment: .bottomTrailing) {
+            if palette.companion {
+                AlbumMoonCompanion(part: .head, diameter: 44)
+                    .offset(x: 6, y: 10)
+            }
+        }
         .scaleEffect(scale)
         .frame(width: width * scale, height: height * scale)
         .clipShape(RoundedRectangle(cornerRadius: 10))

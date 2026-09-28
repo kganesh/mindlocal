@@ -168,6 +168,25 @@ struct TodayDiaryView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(AlbumTheme.rule, lineWidth: 1)
             }
+            // The moon straddles the card's top edge: the head behind it, so
+            // the border crosses the face a third of the way up, and the arm in
+            // front, lying along that border. Two layers, because one view can
+            // only be wholly in front or wholly behind.
+            //
+            // Both parts share a bounding width, so the same x offset keeps the
+            // arm under the face.
+            .background(alignment: .topTrailing) {
+                if AlbumTheme.palette.companion {
+                    AlbumMoonCompanion(part: .head, diameter: Self.companionSize)
+                        .offset(x: Self.companionInset, y: -Self.companionSize * 2 / 3)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if AlbumTheme.palette.companion {
+                    AlbumMoonCompanion(part: .arm, diameter: Self.companionSize)
+                        .offset(x: Self.companionInset, y: -Self.companionSize * 0.09)
+                }
+            }
             .animation(.snappy(duration: 0.15), value: viewModel.typedText.isEmpty)
 
             Label("Private on your device", systemImage: "lock")
@@ -190,6 +209,11 @@ struct TodayDiaryView: View {
     /// Encouragement while the page is empty, then nothing. Once there are
     /// words in the card the invitation to start has been taken, and leaving it
     /// there sits it under what the person is actually writing.
+    /// The moon's size and how far in from the card's trailing edge it sits.
+    /// Two numbers in one place, since four offsets are derived from them.
+    private static let companionSize: CGFloat = 96
+    private static let companionInset: CGFloat = -18
+
     @ViewBuilder
     private var hintLine: some View {
         if viewModel.speech.isRecording {
