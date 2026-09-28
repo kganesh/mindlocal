@@ -239,7 +239,7 @@ struct AlbumPalette: Identifiable, Hashable {
     /// taken from the lights blurred behind the glass. Dark in either system
     /// appearance.
     static let rainOnGlass = AlbumPalette(
-        id: "glass", name: "Rain on Glass",
+        id: "glass", name: "Glass",
         background: hex(light: 0x0A1119, dark: 0x0A1119),
         surface:    hex(light: 0x152230, dark: 0x152230),
         accent:     hex(light: 0x8FD4E8, dark: 0x8FD4E8),
