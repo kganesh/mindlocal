@@ -77,76 +77,87 @@ struct CaptureView: View {
                 DatePicker("Date & time", selection: $viewModel.occurredAt, displayedComponents: [.date, .hourAndMinute])
                     .padding(.horizontal, 4)
 
-                HStack {
-                    Button {
-                        pickingLocation = true
-                    } label: {
-                        Label(viewModel.location.isEmpty ? "Add location" : viewModel.location,
-                              systemImage: "mappin.circle")
-                            .lineLimit(1)
+                // The same quiet line Today uses: caption weight, secondary
+                // ink, no tint and no chrome. It is context for the entry, not
+                // an action competing with the writing below it.
+                //
+                // No clear button. Opening the picker is how a wrong location
+                // gets corrected, and a destructive control does not need to
+                // sit on a line this quiet.
+                Button {
+                    pickingLocation = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(viewModel.location.isEmpty ? "Add location" : viewModel.location)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer()
-                    if !viewModel.location.isEmpty {
-                        Button {
-                            viewModel.location = ""
-                            viewModel.latitude = nil
-                            viewModel.longitude = nil
-                        } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                        }
-                        .accessibilityLabel("Clear location")
-                    }
+                    .font(.caption)
+                    .foregroundStyle(AlbumTheme.secondary)
+                    .frame(minHeight: 44, alignment: .leading)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(viewModel.location.isEmpty
+                                    ? "Add location"
+                                    : "Location: \(viewModel.location)")
                 .padding(.horizontal, 4)
 
-                TextEditor(text: $viewModel.typedText)
-                    .frame(minHeight: 220)
-                    .font(.body)
-                    .lineSpacing(6)
-                    .scrollContentBackground(.hidden)
-                    .accessibilityLabel("Journal entry")
-                    .padding(8)
-                    .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 18))
-                    .focused($editorFocused)
-                    .overlay(alignment: .topLeading) {
-                        if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
-                            Text("What would you like to remember?")
-                                .foregroundStyle(.secondary)
-                                .padding(16)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button {
-                                editorFocused = false
-                            } label: {
-                                Image(systemName: "checkmark")
-                                    .fontWeight(.semibold)
+                // The same card as Today: the text and the two things you do
+                // with it in one place, rather than the controls sitting in
+                // their own rows underneath the box that holds the writing.
+                VStack(alignment: .leading, spacing: 12) {
+                    TextEditor(text: $viewModel.typedText)
+                        .frame(minHeight: 200)
+                        .font(.body)
+                        .lineSpacing(6)
+                        .scrollContentBackground(.hidden)
+                        .foregroundStyle(AlbumTheme.ink)
+                        .accessibilityLabel("Journal entry")
+                        .focused($editorFocused)
+                        .overlay(alignment: .topLeading) {
+                            if viewModel.typedText.isEmpty && !viewModel.speech.isRecording {
+                                Text("What would you like to remember?")
+                                    .foregroundStyle(AlbumTheme.secondary)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 5)
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
                             }
-                            .accessibilityLabel("Done")
                         }
+                        .toolbar {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button {
+                                    editorFocused = false
+                                } label: {
+                                    Image(systemName: "checkmark")
+                                        .fontWeight(.semibold)
+                                }
+                                .accessibilityLabel("Done")
+                            }
+                        }
+                        .onChange(of: viewModel.speech.transcript) { _, newValue in
+                            if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
+                        }
+
+                    // Clear sits at the far end, away from mic and send. It is
+                    // the one destructive control here and it should not be a
+                    // thumb's width from the one tapped most often.
+                    HStack(alignment: .bottom, spacing: 12) {
+                        if !viewModel.typedText.isEmpty { clearButton }
+                        countLine
+                        Spacer(minLength: 8)
+                        micButton
+                        reviewButton
                     }
-                    .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
-                    }
-
-                if wordCount >= wordLimit - 50 {
-                    Text("\(wordCount) of \(wordLimit) words")
-                        .font(.caption)
-                        .foregroundStyle(wordCount > wordLimit ? .red : .secondary)
                 }
-
-                micButton
-
-                Button {
-                    Task { await viewModel.submit() }
-                } label: {
-                    Text("Review entry").frame(maxWidth: .infinity)
+                .padding(20)
+                .background(AlbumTheme.surface, in: RoundedRectangle(cornerRadius: 20))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(AlbumTheme.rule, lineWidth: 1)
                 }
-                .buttonStyle(AlbumPrimaryButtonStyle())
-                .disabled(isInputEmpty || wordCount > wordLimit)
+                .animation(.snappy(duration: 0.15), value: viewModel.typedText.isEmpty)
 
                 if wordCount > wordLimit {
                     Text("Keep it under \(wordLimit) words — trim a little to continue.")
@@ -182,8 +193,43 @@ struct CaptureView: View {
         viewModel.typedText.isEmpty && viewModel.speech.transcript.isEmpty
     }
 
+    /// Shown only as the limit comes into view. It occupies the space Today
+    /// gives its hint line, which is empty here the rest of the time.
+    @ViewBuilder
+    private var countLine: some View {
+        if wordCount >= wordLimit - 50 {
+            Text("\(wordCount) of \(wordLimit) words")
+                .font(.caption)
+                .foregroundStyle(wordCount > wordLimit ? .red : AlbumTheme.secondary)
+        }
+    }
+
+    /// Start over. Clears the saved draft too, via `discard()` — a half-written
+    /// entry that comes back on the next launch is not what "clear" means.
+    private var clearButton: some View {
+        Button {
+            Task {
+                // Stop dictation first. The transcript observer would otherwise
+                // put the tail back into the field a moment after it is
+                // emptied, and the field would refill on its own.
+                await viewModel.speech.finishRecording()
+                viewModel.discard()
+                editorFocused = true
+            }
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 20))
+                .frame(width: 38, height: 38)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(AlbumTheme.Field.accessory)
+        .accessibilityLabel("Clear entry")
+        .transition(.opacity)
+    }
+
     private var micButton: some View {
         Button {
+            editorFocused = false
             if viewModel.speech.isRecording {
                 // Stop and let go. Copying the transcript here reads it a
                 // second before the tail of the speech lands, and the observer
@@ -197,13 +243,40 @@ struct CaptureView: View {
                 }
             }
         } label: {
-            Label(viewModel.speech.isRecording ? "Stop dictation" : "Speak instead",
-                  systemImage: viewModel.speech.isRecording ? "stop.circle.fill" : "mic")
-                .font(.body)
-                .frame(minHeight: 44)
-                .foregroundStyle(viewModel.speech.isRecording ? .red : .accentColor)
+            Image(systemName: viewModel.speech.isRecording ? "stop.fill" : "mic")
+                .font(.system(size: 19, weight: .semibold))
+                .frame(width: 38, height: 38)
         }
+        .buttonStyle(.plain)
+        .foregroundStyle(viewModel.speech.isRecording ? .red : AlbumTheme.secondary)
         .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Start recording")
+    }
+
+    /// Submit. No label, so "Review entry" survives as the accessibility name
+    /// and the disabled capsule is what says there is nothing to send yet.
+    private var reviewButton: some View {
+        Button {
+            editorFocused = false
+            Task { await viewModel.submit() }
+        } label: {
+            Group {
+                if viewModel.phase == .extracting {
+                    ProgressView().tint(AlbumTheme.onAccent)
+                } else {
+                    Image(systemName: "arrow.up").font(.body.weight(.semibold))
+                }
+            }
+            .frame(width: 54, height: 38)
+            .foregroundStyle(canSubmit ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
+            .background(canSubmit ? AlbumTheme.accent : AlbumTheme.Button.disabledFill, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSubmit)
+        .accessibilityLabel(viewModel.phase == .extracting ? "Preparing…" : "Review entry")
+    }
+
+    private var canSubmit: Bool {
+        !isInputEmpty && wordCount <= wordLimit && viewModel.phase != .extracting
     }
 
     private var nothingFoundView: some View {
