@@ -13,10 +13,20 @@ struct SettingsView: View {
     @AppStorage(HealthService.connectedKey) private var healthConnected = false
 
     @State private var confirmingWipe = false
+    @State private var lock = AppLock.shared
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Toggle("Require \(AppLock.biometryName)", isOn: Binding(
+                        get: { lock.isEnabled },
+                        set: { lock.isEnabled = $0 }
+                    ))
+                } footer: {
+                    Text("Asks before showing your journal, and hides it in the app switcher. Your device passcode always works as a way in, so a failed face cannot lock you out of your own writing.")
+                }
+
                 Section {
                     NavigationLink {
                         ThemeSettingsView()
