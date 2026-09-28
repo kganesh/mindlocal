@@ -54,7 +54,7 @@ struct ExperienceListView: View {
     var body: some View {
         NavigationStack {
             List {
-                AlbumHeading(title: "the days you keep", subtitle: "Little moments, in your own words.")
+                AlbumHeading(title: "days you keep", subtitle: "Little moments, in your own words.")
                     .padding(.vertical, 16)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)

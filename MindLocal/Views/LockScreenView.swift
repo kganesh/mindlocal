@@ -20,7 +20,7 @@ struct LockScreenView: View {
                     .font(.system(size: 34))
                     .foregroundStyle(AlbumTheme.accent)
 
-                Text("the little things")
+                Text("little things")
                     .font(AlbumTheme.heading(.title))
                     .foregroundStyle(AlbumTheme.ink)
 

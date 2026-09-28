@@ -301,7 +301,7 @@ struct TodayDiaryView: View {
         VStack(alignment: .leading, spacing: 16) {
             AlbumHeading(
                 eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()),
-                title: "the little things",
+                title: "little things",
                 subtitle: "A moment for yourself, in your own words."
             )
             Button {
