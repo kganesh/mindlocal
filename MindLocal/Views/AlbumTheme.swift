@@ -12,6 +12,8 @@ enum AlbumBackdrop: Hashable {
     case rain
     case rainOnGlass
     case halloween
+    case christmasLights
+    case diwali
     case sunrise
     case blueSky
 
@@ -22,7 +24,7 @@ enum AlbumBackdrop: Hashable {
     var enforcedScheme: ColorScheme? {
         switch self {
         case .plain: nil
-        case .nightSky, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .sunrise: .dark
+        case .nightSky, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali, .sunrise: .dark
         case .blueSky: .light
         }
     }
@@ -53,11 +55,14 @@ struct AlbumPalette: Identifiable, Hashable {
     /// The appearance this palette requires, if it requires one.
     var enforcedScheme: ColorScheme? { backdrop.enforcedScheme }
 
+    // Display names change freely; the `id` of a palette must not. It is what
+    // a stored choice is looked up by, so renaming one silently moves everyone
+    // who chose it back to Album.
     /// What the picker offers. `blueSky` is parked, not deleted — the palette,
     /// the backdrop case and `AlbumBlueSky` all stay, so putting it back is
     /// adding it to this line. Anyone who had it selected falls through to
     /// `album` by way of `named(_:)`.
-    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .sunrise, .ocean, .galaxy, .rain, .rainOnGlass, .halloween]
+    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .sunrise, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali]
 
     static func named(_ id: String?) -> AlbumPalette {
         all.first { $0.id == id } ?? .album
@@ -261,6 +266,39 @@ struct AlbumPalette: Identifiable, Hashable {
         rule:       hex(light: 0x40294E, dark: 0x40294E),
         dateAccent: hex(light: 0xA8D05A, dark: 0xA8D05A),
         backdrop: .halloween
+    )
+
+    /// A winter night with the lights up. Warm bulb gold for actions and bulb
+    /// red for dates, on deep pine. Dark in either system appearance.
+    static let christmasLights = AlbumPalette(
+        id: "christmas", name: "Lights",
+        background: hex(light: 0x08110E, dark: 0x08110E),
+        surface:    hex(light: 0x13221D, dark: 0x13221D),
+        accent:     hex(light: 0xE8B44C, dark: 0xE8B44C),
+        onAccent:   hex(light: 0x2A1D06, dark: 0x2A1D06),
+        ink:        hex(light: 0xF2EFE6, dark: 0xF2EFE6),
+        secondary:  hex(light: 0x9AAFA2, dark: 0x9AAFA2),
+        wash:       hex(light: 0x1B2F28, dark: 0x1B2F28),
+        rule:       hex(light: 0x2B443B, dark: 0x2B443B),
+        dateAccent: hex(light: 0xE0574F, dark: 0xE0574F),
+        backdrop: .christmasLights
+    )
+
+    /// Lamplight against a warm dark. Flame gold for actions, and a jewel teal
+    /// for dates — the one cool note, so a date does not disappear into all
+    /// that warmth. Dark in either system appearance.
+    static let diwali = AlbumPalette(
+        id: "diwali", name: "Diyas",
+        background: hex(light: 0x140A12, dark: 0x140A12),
+        surface:    hex(light: 0x241420, dark: 0x241420),
+        accent:     hex(light: 0xF2A93B, dark: 0xF2A93B),
+        onAccent:   hex(light: 0x2E1602, dark: 0x2E1602),
+        ink:        hex(light: 0xF7EDDF, dark: 0xF7EDDF),
+        secondary:  hex(light: 0xB79A96, dark: 0xB79A96),
+        wash:       hex(light: 0x2E1B28, dark: 0x2E1B28),
+        rule:       hex(light: 0x452839, dark: 0x452839),
+        dateAccent: hex(light: 0x57BFAE, dark: 0x57BFAE),
+        backdrop: .diwali
     )
 
     private static func hex(light: UInt32, dark: UInt32) -> Color {
@@ -590,6 +628,8 @@ private struct AlbumScreenModifier: ViewModifier {
                 case .rain:     AlbumRainfall()
                 case .rainOnGlass: AlbumRainOnGlass()
                 case .halloween: AlbumHalloween()
+                case .christmasLights: AlbumChristmasLights()
+                case .diwali:   AlbumDiwaliDiyas()
                 case .sunrise:  AlbumSunrise()
                 case .blueSky:  AlbumBlueSky()
                 }

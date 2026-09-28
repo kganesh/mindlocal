@@ -86,6 +86,8 @@ struct ThemeSettingsView: View {
             case .rain:     AlbumRainfall()
             case .rainOnGlass: AlbumRainOnGlass()
             case .halloween: AlbumHalloween()
+            case .christmasLights: AlbumChristmasLights()
+            case .diwali:   AlbumDiwaliDiyas()
             case .sunrise:  AlbumSunrise()
             case .blueSky:  AlbumBlueSky()
             }
