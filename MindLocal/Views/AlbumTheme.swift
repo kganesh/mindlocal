@@ -10,6 +10,9 @@ enum AlbumBackdrop: Hashable {
     case ocean
     case galaxy
     case rain
+    case rainOnGlass
+    case halloween
+    case sunrise
     case blueSky
 
     /// The appearance a backdrop can only be read in. A starfield needs the
@@ -19,7 +22,7 @@ enum AlbumBackdrop: Hashable {
     var enforcedScheme: ColorScheme? {
         switch self {
         case .plain: nil
-        case .nightSky, .ocean, .galaxy, .rain: .dark
+        case .nightSky, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .sunrise: .dark
         case .blueSky: .light
         }
     }
@@ -54,7 +57,7 @@ struct AlbumPalette: Identifiable, Hashable {
     /// the backdrop case and `AlbumBlueSky` all stay, so putting it back is
     /// adding it to this line. Anyone who had it selected falls through to
     /// `album` by way of `named(_:)`.
-    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .ocean, .galaxy, .rain]
+    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .sunrise, .ocean, .galaxy, .rain, .rainOnGlass, .halloween]
 
     static func named(_ id: String?) -> AlbumPalette {
         all.first { $0.id == id } ?? .album
@@ -204,6 +207,60 @@ struct AlbumPalette: Identifiable, Hashable {
         rule:       hex(light: 0xAFD2EA, dark: 0xAFD2EA),
         dateAccent: hex(light: 0xB9551F, dark: 0xB9551F),
         backdrop: .blueSky
+    )
+
+    /// The last minutes before the sun clears the horizon. Warm throughout,
+    /// with a coral accent taken from the sky and a pale gold for dates. Dark
+    /// in either system appearance, which is what dawn rather than daylight
+    /// buys: a risen sun would mean a bright sky and the light-backdrop problem
+    /// that parked Blue Sky.
+    static let sunrise = AlbumPalette(
+        id: "sunrise", name: "Sunrise",
+        background: hex(light: 0x140E22, dark: 0x140E22),
+        surface:    hex(light: 0x241733, dark: 0x241733),
+        accent:     hex(light: 0xF08A5D, dark: 0xF08A5D),
+        onAccent:   hex(light: 0x2A0F0A, dark: 0x2A0F0A),
+        ink:        hex(light: 0xF6EAE4, dark: 0xF6EAE4),
+        secondary:  hex(light: 0xB49CA8, dark: 0xB49CA8),
+        wash:       hex(light: 0x2E1E3F, dark: 0x2E1E3F),
+        rule:       hex(light: 0x422C55, dark: 0x422C55),
+        dateAccent: hex(light: 0xF2C48B, dark: 0xF2C48B),
+        backdrop: .sunrise
+    )
+
+    /// Inside, looking out through a wet window. Cooler and deeper than Rain,
+    /// which stands out in it: ice blue for actions, a soft rose for dates,
+    /// taken from the lights blurred behind the glass. Dark in either system
+    /// appearance.
+    static let rainOnGlass = AlbumPalette(
+        id: "glass", name: "Rain on Glass",
+        background: hex(light: 0x0A1119, dark: 0x0A1119),
+        surface:    hex(light: 0x152230, dark: 0x152230),
+        accent:     hex(light: 0x8FD4E8, dark: 0x8FD4E8),
+        onAccent:   hex(light: 0x07242E, dark: 0x07242E),
+        ink:        hex(light: 0xE6EFF5, dark: 0xE6EFF5),
+        secondary:  hex(light: 0x92A6B5, dark: 0x92A6B5),
+        wash:       hex(light: 0x1C2C3C, dark: 0x1C2C3C),
+        rule:       hex(light: 0x2A3C4F, dark: 0x2A3C4F),
+        dateAccent: hex(light: 0xE79BA6, dark: 0xE79BA6),
+        backdrop: .rainOnGlass
+    )
+
+    /// One night of the year. Pumpkin for actions, a sickly green for dates,
+    /// on deep violet. Garish is the point, but only just: this still has to
+    /// sit behind a month of someone's writing.
+    static let halloween = AlbumPalette(
+        id: "halloween", name: "Halloween",
+        background: hex(light: 0x130A1A, dark: 0x130A1A),
+        surface:    hex(light: 0x211329, dark: 0x211329),
+        accent:     hex(light: 0xF08A2E, dark: 0xF08A2E),
+        onAccent:   hex(light: 0x2A1405, dark: 0x2A1405),
+        ink:        hex(light: 0xF2E9DC, dark: 0xF2E9DC),
+        secondary:  hex(light: 0xA894B0, dark: 0xA894B0),
+        wash:       hex(light: 0x2C1B36, dark: 0x2C1B36),
+        rule:       hex(light: 0x40294E, dark: 0x40294E),
+        dateAccent: hex(light: 0xA8D05A, dark: 0xA8D05A),
+        backdrop: .halloween
     )
 
     private static func hex(light: UInt32, dark: UInt32) -> Color {
@@ -531,6 +588,9 @@ private struct AlbumScreenModifier: ViewModifier {
                 case .ocean:    AlbumOceanDepths()
                 case .galaxy:   AlbumGalaxy()
                 case .rain:     AlbumRainfall()
+                case .rainOnGlass: AlbumRainOnGlass()
+                case .halloween: AlbumHalloween()
+                case .sunrise:  AlbumSunrise()
                 case .blueSky:  AlbumBlueSky()
                 }
             }

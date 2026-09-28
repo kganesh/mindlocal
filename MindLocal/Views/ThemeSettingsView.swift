@@ -84,6 +84,9 @@ struct ThemeSettingsView: View {
             case .ocean:    AlbumOceanDepths()
             case .galaxy:   AlbumGalaxy()
             case .rain:     AlbumRainfall()
+            case .rainOnGlass: AlbumRainOnGlass()
+            case .halloween: AlbumHalloween()
+            case .sunrise:  AlbumSunrise()
             case .blueSky:  AlbumBlueSky()
             }
         }
