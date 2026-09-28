@@ -44,6 +44,8 @@ struct PeopleListView: View {
     /// `onDismiss` runs, and the cleanup needs to know who to check.
     @State private var pendingPerson: Person?
     @State private var searchText = ""
+    @State private var circleFilter: PersonCircle?
+    @Query private var allRelationships: [PersonRelationship]
 
     var body: some View {
         NavigationStack {
@@ -142,8 +144,49 @@ struct PeopleListView: View {
 
     private var visiblePeople: [Person] {
         people.filter { person in
-            searchText.isEmpty || person.fullDisplayName.localizedCaseInsensitiveContains(searchText)
+            let matchesSearch = searchText.isEmpty
+                || person.fullDisplayName.localizedCaseInsensitiveContains(searchText)
                 || person.aliases.contains { $0.localizedCaseInsensitiveContains(searchText) }
+            guard matchesSearch else { return false }
+            guard let circleFilter else { return true }
+            return PersonCircleResolver.circles(for: person, relationships: allRelationships)
+                .contains(circleFilter)
+        }
+    }
+
+    /// Same shape as the Journal's mood filters: no "All" pill, because nothing
+    /// selected already means everything, and tapping the active one clears it.
+    private var circleFilterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(PersonCircle.allCases) { circle in
+                    AlbumFilterCapsule(
+                        label: circle.label,
+                        symbol: circle.symbol,
+                        isSelected: circleFilter == circle
+                    ) {
+                        withAnimation(.snappy(duration: 0.18)) {
+                            circleFilter = (circleFilter == circle) ? nil : circle
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    /// Says which of the two filters emptied the list, since a search and a
+    /// circle can each do it and the way out differs.
+    @ViewBuilder
+    private var emptyResult: some View {
+        if let circleFilter, searchText.isEmpty {
+            ContentUnavailableView(
+                "No one in \(circleFilter.label)",
+                systemImage: circleFilter.symbol,
+                description: Text("Circles come from how someone is related to you. Add a relationship on a person's page, or a context note like \"work\" or \"gym\".")
+            )
+        } else {
+            ContentUnavailableView.search(text: searchText)
         }
     }
 
@@ -153,8 +196,12 @@ struct PeopleListView: View {
                 .padding(.vertical, 16)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+            circleFilterRow
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 12, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             if visiblePeople.isEmpty {
-                ContentUnavailableView.search(text: searchText)
+                emptyResult
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
