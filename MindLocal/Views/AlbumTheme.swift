@@ -14,6 +14,7 @@ enum AlbumBackdrop: Hashable {
     case halloween
     case christmasLights
     case diwali
+    case planets
     case sunrise
     case blueSky
 
@@ -24,7 +25,7 @@ enum AlbumBackdrop: Hashable {
     var enforcedScheme: ColorScheme? {
         switch self {
         case .plain: nil
-        case .nightSky, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali, .sunrise: .dark
+        case .nightSky, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali, .planets, .sunrise: .dark
         case .blueSky: .light
         }
     }
@@ -62,7 +63,7 @@ struct AlbumPalette: Identifiable, Hashable {
     /// the backdrop case and `AlbumBlueSky` all stay, so putting it back is
     /// adding it to this line. Anyone who had it selected falls through to
     /// `album` by way of `named(_:)`.
-    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .sunrise, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali]
+    static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .sunrise, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali, .planets]
 
     static func named(_ id: String?) -> AlbumPalette {
         all.first { $0.id == id } ?? .album
@@ -299,6 +300,23 @@ struct AlbumPalette: Identifiable, Hashable {
         rule:       hex(light: 0x452839, dark: 0x452839),
         dateAccent: hex(light: 0x57BFAE, dark: 0x57BFAE),
         backdrop: .diwali
+    )
+
+    /// Out among the bodies. Cold cyan for actions and a warm rust for dates,
+    /// taken off the banding of the gas giant. Dark in either system
+    /// appearance.
+    static let planets = AlbumPalette(
+        id: "planets", name: "Planets",
+        background: hex(light: 0x05070F, dark: 0x05070F),
+        surface:    hex(light: 0x121828, dark: 0x121828),
+        accent:     hex(light: 0x6FC9D6, dark: 0x6FC9D6),
+        onAccent:   hex(light: 0x05222A, dark: 0x05222A),
+        ink:        hex(light: 0xE8ECF6, dark: 0xE8ECF6),
+        secondary:  hex(light: 0x8E98B4, dark: 0x8E98B4),
+        wash:       hex(light: 0x1A2238, dark: 0x1A2238),
+        rule:       hex(light: 0x28324E, dark: 0x28324E),
+        dateAccent: hex(light: 0xD97E5A, dark: 0xD97E5A),
+        backdrop: .planets
     )
 
     private static func hex(light: UInt32, dark: UInt32) -> Color {
@@ -630,6 +648,7 @@ private struct AlbumScreenModifier: ViewModifier {
                 case .halloween: AlbumHalloween()
                 case .christmasLights: AlbumChristmasLights()
                 case .diwali:   AlbumDiwaliDiyas()
+                case .planets:  AlbumPlanets()
                 case .sunrise:  AlbumSunrise()
                 case .blueSky:  AlbumBlueSky()
                 }
