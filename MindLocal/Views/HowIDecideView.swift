@@ -71,7 +71,7 @@ struct HowIDecideView: View {
                 } header: {
                     Text("My principles")
                 } footer: {
-                    Text("How you want to decide. Vivid Mind will draw on these when it advises you.")
+                    Text("How you want to decide. MindLocal will draw on these when it advises you.")
                 }
             }
             .albumScreen()

@@ -7,7 +7,7 @@ struct VoicePicker: View {
     @AppStorage("selectedVoiceId") private var selectedVoiceId = ""
     @State private var speaker = SpeechSpeaker()
 
-    private let sample = "This is how Vivid Mind will read your advice aloud."
+    private let sample = "This is how MindLocal will read your advice aloud."
 
     /// The installed voices for this language, in a list where no two rows look
     /// the same.

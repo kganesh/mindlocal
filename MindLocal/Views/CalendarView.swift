@@ -101,7 +101,7 @@ struct CalendarView: View {
     private func importCalendar() async {
         switch await calendarImporter.importUpcoming(into: modelContext) {
         case .denied:
-            importMessage = "Vivid Mind needs Calendar access. Enable it in Settings › Vivid Mind."
+            importMessage = "MindLocal needs Calendar access. Enable it in Settings › MindLocal."
         case .imported(let new, let updated):
             MemoryGraphStore.rebuildAndPersist(in: modelContext)
             if new == 0 && updated == 0 {

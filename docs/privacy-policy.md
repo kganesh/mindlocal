@@ -1,6 +1,6 @@
 # Privacy policy
 
-**Vivid Mind** is a private journal. It has no accounts, no servers of
+**The Little Things** is a private journal. It has no accounts, no servers of
 ours, and no analytics. What you write is stored on your iPhone.
 
 Last updated: 27 September 2026

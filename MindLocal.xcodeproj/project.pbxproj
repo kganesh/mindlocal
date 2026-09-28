@@ -309,9 +309,9 @@
 				DEVELOPMENT_TEAM = DP4GA89733;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Vivid Mind";
+				INFOPLIST_KEY_CFBundleDisplayName = "MindLocal";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so Vivid Mind can prepare you for them.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlocks your journal so only you can read it.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
@@ -348,9 +348,9 @@
 				DEVELOPMENT_TEAM = DP4GA89733;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Vivid Mind";
+				INFOPLIST_KEY_CFBundleDisplayName = "MindLocal";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so Vivid Mind can prepare you for them.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlocks your journal so only you can read it.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";

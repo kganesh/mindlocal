@@ -24,7 +24,7 @@ struct ReadAloudSettingsView: View {
         #endif
     }
 
-    private let sample = "This is how Vivid Mind will read your reflections back to you."
+    private let sample = "This is how MindLocal will read your reflections back to you."
 
     var body: some View {
         List {
@@ -168,7 +168,7 @@ struct ReadAloudSettingsView: View {
         case .unavailable: "This build doesn't include the Kokoro runtime."
         case .ready: "Kokoro is downloaded and ready. Turning this off returns to Apple's voice without deleting the model."
         case .downloading: "Keep this screen open until the download finishes."
-        default: "Turning this on downloads a \(KokoroModelStore.approximateSizeMB) MB model once. Until then, Vivid Mind uses Apple's built-in voice."
+        default: "Turning this on downloads a \(KokoroModelStore.approximateSizeMB) MB model once. Until then, MindLocal uses Apple's built-in voice."
         }
     }
 }
