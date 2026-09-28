@@ -80,18 +80,6 @@ struct SettingsView: View {
                 #endif
 
                 Section {
-                    // Whisper is the only thing the Transcription screen offers,
-                    // so while it is withdrawn the row has nothing to say. The
-                    // NavigationLink stays inside the condition rather than
-                    // being deleted, which keeps the screen compiled and makes
-                    // bringing it back a matter of SpeechEngine.isOffered.
-                    if SpeechEngine.isOffered {
-                        NavigationLink {
-                            TranscriptionSettingsView()
-                        } label: {
-                            LabeledContent("Transcription", value: SpeechEngine.currentEngineName)
-                        }
-                    }
                     NavigationLink {
                         ReadAloudSettingsView()
                     } label: {

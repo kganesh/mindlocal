@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2627CBDF303EA21400BA8A24 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBDE303EA21400BA8A24 /* WhisperKit */; };
 		2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; };
 		2627CBE4303EA21400BA8A24 /* MLXUtilsLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */; };
 		2627CBE5303EA21400BA8A24 /* KokoroSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -62,7 +61,6 @@
 			files = (
 				2627CBE4303EA21400BA8A24 /* MLXUtilsLibrary in Frameworks */,
 				2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */,
-				2627CBDF303EA21400BA8A24 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,7 +115,6 @@
 			packageProductDependencies = (
 				2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */,
 				2627CBE1303EA21400BA8A24 /* KokoroSwift */,
-				2627CBDE303EA21400BA8A24 /* WhisperKit */,
 			);
 			productName = MindLocal;
 			productReference = A1000000000000000000CB /* MindLocal.app */;
@@ -176,7 +173,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */,
-				2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1000000000000000000CC /* Products */;
@@ -451,14 +447,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/argmaxinc/argmax-oss-swift.git";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/mlalma/kokoro-ios.git";
@@ -470,11 +458,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		2627CBDE303EA21400BA8A24 /* WhisperKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 2627CBDD303EA21400BA8A24 /* XCRemoteSwiftPackageReference "argmax-oss-swift" */;
-			productName = WhisperKit;
-		};
 		2627CBE1303EA21400BA8A24 /* KokoroSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */;

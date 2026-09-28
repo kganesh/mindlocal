@@ -111,7 +111,11 @@ the title.
 ## Voice
 
 **Speech to text** is Apple's iOS 26 `SpeechAnalyzer` and `SpeechTranscriber`,
-on device, streaming partial results as you speak.
+on device, streaming partial results as you speak. It is the only engine here.
+A Whisper `base.en` path existed behind `SpeechServicing` and is gone from this
+branch along with its WhisperKit dependency: it was already withdrawn, and
+carrying the framework for something nobody could reach was weight in every
+download. The code is on `kokoro-tts`.
 
 Volatile results lag the speaker by about a second, so the last words of a
 sentence are still unreported when the mic is tapped off. They arrive in the
@@ -120,10 +124,6 @@ final result, after capture has already stopped. Two states exist for this:
 live again at once; `isTranscribing` stays true through the tail and is what a
 view guards on before copying the transcript into a field. Anything that reads
 the transcript in order to act on it calls `finishRecording()` and waits.
-
-Whisper `base.en` is implemented and currently withdrawn behind
-`SpeechEngine.isOffered`. The preference is refused rather than cleared, so
-turning it back on restores each person's own choice.
 
 **Text to speech** is Apple's on-device voice. `SpeechTextSanitizer` strips
 markdown before speaking, and ISO dates are rewritten as words on the way out,
@@ -183,7 +183,6 @@ Dependencies, both through SPM:
 
 | Package | Used for |
 |---|---|
-| `argmaxinc/argmax-oss-swift` | WhisperKit, the withdrawn speech-to-text engine |
 | `mlalma/kokoro-ios` | Kokoro text-to-speech, withdrawn, with MLX and MisakiSwift |
 
 ## Layout
@@ -193,7 +192,7 @@ MindLocal/
   Models/        19 files. SwiftData models and @Generable extraction targets:
                  Experience, Decision, Person, Event, Reminder, Conflict,
                  Principle, MemoryGraph, and the *Draft types the model fills in
-  Services/      49 files. Extraction, retrieval, the memory graph, model
+  Services/      46 files. Extraction, retrieval, the memory graph, model
                  routing, speech in both directions, weather, health, calendar,
                  notifications
   ViewModels/    Capture, Advice, JournalConversation
@@ -203,7 +202,7 @@ docs/
   domain-model.md   The north-star spec: episodic vs semantic memory, node and
                     edge taxonomy, the learning loop, and the alignment roadmap
   blog/             Written pieces on how retrieval and grounding work here
-MindLocalTests/     9 test files, mostly around retrieval, person resolution,
+MindLocalTests/     8 test files, mostly around retrieval, person resolution,
                     speech chunking and the voice activity detector
 ```
 
@@ -245,11 +244,9 @@ question outside the corpus each have their own honest answer.
   not playback running dry. The noise is in the samples the model returns.
   Withdrawn until that is understood. `ModelRouter.dumpAudio` writes each
   synthesized chunk to `Documents` as a WAV in debug builds, which is the way
-  to look at it rather than reason about it.
-- **Whisper VAD thresholds are unmeasured.** `silenceFloor`,
-  `confidentSpeechLevel` and `minEnergyVariation` were chosen from published
-  dBFS ranges, not measured against a real microphone in a real room. Moot while
-  Whisper is withdrawn, and still unmeasured when it returns.
+  to look at it rather than reason about it. Its dependency chain is also most
+  of the app's size: 18 MB of Cmlx, an 18 MB phonemizer lexicon and a 14 MB
+  voice archive, against 8.7 MB for the app itself.
 - **PCC refusal rate is unmeasured.** If PCC refuses this content often, the Ask
   path pays its latency and answers on device anyway.
 - **Retrieval fixes designed, not built.** Four, all around the case where a

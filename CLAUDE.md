@@ -89,7 +89,7 @@ Views/                 27 views across four tabs, plus settings
 
 | Protocol | Implementations |
 |---|---|
-| `SpeechServicing` | `SpeechService` (Apple), `WhisperSpeechService` |
+| `SpeechServicing` | `SpeechService` (Apple) |
 | `SpeechSynthesizing` | `SystemSpeechEngine`, `KokoroSpeechEngine` |
 | `ExtractionServicing` | `ExtractionService`, plus a mock |
 | `AdvisingServicing` | `AdviceService` |
@@ -181,14 +181,6 @@ tuning any of them.
 
 ## Known open items
 
-- **Whisper VAD thresholds are unmeasured.** `silenceFloor` (0.0056),
-  `confidentSpeechLevel` (0.05) and `minEnergyVariation` (0.25) came from
-  published dBFS ranges, not from measurement against a real microphone. The
-  tests prove the logic with synthesised tones and prove nothing about the floor.
-  If hallucinated text appears during pauses, the floor is too low. If quiet
-  speech vanishes, it is too high. Do not re-tune by guessing: add temporary
-  logging of per-frame RMS and the gate decision, collect real captures, and set
-  the constants from that distribution.
 - **Dictation drops the end of what you say — fixed, but read this before
   touching the speech path.** `SpeechTranscriber`'s volatile results lag the
   speaker by about a second, so the last words are still unreported when the
