@@ -74,7 +74,7 @@ struct MoodTrendsView: View {
                             .chartYScale(domain: -1...1)
                             .chartYAxis {
                                 AxisMarks(values: [-1, 0, 1]) { value in
-                                    AxisGridLine()
+                                    AxisGridLine().foregroundStyle(AlbumTheme.rule)
                                     AxisValueLabel {
                                         switch value.as(Double.self) {
                                         case 1: Text("😊")
@@ -89,12 +89,14 @@ struct MoodTrendsView: View {
                         } header: {
                             Text("Mood over time")
                         }
+                        .listRowBackground(AlbumTheme.surface)
 
                         Section("Balance") {
                             balanceRow("Pleasant", counts.pleasant, tone: .pleasant)
                             balanceRow("Mixed", counts.mixed, tone: .mixed)
                             balanceRow("Unpleasant", counts.unpleasant, tone: .unpleasant)
                         }
+                        .listRowBackground(AlbumTheme.surface)
 
                         if hasHealthData {
                             Section {
@@ -114,10 +116,12 @@ struct MoodTrendsView: View {
                             } footer: {
                                 Text("From Apple Health. A pattern, not a cause — notice it, don't judge it.")
                             }
+                            .listRowBackground(AlbumTheme.surface)
                         }
                     }
                 }
             }
+            .albumScreen()
             .navigationTitle("Mood Trends")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
