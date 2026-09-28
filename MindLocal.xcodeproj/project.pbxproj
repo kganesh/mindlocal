@@ -314,6 +314,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "The Little Things";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
@@ -350,6 +351,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "The Little Things";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
