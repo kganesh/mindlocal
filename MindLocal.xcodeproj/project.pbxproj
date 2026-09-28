@@ -313,6 +313,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlocks your journal so only you can read it.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
@@ -351,6 +352,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so MindLocal can prepare you for them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlocks your journal so only you can read it.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
