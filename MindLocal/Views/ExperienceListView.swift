@@ -9,6 +9,13 @@ struct ExperienceListView: View {
     @State private var showingTrends = false
     @State private var showingCapture = false
 
+    /// Whether the toolbar offers the diary reader. Off for now.
+    ///
+    /// Only the way in is hidden. JournalReaderView is still reached by tapping
+    /// an entry, so the reader itself is neither unreachable nor untested, and
+    /// turning this back on is one line rather than a resurrection.
+    private static let diaryReaderEnabled = false
+
     private var filtered: [Experience] {
         experiences.filter { e in
             (toneFilter == nil || e.tone == toneFilter)
@@ -122,6 +129,21 @@ struct ExperienceListView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { showingCapture = true } label: { Image(systemName: "square.and.pencil") }
                         .accessibilityLabel("Write an entry")
+
+                    if Self.diaryReaderEnabled {
+                        // Opens the reader at the newest entry, through the
+                        // same destination a tapped row uses. Passing an id
+                        // rather than presenting the reader directly means one
+                        // way in, not two that can drift apart.
+                        //
+                        // The value is optional on purpose: with nothing to
+                        // read, because the journal is empty or a filter has
+                        // emptied it, the link disables itself.
+                        NavigationLink(value: filtered.first?.id) {
+                            Image(systemName: "book.pages")
+                        }
+                        .accessibilityLabel("Read as a diary")
+                    }
                 }
             }
             .sheet(isPresented: $showingTrends) { MoodTrendsView() }
