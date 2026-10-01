@@ -4,11 +4,10 @@ A private journal for your own life, on your own phone. Write or speak about you
 day, and a model turns it into something you can ask questions of later: who was
 there, what you decided, how it turned out, what you keep repeating.
 
-The name is unsettled. It has been MindLocal and briefly "The Little Things",
-and Vivid Mind, Velvet Mind and Daybook were all taken on the App Store. It
-ships as **MindLocal** until one saves. Whatever it becomes, the bundle id
-stays `com.gayatrikolekar.MindLocal`: a build has been uploaded under it, so
-the App Store record is bound to it permanently, and nobody ever sees it.
+It ships as **MindLocal** while the name is still being settled. Whatever it
+becomes, the bundle id stays `com.gayatrikolekar.MindLocal`: a build has been
+uploaded under it, so the App Store record is bound to it permanently, and
+nobody ever sees it.
 
 There are no accounts and no servers of ours. The journal is stored only on your
 phone, and transcription and speech synthesis run entirely on the device.
