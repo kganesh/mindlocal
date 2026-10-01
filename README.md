@@ -4,8 +4,11 @@ A private journal for your own life, on your own phone. Write or speak about you
 day, and a model turns it into something you can ask questions of later: who was
 there, what you decided, how it turned out, what you keep repeating.
 
-The app ships as **The Little Things**. MindLocal is the project, the bundle id
-and this repository.
+The name is unsettled. It has been MindLocal and briefly "The Little Things",
+and Vivid Mind, Velvet Mind and Daybook were all taken on the App Store. It
+ships as **MindLocal** until one saves. Whatever it becomes, the bundle id
+stays `com.gayatrikolekar.MindLocal`: a build has been uploaded under it, so
+the App Store record is bound to it permanently, and nobody ever sees it.
 
 There are no accounts and no servers of ours. The journal is stored only on your
 phone, and transcription and speech synthesis run entirely on the device.
@@ -42,8 +45,8 @@ one directly opts itself out of both PCC and the fallback.
 | Tab | What it is for |
 |---|---|
 | **Today** | Write or dictate today's entry. The model extracts people, activities, outcomes, hopes, emotions and any decisions inside it. Timeline and Settings open from its toolbar. |
-| **Journal** | Read back past days, grouped and filterable by mood. |
-| **People** | Everyone your entries mention, with relationships, occupations, preferences, and a map of how they connect. |
+| **Journal** | Read back past days, grouped and filterable by mood. A reader flips through them one page at a time. |
+| **People** | Everyone your entries mention, with relationships, occupations and preferences, filterable by circle, and a map of how they connect. |
 | **Ask** | Ask a question about your own history. Answers are grounded in your entries and cite them. |
 
 Timeline sits behind the calendar button on Today. It is the one dated view that
@@ -91,11 +94,65 @@ duplicate's spelling as an alias so older mentions still resolve.
 It offers rather than acts. Merging deletes a record, and two people can
 legitimately share a name, which is what the context qualifier is for.
 
+Four circles filter the People tab: Family, Business, Health and Social.
+Membership is derived rather than stored: the relationship types already map
+onto the four almost exactly, and asking someone to tag every person again with
+what the graph holds is a form to fill in for no new knowledge. A person can be
+in more than one.
+
+Edges alone would find almost nobody, because people get written about long
+before anyone draws a relationship to them, so a context note, occupation or
+nickname is read for words like "work", "doctor" or "gym" when no edge places
+them. A recorded relationship always beats a word in a job title, and someone
+with nothing recorded is honestly in no circle at all.
+
+## Locking it
+
+Settings offers a Face ID lock, off by default. Someone who turns it on is
+saying this phone is sometimes in other hands, and the details follow from
+taking that literally.
+
+The device passcode always works, because authentication asks for
+`deviceOwnerAuthentication` rather than the biometrics-only policy. A journal
+behind a face that a cut lip can defeat, with no second route, is a way to lose
+years of writing.
+
+The cover goes on when the scene turns inactive rather than when it backgrounds,
+because iOS photographs the screen for the app switcher on the way out and that
+snapshot is as readable as the journal. It is opaque rather than blurred: a
+blurred page still shows its shape and the colour of a mood. Only a real trip to
+the background re-locks, so pulling down Control Centre does not demand a face.
+
+## What happens to an answer
+
+The model's text is never rewritten. Everything below happens on the way to a
+screen or a voice, so the grounding check still sees exactly what was produced.
+
+- **One line per sentence**, each marked with the feeling in it: the weather
+  icons the Journal uses for an entry. A sentence with no feeling in it keeps a
+  plain bullet, because stating a date is not an emotion. Keyword matching, not
+  a second model call, and it does not understand negation.
+- **ISO dates are rewritten**, so `2026-07-10` reads as "Friday 10 July 2026".
+  The context keeps `yyyy-MM-dd`, which is what the grounding validator matches
+  a citation against. Read aloud, an unconverted date comes out as "two thousand
+  twenty-six dash zero seven".
+
 ## Themes
 
-Seven themes, chosen in Settings. Album, Ink and Dusk are colour only and follow
-the system light and dark setting. Night Sky, Ocean, Galaxy and Rain paint a
-backdrop behind every screen and keep the appearance their backdrop needs.
+Fourteen, chosen in Settings. Album, Ink and Dusk are colour only and follow
+the system light and dark setting. The other eleven paint a backdrop behind
+every screen and keep the appearance it needs: Night Sky, Moonlight, Sunrise,
+Ocean, Galaxy, Rain, Glass, Halloween, Lights, Diyas and Planets.
+
+Moonlight also puts a moon on the writing card, leaning on its top edge with one
+arm stretched along it. That is not a backdrop. A backdrop is painted behind
+every screen and touches no view, while this is attached to one card on one
+screen, so the palette carries a separate `companion` flag. It is drawn in two
+parts, the head in the card's background and the arm in its overlay, because one
+view can only be wholly in front or wholly behind.
+
+A Blue Sky palette is parked: it is the only light backdrop, it works, and it is
+left out of `AlbumPalette.all` rather than deleted.
 
 The painted ones are drawn, not images. Each is a graded wash, some soft blurred
 shapes, and a field generated once from a seeded generator so the sky is the
@@ -170,7 +227,7 @@ Requirements:
 - Swift 5 language mode with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 - File-system-synchronized folder groups: any file added under `MindLocal/` is
   compiled automatically and is not listed in the `.pbxproj`.
-- Bundle id `com.gayatrikolekar.MindLocal`, display name "The Little Things".
+- Bundle id `com.gayatrikolekar.MindLocal`, display name "MindLocal".
 - **Real hardware for AI and speech.** An Apple Intelligence-capable device with
   Apple Intelligence enabled. The simulator reports the on-device model as
   unavailable; `ExtractionService` has a mock path for that case.
@@ -179,7 +236,19 @@ Requirements:
   than throwing, so `privateCloudComputeEnabled` and the entitlement move
   together.
 
-Dependencies, both through SPM:
+For the App Store:
+
+- A privacy manifest at `MindLocal/PrivacyInfo.xcprivacy`, declaring no
+  tracking, no collected data, and `CA92.1` for UserDefaults. Without it an
+  upload returns ITMS-91053.
+- `ITSAppUsesNonExemptEncryption` is `NO`, correct when the only encryption is
+  standard HTTPS, and it stops the export question being asked every upload.
+- Seven purpose strings, including `NSHealthUpdateUsageDescription`. The app
+  never writes to Health, but the entitlement permits it, so validation rejects
+  the build without one.
+- `CURRENT_PROJECT_VERSION` must rise for every upload.
+
+Dependencies, through SPM:
 
 | Package | Used for |
 |---|---|
@@ -192,12 +261,12 @@ MindLocal/
   Models/        19 files. SwiftData models and @Generable extraction targets:
                  Experience, Decision, Person, Event, Reminder, Conflict,
                  Principle, MemoryGraph, and the *Draft types the model fills in
-  Services/      46 files. Extraction, retrieval, the memory graph, model
+  Services/      49 files. Extraction, retrieval, the memory graph, model
                  routing, speech in both directions, weather, health, calendar,
                  notifications
   ViewModels/    Capture, Advice, JournalConversation
-  Views/         35 files. The four tabs, Timeline, settings, and the painted
-                 theme backdrops
+  Views/         42 files. The four tabs, Timeline, settings, the lock screen,
+                 and the painted theme backdrops
 docs/
   domain-model.md   The north-star spec: episodic vs semantic memory, node and
                     edge taxonomy, the learning loop, and the alignment roadmap
@@ -206,7 +275,7 @@ MindLocalTests/     8 test files, mostly around retrieval, person resolution,
                     speech chunking and the voice activity detector
 ```
 
-About 17,000 lines of Swift in the app, plus 3,000 in tests.
+About 18,500 lines of Swift in the app, plus 2,800 in tests.
 
 ## Design principles
 
@@ -228,6 +297,9 @@ question outside the corpus each have their own honest answer.
 
 ## Known open items
 
+- **The diary reader has no way in.** `JournalReaderView` works and is reached
+  by tapping an entry, but the toolbar button that opens it at the newest one is
+  behind `diaryReaderEnabled`, off.
 - **Journal is a subset of Timeline.** Journal lists entries; Timeline lists
   entries, events and decisions. Two dated views, one containing the other.
 - **Dictation start is slow.** The tail problem is fixed, but the app's mic
