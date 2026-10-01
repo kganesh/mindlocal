@@ -223,25 +223,28 @@ struct TodayDiaryView: View {
     /// Encouragement while the page is empty, then nothing. Once there are
     /// words in the card the invitation to start has been taken, and leaving it
     /// there sits it under what the person is actually writing.
-    /// Covers the writing card while the model reads the entry. It takes the
-    /// card's own surface and corner radius, so it reads as that card going
-    /// quiet rather than as a sheet landing on top of it.
+    /// Shown over the writing card while the model reads the entry. No fill:
+    /// the words stay visible underneath, which is what someone wants to see at
+    /// the moment they are being read. The card is disabled either way, so the
+    /// cover has no work to do beyond saying something is happening.
     private var extractingCover: some View {
-        RoundedRectangle(cornerRadius: 20)
-            .fill(AlbumTheme.surface.opacity(0.94))
-            .overlay {
-                VStack(spacing: 14) {
-                    ProgressView()
-                        .controlSize(.large)
-                        .tint(AlbumTheme.accent)
-                    Text("Making sense of your day…")
-                        .font(.callout)
-                        .foregroundStyle(AlbumTheme.secondary)
-                }
-            }
-            .transition(.opacity)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Making sense of your day")
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(AlbumTheme.accent)
+            // "Making sense of your day" claimed more than it does, and the
+            // nightly check-in already uses it. Summarising is one of the
+            // things extraction genuinely produces.
+            //
+            // The z-spelling matches the one other user-facing string about
+            // this, the check-in's "I couldn't auto-summarize this one".
+            Text("Summarizing…")
+                .font(.callout)
+                .foregroundStyle(AlbumTheme.secondary)
+        }
+        .transition(.opacity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Summarizing")
     }
 
     /// The moon's size and how far in from the card's trailing edge it sits.
