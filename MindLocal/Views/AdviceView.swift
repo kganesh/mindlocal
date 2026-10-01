@@ -176,6 +176,22 @@ struct AdviceView: View {
             // The last second of dictation arrives after the mic stops, so the
             // question is read only once the transcript is complete.
             await viewModel.speech.finishRecording()
+
+            // Then take the transcript from the service rather than trusting
+            // the field. The observer that mirrors one into the other is a view
+            // update, and it can run after this point, so the field is not
+            // reliably current the instant finishRecording returns. Today's
+            // submit reads the service for the same reason.
+            //
+            // Only when the transcript extends what is already shown. That is
+            // precisely the dropped-tail case, and it means a question typed
+            // after an earlier dictation is never overwritten by a stale one.
+            let spoken = viewModel.speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            let shown = viewModel.question.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !spoken.isEmpty, shown.isEmpty || spoken.hasPrefix(shown) {
+                viewModel.question = spoken
+            }
+
             guard let request = viewModel.beginAsk() else { return }
             let query = request.question
             // What is this question asking FOR — a tone, topic,
