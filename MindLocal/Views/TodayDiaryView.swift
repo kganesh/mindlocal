@@ -188,6 +188,20 @@ struct TodayDiaryView: View {
                 }
             }
             .animation(.snappy(duration: 0.15), value: viewModel.typedText.isEmpty)
+            // Extraction is a model call and takes seconds. The spinner inside
+            // the send button is too small to answer "did that work?", and the
+            // review sheet only appears at the end, so the gap between the tap
+            // and the sheet was silence.
+            //
+            // Scoped to the card rather than the page: this is the thing that
+            // is busy, and the toolbar, today's entries and the tabs have no
+            // reason to stop working. A second submit is already impossible,
+            // since canSubmit excludes .extracting.
+            .disabled(viewModel.phase == .extracting)
+            .overlay {
+                if viewModel.phase == .extracting { extractingCover }
+            }
+            .animation(.easeOut(duration: 0.18), value: viewModel.phase == .extracting)
 
             Label("Private on your device", systemImage: "lock")
                 .font(.caption)
@@ -209,6 +223,27 @@ struct TodayDiaryView: View {
     /// Encouragement while the page is empty, then nothing. Once there are
     /// words in the card the invitation to start has been taken, and leaving it
     /// there sits it under what the person is actually writing.
+    /// Covers the writing card while the model reads the entry. It takes the
+    /// card's own surface and corner radius, so it reads as that card going
+    /// quiet rather than as a sheet landing on top of it.
+    private var extractingCover: some View {
+        RoundedRectangle(cornerRadius: 20)
+            .fill(AlbumTheme.surface.opacity(0.94))
+            .overlay {
+                VStack(spacing: 14) {
+                    ProgressView()
+                        .controlSize(.large)
+                        .tint(AlbumTheme.accent)
+                    Text("Making sense of your day…")
+                        .font(.callout)
+                        .foregroundStyle(AlbumTheme.secondary)
+                }
+            }
+            .transition(.opacity)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Making sense of your day")
+    }
+
     /// The moon's size and how far in from the card's trailing edge it sits.
     /// Two numbers in one place, since four offsets are derived from them.
     private static let companionSize: CGFloat = 96
