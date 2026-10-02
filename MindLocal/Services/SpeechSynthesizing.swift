@@ -45,9 +45,18 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
         guard !chunks.isEmpty else { return onFinish() }
         stop()
 
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio,
-                                                         options: [.duckOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // `try?` on both of these is why the silence was invisible: a session
+        // still held by the recogniser refuses the change, and nothing said so.
+        // Surfaced in debug builds, so the next time it fails it is findable.
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try session.setActive(true)
+        } catch {
+            #if DEBUG
+            print("Read-aloud could not take the audio session: \(error)")
+            #endif
+        }
 
         self.onFinish = onFinish
         pendingChunks = chunks.count
@@ -65,6 +74,7 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
         // utterance, and a stop is not a finish.
         onFinish = nil
         pendingChunks = 0
+        releaseSession()
         if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
     }
 
@@ -72,9 +82,29 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
         guard pendingChunks > 0 else { return }
         pendingChunks -= 1
         guard pendingChunks == 0 else { return }
+        releaseSession()
         let finish = onFinish
         onFinish = nil
         finish?()
+    }
+
+    /// Hands the audio session back once there is nothing left to say.
+    ///
+    /// Recording releases it; this is the other half. Without it a session was
+    /// left active and configured for playback, and the next `startRecording`
+    /// had to reconfigure a live session rather than claim a free one. That
+    /// shows up only where speaking and listening alternate, which is the
+    /// nightly check-in: it reads a question aloud before every answer, and the
+    /// words came back slower there than anywhere else in the app.
+    private func releaseSession() {
+        do {
+            try AVAudioSession.sharedInstance()
+                .setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            #if DEBUG
+            print("Read-aloud could not release the audio session: \(error)")
+            #endif
+        }
     }
 
     /// The voice this app prefers when nobody has chosen one.

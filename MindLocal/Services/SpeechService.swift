@@ -189,9 +189,22 @@ final class SpeechService: SpeechServicing {
             self.resultsTask = nil
             self.analyzer = nil
             self.transcriber = nil
-            // Only if nothing has started again in the meantime, or this would
-            // switch off a session that is already capturing.
-            if !self.isRecording { self.isTranscribing = false }
+
+            // Hand the audio session back. Recording claimed it as `.record`
+            // and nothing ever released it, so the next thing that tried to
+            // speak had to switch the category of a session still held for
+            // capture. That fails quietly — every call on the playback side is
+            // a `try?` — and the result was silence: in the check-in, leaving
+            // the mic running and tapping Next meant never hearing the next
+            // question read out.
+            //
+            // After the drain, not before: deactivating mid-finalize would cut
+            // the tail of the speech this whole teardown exists to keep.
+            if !self.isRecording {
+                try? AVAudioSession.sharedInstance()
+                    .setActive(false, options: .notifyOthersOnDeactivation)
+                self.isTranscribing = false
+            }
         }
     }
 
