@@ -93,24 +93,35 @@ struct AdviceView: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
 
-                            Button {
-                                submitQuestion()
-                            } label: {
-                                Group {
-                                    if viewModel.phase == .thinking {
-                                        ProgressView().tint(AlbumTheme.onAccent)
-                                    } else {
-                                        Image(systemName: "arrow.up").font(.body.weight(.semibold))
+                            // Nothing to ask until something is typed or
+                            // spoken, and a disabled button is a thing to
+                            // wonder about. Dictation lands in the same
+                            // property, so speaking reveals it too.
+                            //
+                            // Shown on "has text" rather than canAsk, which
+                            // also excludes .thinking — it has to stay while an
+                            // answer is coming, because that is where the
+                            // spinner lives.
+                            if !viewModel.question.isEmpty {
+                                Button {
+                                    submitQuestion()
+                                } label: {
+                                    Group {
+                                        if viewModel.phase == .thinking {
+                                            ProgressView().tint(AlbumTheme.onAccent)
+                                        } else {
+                                            Image(systemName: "arrow.up").font(.body.weight(.semibold))
+                                        }
                                     }
+                                    .frame(width: 54, height: 38)
+                                    .foregroundStyle(viewModel.canAsk ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
+                                    .background(viewModel.canAsk ? AlbumTheme.accent : AlbumTheme.Button.disabledFill,
+                                                in: Capsule())
                                 }
-                                .frame(width: 54, height: 38)
-                                .foregroundStyle(viewModel.canAsk ? AlbumTheme.onAccent : AlbumTheme.Button.disabledLabel)
-                                .background(viewModel.canAsk ? AlbumTheme.accent : AlbumTheme.Button.disabledFill,
-                                            in: Capsule())
+                                .buttonStyle(.plain)
+                                .disabled(!viewModel.canAsk)
+                                .accessibilityLabel("Ask")
                             }
-                            .buttonStyle(.plain)
-                            .disabled(!viewModel.canAsk)
-                            .accessibilityLabel("Ask")
                         }
                     }
                     .padding(14)
@@ -130,6 +141,13 @@ struct AdviceView: View {
                     .onTapGesture { isQuestionFocused = true }
                     .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
                     .animation(.snappy(duration: 0.15), value: isQuestionFocused)
+                    // Frozen while an answer is coming. Editing the question
+                    // mid-flight does not change what was asked, so the answer
+                    // would arrive about text no longer on screen. The whole
+                    // card goes, not just the field: starting dictation would
+                    // overwrite the question, and clearing it would leave an
+                    // answer with nothing above it.
+                    .disabled(viewModel.phase == .thinking)
                     // Stream the spoken question into the field while recording.
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isTranscribing { viewModel.question = newValue }
