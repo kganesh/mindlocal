@@ -18,7 +18,7 @@ final class JournalConversationViewModel {
     let questions = [
         "How was your day?",
         "Who did you spend time with?",
-        "How did things turn out — any wins or setbacks?",
+        "How did things turn out, well or not so well?",
         "Anything on your mind — hopes, worries, or decisions you made?"
     ]
 
