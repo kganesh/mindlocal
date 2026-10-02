@@ -8,7 +8,7 @@ import SwiftUI
 /// because a theme is tried, lived with and changed again, unlike the settings
 /// around it.
 struct ThemeSettingsView: View {
-    @AppStorage(AlbumTheme.paletteKey) private var paletteID = AlbumPalette.album.id
+    @AppStorage(AlbumTheme.paletteKey) private var paletteID = AlbumPalette.galaxy.id
 
     var body: some View {
         List {

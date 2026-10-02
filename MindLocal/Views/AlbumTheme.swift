@@ -65,11 +65,16 @@ struct AlbumPalette: Identifiable, Hashable {
     /// `album` by way of `named(_:)`.
     static let all: [AlbumPalette] = [.album, .ink, .dusk, .night, .moonlight, .sunrise, .ocean, .galaxy, .rain, .rainOnGlass, .halloween, .christmasLights, .diwali, .planets]
 
+    /// The palette for a stored id, or the default.
+    ///
+    /// The fallback does more than a first launch: it also catches an id that
+    /// no longer exists, which is what anyone sitting on a deleted or parked
+    /// theme gets instead of a crash.
     static func named(_ id: String?) -> AlbumPalette {
-        all.first { $0.id == id } ?? .album
+        all.first { $0.id == id } ?? .galaxy
     }
 
-    /// Warm neutral paper, sage actions, terracotta dates. The default.
+    /// Warm neutral paper, sage actions, terracotta dates.
     static let album = AlbumPalette(
         id: "album", name: "Album",
         background: hex(light: 0xF1EDE4, dark: 0x1A1815),
