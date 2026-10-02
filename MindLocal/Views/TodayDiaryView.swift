@@ -159,7 +159,10 @@ struct TodayDiaryView: View {
                     hintLine
                     Spacer(minLength: 8)
                     voiceButton
-                    reviewButton
+                    // Nothing to send until something is written or spoken, and
+                    // a disabled button is a thing to wonder about. Dictation
+                    // lands in the same property, so speaking reveals it too.
+                    if !viewModel.typedText.isEmpty { reviewButton }
                 }
             }
             .padding(20)

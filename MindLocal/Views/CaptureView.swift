@@ -148,7 +148,7 @@ struct CaptureView: View {
                         countLine
                         Spacer(minLength: 8)
                         micButton
-                        reviewButton
+                        if !viewModel.typedText.isEmpty { reviewButton }
                     }
                 }
                 .padding(20)
