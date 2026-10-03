@@ -21,9 +21,26 @@ enum GroundingValidator {
 
         // Evidence is cited by its 1-based line number, so anything outside
         // 1...count refers to a line the model was never shown.
-        let validRange = 1...max(context.evidenceTitles.count, 0)
+        //
+        // Nil rather than an empty range when nothing was shown. This was
+        // `1...max(count, 0)`, which is `1...0` for an empty context, and a
+        // ClosedRange whose upper bound is below its lower bound traps as it is
+        // built. The isEmpty test on the next line was meant to cover that case
+        // and never ran, because the range above died first. Any question that
+        // retrieved no evidence crashed the app: "what are the priorities for
+        // next week" with nothing scheduled was enough.
+        //
+        // The max() guarded against a negative count, which a Collection cannot
+        // have. It was the zero that mattered.
+        let validRange: ClosedRange<Int>? = context.evidenceTitles.isEmpty
+            ? nil
+            : 1...context.evidenceTitles.count
         report.unknownEvidence = answer.citedEvidence
-            .filter { context.evidenceTitles.isEmpty || !validRange.contains($0) }
+            .filter { cited in
+                // With nothing shown, every citation is invented by definition.
+                guard let validRange else { return true }
+                return !validRange.contains(cited)
+            }
             .sorted()
 
         // Names are compared case- and whitespace-insensitively, and a cited
