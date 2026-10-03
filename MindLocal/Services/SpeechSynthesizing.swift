@@ -74,8 +74,16 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
         // utterance, and a stop is not a finish.
         onFinish = nil
         pendingChunks = 0
+
+        // Release the session only if this engine was actually holding it.
+        // `stop` is called defensively all over the app — dismissing an answer,
+        // leaving a screen, at the top of `speak` — and deactivating a session
+        // it never claimed takes it away from whatever does hold it. With the
+        // mic live that ends the recording mid-sentence, which looks from the
+        // outside like dictation that stopped printing.
+        guard synthesizer.isSpeaking else { return }
+        synthesizer.stopSpeaking(at: .immediate)
         releaseSession()
-        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
     }
 
     private func chunkEnded() {

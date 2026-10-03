@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import os
 
 protocol SpeechServicing: AnyObject {
     var transcript: String { get }
@@ -68,6 +69,17 @@ final class SpeechService: SpeechServicing {
     /// costs one failed start and is corrected on the next launch.
     private static var verifiedLocales: Set<String> = []
 
+    /// Nothing in this path used to say anything, which is why a dictation
+    /// that died halfway looked identical to one that was merely slow.
+    private static let log = Logger(subsystem: "com.gayatrikolekar.MindLocal",
+                                    category: "speech")
+
+    /// Watches for the system taking the microphone away: a call, Siri, an
+    /// alarm, another app starting to record. The engine is already stopped by
+    /// the time this lands and `SpeechTranscriber.results` ends with it, so
+    /// without it the button stays red over text that will never grow again.
+    private var interruptionObserver: NSObjectProtocol?
+
     /// Granted permissions cannot be revoked without the app being killed, so
     /// the answer is asked for once and remembered. The check-in requested both
     /// permissions again before every question, and those round trips sit
@@ -115,12 +127,27 @@ final class SpeechService: SpeechServicing {
                     if result.isFinal {
                         self.finalizedText = self.append(self.finalizedText, chunk)
                         self.transcript = self.finalizedText
+                        Self.log.debug("Finalized \(self.finalizedText.count, privacy: .public) characters")
                     } else {
                         self.transcript = self.append(self.finalizedText, chunk)
                     }
                 }
+                // Falling out of the loop means the transcriber closed its own
+                // stream. After `stopRecording` that is the expected end. While
+                // `isRecording` is still true it is the analyzer giving up with
+                // the user still talking.
+                if self.isRecording {
+                    Self.log.error("Transcription stream ended while still recording")
+                    self.abandonCapture()
+                }
             } catch {
-                // Stream ended with an error; keep what we have.
+                // Swallowing this is what made the failure look like a hang.
+                // The words stopped growing, the mic stayed red, and nothing
+                // anywhere said why — on screen or in the log.
+                if !Task.isCancelled {
+                    Self.log.error("Transcription stream failed: \(error.localizedDescription, privacy: .public)")
+                }
+                if self.isRecording { self.abandonCapture() }
             }
         }
 
@@ -151,6 +178,56 @@ final class SpeechService: SpeechServicing {
         try await analyzer.start(inputSequence: inputSequence)
         isRecording = true
         isTranscribing = true
+        observeInterruptions()
+        Self.log.notice("Capture started")
+    }
+
+    private func observeInterruptions() {
+        guard interruptionObserver == nil else { return }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard raw.flatMap(AVAudioSession.InterruptionType.init(rawValue:)) == .began else { return }
+            Task { @MainActor [weak self] in
+                guard let self, self.isRecording else { return }
+                Self.log.notice("Audio session interrupted; ending capture")
+                // Keep what was heard before the interruption. There is no
+                // resuming here: the engine is already down and the analyzer's
+                // input has ended, so the honest move is to give the user back
+                // a mic button they can tap again.
+                self.abandonCapture()
+            }
+        }
+    }
+
+    /// Ends capture that the system or the analyzer has already broken.
+    ///
+    /// Everything transcribed so far is kept — a dictation that dies halfway is
+    /// still worth the half. What this must not do is leave `isRecording` true,
+    /// which is what pinned the mic button on red with no way back short of
+    /// leaving the screen.
+    private func abandonCapture() {
+        guard isRecording else { return }
+        isRecording = false
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        inputContinuation?.finish()
+        inputContinuation = nil
+        analyzer = nil
+        transcriber = nil
+        resultsTask = nil
+        isTranscribing = false
+        try? AVAudioSession.sharedInstance()
+            .setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
     }
 
     /// Stops capture immediately and keeps transcribing the tail.
