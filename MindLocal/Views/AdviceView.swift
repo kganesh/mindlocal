@@ -56,7 +56,13 @@ struct AdviceView: View {
                         HStack(spacing: 10) {
                             if !viewModel.question.isEmpty {
                                 Button {
-                                    viewModel.endDictation()
+                                    // Clearing used to end the dictation and
+                                    // leave the recording running, which is the
+                                    // worst of both: the button stayed red, and
+                                    // nothing said after that appeared, because
+                                    // the view model had already been told to
+                                    // ignore every transcript still arriving.
+                                    viewModel.stopDictating()
                                     viewModel.question = ""
                                     // Keep the keyboard up: clearing is almost
                                     // always the start of retyping, not the end
@@ -156,6 +162,19 @@ struct AdviceView: View {
                     // Stream the spoken question into the field while recording.
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
+                    }
+                    .onChange(of: isQuestionFocused) { _, focused in
+                        // Typing ends the dictation. The mic button clears
+                        // focus before it starts, so focus arriving while the
+                        // mic is live means the user has tapped in to edit —
+                        // and a dictation left open would replay the transcript
+                        // over that edit when the entry is sent. What is on
+                        // screen at the moment of tapping in is what is kept;
+                        // the trailing second of audio is dropped rather than
+                        // landing on top of a correction being typed.
+                        if focused, viewModel.speech.isRecording {
+                            viewModel.stopDictating()
+                        }
                     }
 
                     content

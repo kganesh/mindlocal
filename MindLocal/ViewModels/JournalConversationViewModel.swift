@@ -111,6 +111,18 @@ final class JournalConversationViewModel {
         dictationBaseline = ""
     }
 
+    /// Ends the dictation and the recording together.
+    ///
+    /// Stopping only the mic leaves `isDictating` true with the baseline from
+    /// before, so the next read of the transcript replays second-old speech
+    /// over anything typed since. Stopping only the dictation leaves the mic
+    /// listening into a field that has been told to ignore it. Either half on
+    /// its own is a bug, so there is one call that does both.
+    func stopDictating() {
+        endDictation()
+        speech.stopRecording()
+    }
+
     /// Call from the transcript observer instead of assigning the field.
     func applyTranscript(_ transcript: String) {
         guard isDictating else { return }
@@ -134,8 +146,6 @@ final class JournalConversationViewModel {
             try? await speech.startRecording()
         }
     }
-
-    func stopRecording() { speech.stopRecording() }
 
     /// Capture the current answer, then move to the next question or finish.
     func advance() async {

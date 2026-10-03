@@ -82,6 +82,18 @@ final class CaptureViewModel {
         dictationBaseline = ""
     }
 
+    /// Ends the dictation and the recording together.
+    ///
+    /// Stopping only the mic leaves `isDictating` true with the baseline from
+    /// before, so the next read of the transcript replays second-old speech
+    /// over anything typed since. Stopping only the dictation leaves the mic
+    /// listening into a field that has been told to ignore it. Either half on
+    /// its own is a bug, so there is one call that does both.
+    func stopDictating() {
+        endDictation()
+        speech.stopRecording()
+    }
+
     /// Call from the transcript observer instead of assigning the field.
     func applyTranscript(_ transcript: String) {
         guard isDictating else { return }

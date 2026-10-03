@@ -148,6 +148,19 @@ struct TodayDiaryView: View {
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
+                    .onChange(of: editorFocused) { _, focused in
+                        // Typing ends the dictation. The mic button clears
+                        // focus before it starts, so focus arriving while the
+                        // mic is live means the user has tapped in to edit —
+                        // and a dictation left open would replay the transcript
+                        // over that edit when the entry is sent. What is on
+                        // screen at the moment of tapping in is what is kept;
+                        // the trailing second of audio is dropped rather than
+                        // landing on top of a correction being typed.
+                        if focused, viewModel.speech.isRecording {
+                            viewModel.stopDictating()
+                        }
+                    }
 
                 // Clear sits at the far end, away from mic and send. It is the
                 // one destructive control here and it was a thumb's width from

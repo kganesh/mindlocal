@@ -111,8 +111,13 @@ struct JournalConversationView: View {
                         if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
                     .onChange(of: answerFocused) { _, focused in
-                        // Typing shouldn't fight dictation — stop the mic when the user edits.
-                        if focused, viewModel.speech.isRecording { viewModel.stopRecording() }
+                        // Typing shouldn't fight dictation — stop the mic when
+                        // the user edits. This used to stop the mic and leave
+                        // the dictation open, so Next replayed the transcript
+                        // over the correction that had just been typed.
+                        if focused, viewModel.speech.isRecording {
+                            viewModel.stopDictating()
+                        }
                     }
 
                 Button {
