@@ -1,4 +1,4 @@
-# MindLocal
+# InnerSage
 
 A private iPhone journal. You write or speak about your day, a Foundation Model
 extracts structure from it (people, activities, outcomes, decisions), and you can
@@ -13,10 +13,13 @@ it on.
 See `README.md` for what the app does and `docs/domain-model.md` for the
 north-star spec. This file covers what you need to know to work in the code.
 
-> Formerly scaffolded as "DecisionMemory", then renamed to MindLocal (the
-> `…Local` family with ResumeLocal and LingoLocal). Decisions are now one kind
-> of journal entry among several, not the whole product. Older documents and
-> some type names still use the original framing.
+> Scaffolded as "DecisionMemory", shipped as MindLocal, now InnerSage. The
+> target, scheme, module, source folder and bundle id all still read
+> `MindLocal` and are staying that way: the bundle id is bound to an uploaded
+> build, and the rest is internal. Only the display name and user-facing text
+> changed. Decisions are now one kind of journal entry among several, not the
+> whole product, so older documents and some type names still use the original
+> framing.
 
 ## Build and run
 

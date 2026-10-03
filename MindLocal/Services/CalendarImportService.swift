@@ -3,7 +3,7 @@ import EventKit
 import SwiftData
 
 /// Reads the user's iPhone Calendar (EventKit) and imports upcoming events into
-/// MindLocal's own Event store, so they appear on the timeline and get the same
+/// InnerSage's own Event store, so they appear on the timeline and get the same
 /// weather-aware, grounded advice. Re-import upserts by EventKit identifier.
 @MainActor
 final class CalendarImportService {

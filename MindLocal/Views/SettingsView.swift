@@ -104,7 +104,7 @@ struct SettingsView: View {
                 Section {
                     LabeledContent("Version", value: "1.0")
                 } footer: {
-                    Text("MindLocal keeps your journal on your device. Weather forecasts and answers generated on Private Cloud Compute are the only things that use the network.")
+                    Text("InnerSage keeps your journal on your device. Weather forecasts and answers generated on Private Cloud Compute are the only things that use the network.")
                 }
             }
             .albumScreen()

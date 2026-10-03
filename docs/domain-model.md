@@ -1,4 +1,4 @@
-# MindLocal — Domain Model (north-star spec)
+# InnerSage — Domain Model (north-star spec)
 
 Status: design north star. The current app should be **aligned toward** this
 incrementally — not rewritten. Where today's code differs, the "Current → target"
@@ -8,7 +8,7 @@ table below is the map.
 
 ## 1. Purpose & north star
 
-MindLocal is a **private, on-device second brain that learns you**. It captures
+InnerSage is a **private, on-device second brain that learns you**. It captures
 your days, understands them, and — over time — reasons in *your* patterns to help
 you decide better and grow.
 

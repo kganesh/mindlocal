@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 /// Surfaces decisions whose revisit date has arrived and asks — in one tap — how
-/// they turned out. Closing this loop is what lets MindLocal learn what works for
+/// they turned out. Closing this loop is what lets InnerSage learn what works for
 /// you (domain-model.md, Phase 1).
 struct DecisionReviewView: View {
     @Query(sort: \Decision.revisitAt) private var decisions: [Decision]

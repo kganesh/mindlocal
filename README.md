@@ -1,13 +1,13 @@
-# MindLocal
+# InnerSage
 
 A private journal for your own life, on your own phone. Write or speak about your
 day, and a model turns it into something you can ask questions of later: who was
 there, what you decided, how it turned out, what you keep repeating.
 
-It ships as **MindLocal** while the name is still being settled. Whatever it
-becomes, the bundle id stays `com.gayatrikolekar.MindLocal`: a build has been
-uploaded under it, so the App Store record is bound to it permanently, and
-nobody ever sees it.
+The app is InnerSage. The bundle id stays `com.gayatrikolekar.MindLocal`,
+because a build was uploaded under the old name and the App Store record is
+bound to it permanently. Nobody ever sees it. The Xcode target, scheme, module
+and source folder keep that name too, for the same reason.
 
 There are no accounts and no servers of ours. The journal is stored only on your
 phone, and transcription and speech synthesis run entirely on the device.
@@ -198,7 +198,7 @@ restores each person's own voice.
   future event knows the forecast. Cached, with a Regenerate option.
 - **Health context.** HealthKit supplies sleep, steps and workouts for a day, so
   an entry can be read alongside how you actually slept.
-- **Calendar import.** EventKit reads upcoming events into MindLocal's own
+- **Calendar import.** EventKit reads upcoming events into InnerSage's own
   store, upserting by identifier, so they join the timeline and get the same
   grounded advice.
 - **Mood trends** over time, and a **How I Decide** view summarising your own
@@ -226,7 +226,7 @@ Requirements:
 - Swift 5 language mode with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 - File-system-synchronized folder groups: any file added under `MindLocal/` is
   compiled automatically and is not listed in the `.pbxproj`.
-- Bundle id `com.gayatrikolekar.MindLocal`, display name "MindLocal".
+- Bundle id `com.gayatrikolekar.MindLocal`, display name "InnerSage".
 - **Real hardware for AI and speech.** An Apple Intelligence-capable device with
   Apple Intelligence enabled. The simulator reports the on-device model as
   unavailable; `ExtractionService` has a mock path for that case.
