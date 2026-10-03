@@ -214,8 +214,22 @@ enum MemoryGraphContextPacker {
 
     /// "13 days ago" / "in 3 days" — so the model never has to work out whether
     /// a date falls inside the period the question asked about.
+    ///
+    /// Measured between the two days, not between the two timestamps. On raw
+    /// timestamps an entry written at ten last night is eleven hours old at
+    /// nine this morning, which rounds to zero days, and the context called it
+    /// "today". Asked "where did I spend time yesterday" the model then
+    /// answered that there were no entries for yesterday and listed those very
+    /// entries by date in the same sentence. The same error labelled the
+    /// evening before last as "yesterday".
+    ///
+    /// "Yesterday" means the previous calendar day to the person asking, at any
+    /// hour of either day.
     private static func relative(_ date: Date, now: Date) -> String {
-        let days = Calendar.current.dateComponents([.day], from: date, to: now).day ?? 0
+        let calendar = Calendar.current
+        let days = calendar.dateComponents([.day],
+                                           from: calendar.startOfDay(for: date),
+                                           to: calendar.startOfDay(for: now)).day ?? 0
         switch days {
         case 0:            return "today"
         case 1:            return "yesterday"
