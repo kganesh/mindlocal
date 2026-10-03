@@ -56,11 +56,56 @@ final class CaptureViewModel {
         if !text.isEmpty { DraftStore.save(transcript: text) }
     }
 
+    /// What was already written when dictation started.
+    ///
+    /// `startRecording` clears the transcript, and the observer that mirrors it
+    /// into the field used to assign it whole. So tapping the mic halfway
+    /// through typing replaced everything already written with an empty string
+    /// that then grew. Keeping the baseline lets the two compose: type a
+    /// sentence, speak the rest, keep both.
+    private var dictationBaseline = ""
+
+    /// Whether a dictation is outstanding. Without it, a transcript left over
+    /// from an earlier dictation would be written over text typed afterwards,
+    /// which is the bug this was meant to fix, arriving from the other side.
+    private var isDictating = false
+
+    /// Call immediately before `startRecording`.
+    func beginDictation() {
+        dictationBaseline = typedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        isDictating = true
+    }
+
+    /// Call once the transcript has been read for the last time.
+    func endDictation() {
+        isDictating = false
+        dictationBaseline = ""
+    }
+
+    /// Call from the transcript observer instead of assigning the field.
+    func applyTranscript(_ transcript: String) {
+        guard isDictating else { return }
+        let spoken = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if dictationBaseline.isEmpty {
+            // Never wipe on an empty transcript: one arrives at the start of
+            // every session, before a word has been recognised.
+            guard !spoken.isEmpty else { return }
+            typedText = spoken
+        } else {
+            typedText = spoken.isEmpty ? dictationBaseline : dictationBaseline + " " + spoken
+        }
+    }
+
     func submit() async {
         // Submit is tapped the moment someone stops talking, which is when the
         // last of the speech is still being transcribed. Reading before it
         // lands saves the entry without its ending.
         await speech.finishRecording()
+        // Same reason as Ask: the observer is a view update and may not have
+        // run yet. applyTranscript is a no-op unless a dictation is
+        // outstanding, so a typed entry is never touched.
+        applyTranscript(speech.transcript)
+        endDictation()
         let transcript = typedText.isEmpty ? speech.transcript : typedText
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         DraftStore.save(transcript: transcript)
@@ -173,6 +218,9 @@ final class CaptureViewModel {
     }
 
     private func reset() {
+        // Before the text: a live baseline would put the cleared words back on
+        // the next transcript.
+        endDictation()
         typedText = ""
         experienceDraft = nil
         appointmentCandidates = []

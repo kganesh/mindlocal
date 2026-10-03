@@ -80,7 +80,48 @@ final class JournalConversationViewModel {
         speaker.speak(questions[index])
         while speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(120)) }
         if await speech.requestAuthorization() {
+            beginDictation()
             try? await speech.startRecording()
+        }
+    }
+
+    /// What was already written when dictation started.
+    ///
+    /// `startRecording` clears the transcript, and the observer that mirrors it
+    /// into the field used to assign it whole. So tapping the mic halfway
+    /// through typing replaced everything already written with an empty string
+    /// that then grew. Keeping the baseline lets the two compose: type a
+    /// sentence, speak the rest, keep both.
+    private var dictationBaseline = ""
+
+    /// Whether a dictation is outstanding. Without it, a transcript left over
+    /// from an earlier dictation would be written over text typed afterwards,
+    /// which is the bug this was meant to fix, arriving from the other side.
+    private var isDictating = false
+
+    /// Call immediately before `startRecording`.
+    func beginDictation() {
+        dictationBaseline = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        isDictating = true
+    }
+
+    /// Call once the transcript has been read for the last time.
+    func endDictation() {
+        isDictating = false
+        dictationBaseline = ""
+    }
+
+    /// Call from the transcript observer instead of assigning the field.
+    func applyTranscript(_ transcript: String) {
+        guard isDictating else { return }
+        let spoken = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if dictationBaseline.isEmpty {
+            // Never wipe on an empty transcript: one arrives at the start of
+            // every session, before a word has been recognised.
+            guard !spoken.isEmpty else { return }
+            currentAnswer = spoken
+        } else {
+            currentAnswer = spoken.isEmpty ? dictationBaseline : dictationBaseline + " " + spoken
         }
     }
 
@@ -89,6 +130,7 @@ final class JournalConversationViewModel {
         if speech.isRecording {
             speech.stopRecording()
         } else if await speech.requestAuthorization() {
+            beginDictation()
             try? await speech.startRecording()
         }
     }
@@ -117,6 +159,8 @@ final class JournalConversationViewModel {
     /// synchronous stop saved the answer without its ending.
     private func captureCurrentAnswer() async {
         await speech.finishRecording()
+        applyTranscript(speech.transcript)
+        endDictation()
         let typed = currentAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
         let spoken = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         answers.append(typed.isEmpty ? spoken : typed)

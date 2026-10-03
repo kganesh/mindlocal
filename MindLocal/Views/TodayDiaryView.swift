@@ -146,7 +146,7 @@ struct TodayDiaryView: View {
                     .focused($editorFocused)
                     .accessibilityLabel("Today's journal entry")
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
+                        if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
 
                 // Clear sits at the far end, away from mic and send. It is the
@@ -158,11 +158,18 @@ struct TodayDiaryView: View {
                     if !viewModel.typedText.isEmpty { clearButton }
                     hintLine
                     Spacer(minLength: 8)
-                    voiceButton
-                    // Nothing to send until something is written or spoken, and
-                    // a disabled button is a thing to wonder about. Dictation
-                    // lands in the same property, so speaking reveals it too.
-                    if !viewModel.typedText.isEmpty { reviewButton }
+                    // One or the other, never both. An empty card offers the
+                    // mic; once there are words it offers the way to send them.
+                    //
+                    // The mic stays while recording even though text is
+                    // streaming in, because it is also the stop button, and
+                    // swapping it away mid-dictation would leave no way to
+                    // stop.
+                    if viewModel.typedText.isEmpty || viewModel.speech.isRecording {
+                        voiceButton
+                    } else {
+                        reviewButton
+                    }
                 }
             }
             .padding(20)
@@ -191,6 +198,7 @@ struct TodayDiaryView: View {
                 }
             }
             .animation(.snappy(duration: 0.15), value: viewModel.typedText.isEmpty)
+            .animation(.snappy(duration: 0.15), value: viewModel.speech.isRecording)
             // Extraction is a model call and takes seconds. The spinner inside
             // the send button is too small to answer "did that work?", and the
             // review sheet only appears at the end, so the gap between the tap
@@ -563,6 +571,7 @@ struct TodayDiaryView: View {
             // through the tail, which is what isTranscribing covers.
             viewModel.speech.stopRecording()
         } else if await viewModel.speech.requestAuthorization() {
+            viewModel.beginDictation()
             try? await viewModel.speech.startRecording()
         }
     }

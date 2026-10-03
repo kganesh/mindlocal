@@ -137,7 +137,7 @@ struct CaptureView: View {
                             }
                         }
                         .onChange(of: viewModel.speech.transcript) { _, newValue in
-                            if viewModel.speech.isTranscribing { viewModel.typedText = newValue }
+                            if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                         }
 
                     // Clear sits at the far end, away from mic and send. It is
@@ -147,8 +147,13 @@ struct CaptureView: View {
                         if !viewModel.typedText.isEmpty { clearButton }
                         countLine
                         Spacer(minLength: 8)
-                        micButton
-                        if !viewModel.typedText.isEmpty { reviewButton }
+                        // One or the other, never both. The mic stays while
+                        // recording, because it is also the stop button.
+                        if viewModel.typedText.isEmpty || viewModel.speech.isRecording {
+                            micButton
+                        } else {
+                            reviewButton
+                        }
                     }
                 }
                 .padding(20)
@@ -158,6 +163,7 @@ struct CaptureView: View {
                         .stroke(AlbumTheme.rule, lineWidth: 1)
                 }
                 .animation(.snappy(duration: 0.15), value: viewModel.typedText.isEmpty)
+                .animation(.snappy(duration: 0.15), value: viewModel.speech.isRecording)
 
                 if wordCount > wordLimit {
                     Text("Keep it under \(wordLimit) words — trim a little to continue.")
@@ -238,6 +244,7 @@ struct CaptureView: View {
             } else {
                 Task {
                     if await viewModel.speech.requestAuthorization() {
+                        viewModel.beginDictation()
                         try? await viewModel.speech.startRecording()
                     }
                 }

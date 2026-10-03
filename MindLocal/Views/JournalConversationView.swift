@@ -108,7 +108,7 @@ struct JournalConversationView: View {
                         }
                     }
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isTranscribing { viewModel.currentAnswer = newValue }
+                        if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
                     .onChange(of: answerFocused) { _, focused in
                         // Typing shouldn't fight dictation — stop the mic when the user edits.

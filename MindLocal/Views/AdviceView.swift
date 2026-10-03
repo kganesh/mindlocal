@@ -56,6 +56,7 @@ struct AdviceView: View {
                         HStack(spacing: 10) {
                             if !viewModel.question.isEmpty {
                                 Button {
+                                    viewModel.endDictation()
                                     viewModel.question = ""
                                     // Keep the keyboard up: clearing is almost
                                     // always the start of retyping, not the end
@@ -77,6 +78,15 @@ struct AdviceView: View {
                             // Same pair, same order, same shapes as the writing
                             // card on Today: a bare mic glyph, then a filled
                             // arrow that sends.
+                            // One or the other, never both. An empty field
+                            // offers the mic; once there is a question it
+                            // offers the way to send it.
+                            //
+                            // The mic stays while recording even though text is
+                            // streaming in, because it is also the stop button,
+                            // and swapping it away mid-dictation would leave no
+                            // way to stop.
+                            if viewModel.question.isEmpty || viewModel.speech.isRecording {
                             Button {
                                 toggleMic()
                             } label: {
@@ -92,17 +102,11 @@ struct AdviceView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(viewModel.speech.isRecording ? "Stop recording" : "Ask by voice")
-
-                            // Nothing to ask until something is typed or
-                            // spoken, and a disabled button is a thing to
-                            // wonder about. Dictation lands in the same
-                            // property, so speaking reveals it too.
-                            //
-                            // Shown on "has text" rather than canAsk, which
-                            // also excludes .thinking — it has to stay while an
-                            // answer is coming, because that is where the
-                            // spinner lives.
-                            if !viewModel.question.isEmpty {
+                            } else {
+                                // Shown on "has text" rather than canAsk, which
+                                // also excludes .thinking — it has to stay while
+                                // an answer is coming, because that is where the
+                                // spinner lives.
                                 Button {
                                     submitQuestion()
                                 } label: {
@@ -140,6 +144,7 @@ struct AdviceView: View {
                     .contentShape(RoundedRectangle(cornerRadius: 18))
                     .onTapGesture { isQuestionFocused = true }
                     .animation(.snappy(duration: 0.15), value: viewModel.question.isEmpty)
+                    .animation(.snappy(duration: 0.15), value: viewModel.speech.isRecording)
                     .animation(.snappy(duration: 0.15), value: isQuestionFocused)
                     // Frozen while an answer is coming. Editing the question
                     // mid-flight does not change what was asked, so the answer
@@ -150,7 +155,7 @@ struct AdviceView: View {
                     .disabled(viewModel.phase == .thinking)
                     // Stream the spoken question into the field while recording.
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
-                        if viewModel.speech.isTranscribing { viewModel.question = newValue }
+                        if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
 
                     content
@@ -198,17 +203,14 @@ struct AdviceView: View {
             // Then take the transcript from the service rather than trusting
             // the field. The observer that mirrors one into the other is a view
             // update, and it can run after this point, so the field is not
-            // reliably current the instant finishRecording returns. Today's
-            // submit reads the service for the same reason.
+            // reliably current the instant finishRecording returns.
             //
-            // Only when the transcript extends what is already shown. That is
-            // precisely the dropped-tail case, and it means a question typed
-            // after an earlier dictation is never overwritten by a stale one.
-            let spoken = viewModel.speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            let shown = viewModel.question.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !spoken.isEmpty, shown.isEmpty || spoken.hasPrefix(shown) {
-                viewModel.question = spoken
-            }
+            // Through applyTranscript, so the baseline is respected: a question
+            // half typed and half spoken keeps both halves. It is a no-op when
+            // no dictation is outstanding, which is what stops a stale
+            // transcript landing on a question that was typed.
+            viewModel.applyTranscript(viewModel.speech.transcript)
+            viewModel.endDictation()
 
             guard let request = viewModel.beginAsk() else { return }
             let query = request.question
@@ -588,6 +590,7 @@ struct AdviceView: View {
         } else {
             Task {
                 if await viewModel.speech.requestAuthorization() {
+                    viewModel.beginDictation()
                     try? await viewModel.speech.startRecording()
                 }
             }
