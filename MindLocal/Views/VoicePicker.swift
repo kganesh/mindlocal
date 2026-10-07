@@ -1,8 +1,8 @@
 import SwiftUI
 import AVFoundation
 
-/// Apple's system voices. Reachable from Settings → Read-Aloud, as the fallback
-/// the app uses when Kokoro is off.
+/// Apple's system voices. Reachable from Settings → Read-Aloud, and the only
+/// read-aloud engine the app has.
 struct VoicePicker: View {
     @AppStorage("selectedVoiceId") private var selectedVoiceId = ""
     @State private var speaker = SpeechSpeaker()

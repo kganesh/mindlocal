@@ -27,7 +27,7 @@ protocol SpeechSynthesizing: AnyObject {
 @MainActor
 final class SystemSpeechEngine: NSObject, SpeechSynthesizing {
 
-    /// Shared for the same reason Kokoro is: `@State private var speaker =
+    /// Shared because `@State private var speaker =
     /// SpeechSpeaker()` re-evaluates its initialiser on every View struct
     /// creation, and one synthesiser also gives coherent stop semantics.
     static let shared = SystemSpeechEngine()

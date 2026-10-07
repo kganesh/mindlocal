@@ -6,12 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; };
-		2627CBE4303EA21400BA8A24 /* MLXUtilsLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */; };
-		2627CBE5303EA21400BA8A24 /* KokoroSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 2627CBE1303EA21400BA8A24 /* KokoroSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		A1000000000000000000F7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,20 +15,6 @@
 			remoteInfo = MindLocal;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		2627CBE6303EA21400BA8A24 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				2627CBE5303EA21400BA8A24 /* KokoroSwift in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A1000000000000000000CB /* MindLocal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MindLocal.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -59,8 +39,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2627CBE4303EA21400BA8A24 /* MLXUtilsLibrary in Frameworks */,
-				2627CBE2303EA21400BA8A24 /* KokoroSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,7 +80,6 @@
 				A1000000000000000000C7 /* Sources */,
 				A1000000000000000000C8 /* Frameworks */,
 				A1000000000000000000C9 /* Resources */,
-				2627CBE6303EA21400BA8A24 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -113,8 +90,6 @@
 			);
 			name = MindLocal;
 			packageProductDependencies = (
-				2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */,
-				2627CBE1303EA21400BA8A24 /* KokoroSwift */,
 			);
 			productName = MindLocal;
 			productReference = A1000000000000000000CB /* MindLocal.app */;
@@ -172,7 +147,6 @@
 			mainGroup = A1000000000000000000C2;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1000000000000000000CC /* Products */;
@@ -309,12 +283,12 @@
 				DEVELOPMENT_TEAM = DP4GA89733;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "InnerSage";
+				INFOPLIST_KEY_CFBundleDisplayName = InnerSage;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so InnerSage can prepare you for them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlocks your journal so only you can read it.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes your voice notes on-device.";
@@ -348,12 +322,12 @@
 				DEVELOPMENT_TEAM = DP4GA89733;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "InnerSage";
+				INFOPLIST_KEY_CFBundleDisplayName = InnerSage;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Imports your upcoming calendar events so InnerSage can prepare you for them.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlocks your journal so only you can read it.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Reads your sleep, steps, and workouts to add gentle context to your journal entries and mood trends. This stays on your device.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Nothing is ever written to Health. This is required because the app has Health access at all; it only reads sleep, steps and workouts.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Uses your current location to fill in where an event is happening, so advice can factor in the weather there.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records voice notes for decision capture.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes your voice notes on-device.";
@@ -449,29 +423,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/mlalma/kokoro-ios.git";
-			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 1.0.11;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		2627CBE1303EA21400BA8A24 /* KokoroSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 2627CBE0303EA21400BA8A24 /* XCRemoteSwiftPackageReference "kokoro-ios" */;
-			productName = KokoroSwift;
-		};
-		2627CBE3303EA21400BA8A24 /* MLXUtilsLibrary */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLXUtilsLibrary;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1000000000000000000C3 /* Project object */;
 }

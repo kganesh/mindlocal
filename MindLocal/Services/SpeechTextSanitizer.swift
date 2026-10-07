@@ -5,8 +5,7 @@ import Foundation
 /// Advise replies, journal summaries and coaching notes all come back as
 /// markdown and are rendered with `MarkdownRendering`. Handed to a synthesiser
 /// verbatim, the markup gets pronounced: asterisks, hashes and bare URLs read
-/// aloud as themselves. Both engines have the problem — Apple's is just as
-/// literal as Kokoro's.
+/// aloud as themselves. Apple's voice is entirely literal about it.
 ///
 /// Deliberately conservative. It only strips markers where markdown requires
 /// them to be (list and heading markers at the start of a line, emphasis
