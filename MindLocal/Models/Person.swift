@@ -36,6 +36,20 @@ final class Person {
     /// its membership. Additive.
     var likes: [String] = []
     var dislikes: [String] = []
+    /// Circles stated for this person rather than derived, written when a
+    /// relationship is added: the circle is chosen first there, so it is kept
+    /// even when the relationship type that follows maps to no circle of its
+    /// own. Stored as raw values so a new case needs no migration, and an
+    /// unknown one read back from an older store is dropped rather than
+    /// crashing. Empty means nothing was said, not that they are in no circle.
+    /// Additive.
+    var manualCircleRaws: [String] = []
+
+    /// `manualCircleRaws` as the enum. Unrecognised raw values are ignored.
+    var manualCircles: Set<PersonCircle> {
+        get { Set(manualCircleRaws.compactMap(PersonCircle.init(rawValue:))) }
+        set { manualCircleRaws = newValue.map(\.rawValue).sorted() }
+    }
 
     @Relationship(inverse: \Experience.linkedPeople)
     var experiences: [Experience] = []

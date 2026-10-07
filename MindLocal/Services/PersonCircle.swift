@@ -1,15 +1,19 @@
 import Foundation
 
-/// The four circles a person can belong to, for filtering the People tab.
+/// The five circles a person can belong to, for filtering the People tab.
 ///
-/// Derived rather than stored. Relationships already record how someone is
-/// known, and asking the user to tag every person a second time with the same
-/// information is a form to fill in for no new knowledge.
+/// Derived first, and only set by hand for the people derivation misses.
+/// Relationships already record how someone is known, and asking the user to
+/// tag every person a second time with the same information is a form to fill
+/// in for no new knowledge. The hand-set list on `Person` exists because the
+/// keyword fallback below is a closed vocabulary: a job title nobody thought of
+/// leaves that person out of every filter, and only they can say where to put
+/// them.
 ///
 /// A person can be in more than one: a sister who works with you is family and
 /// business both, and filtering by either should find her.
 enum PersonCircle: String, CaseIterable, Identifiable {
-    case family, business, health, social
+    case family, business, health, social, spirituality
 
     var id: String { rawValue }
 
@@ -19,6 +23,7 @@ enum PersonCircle: String, CaseIterable, Identifiable {
         case .business: "Business"
         case .health:   "Health"
         case .social:   "Social"
+        case .spirituality: "Spirituality"
         }
     }
 
@@ -28,6 +33,7 @@ enum PersonCircle: String, CaseIterable, Identifiable {
         case .business: "briefcase"
         case .health:   "cross.case"
         case .social:   "figure.2"
+        case .spirituality: "figure.mind.and.body"
         }
     }
 
@@ -42,6 +48,10 @@ enum PersonCircle: String, CaseIterable, Identifiable {
         case .business: [.coworker]
         case .health:   [.physician]
         case .social:   [.friend]
+        // No relationship type says anyone is a spiritual connection, and
+        // inventing one would mean a case per profession. Reached by a word
+        // below, or by the hand-set list on `Person`.
+        case .spirituality: []
         }
     }
 
@@ -56,13 +66,23 @@ enum PersonCircle: String, CaseIterable, Identifiable {
                          "niece", "nephew", "grandma", "grandpa", "in-law"]
         case .business: ["work", "office", "colleague", "coworker", "boss", "manager",
                          "client", "team", "engineer", "developer", "consultant",
-                         "recruiter", "business"]
+                         "recruiter", "business",
+                         // Professional services. Matching is substring, so
+                         // "legal" also catches "paralegal".
+                         "attorney", "lawyer", "legal", "solicitor", "barrister",
+                         "notary", "accountant", "auditor", "bookkeeper", "banker",
+                         "broker", "financial", "insurance"]
         case .health:   ["doctor", "physician", "dentist", "nurse", "therapist",
                          "surgeon", "clinic", "hospital", "physio", "health",
                          "psychiatrist", "counsellor", "counselor"]
         case .social:   ["friend", "gym", "club", "neighbour", "neighbor", "school",
                          "college", "university", "social", "band", "team-mate",
                          "teammate"]
+        case .spirituality: ["spiritual", "priest", "pastor", "minister", "reverend",
+                             "chaplain", "bishop", "rabbi", "imam", "guru", "swami",
+                             "monk", "nun", "pandit", "church", "temple", "mosque",
+                             "synagogue", "gurdwara", "sangha", "congregation",
+                             "meditation", "prayer"]
         }
     }
 }
@@ -84,8 +104,13 @@ enum PersonCircleResolver {
             found.insert(circle)
         }
 
-        // Only consulted when no edge placed them, so a recorded relationship
-        // always beats a word that happens to appear in a job title.
+        // A circle the user set by hand ranks with a recorded relationship:
+        // both are statements, where a word in a job title is a guess.
+        found.formUnion(person.manualCircles)
+
+        // Only consulted when nothing stated placed them, so a relationship or
+        // a hand-set circle always beats a word that happens to appear in a job
+        // title.
         guard found.isEmpty else { return found }
 
         let text = ([person.qualifier, person.occupation] + person.aliases)

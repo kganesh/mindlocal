@@ -93,11 +93,17 @@ duplicate's spelling as an alias so older mentions still resolve.
 It offers rather than acts. Merging deletes a record, and two people can
 legitimately share a name, which is what the context qualifier is for.
 
-Four circles filter the People tab: Family, Business, Health and Social.
-Membership is derived rather than stored: the relationship types already map
-onto the four almost exactly, and asking someone to tag every person again with
-what the graph holds is a form to fill in for no new knowledge. A person can be
-in more than one.
+Five circles filter the People tab: Family, Business, Health, Social and
+Spirituality. Membership is derived where the graph can derive it: the
+relationship types map onto the first four almost exactly, and asking someone to
+tag every person again with what the graph holds is a form to fill in for no new
+knowledge. A person can be in more than one.
+
+Where derivation misses, a circle can be set by hand on the person's page, and
+that choice ranks with a recorded relationship rather than below it. The keyword
+fallback is a closed list, so a job nobody thought of leaves someone out of every
+filter until they say otherwise. Spirituality has no relationship type behind it
+at all, so it is reached by a word in an occupation or by that hand-set choice.
 
 Edges alone would find almost nobody, because people get written about long
 before anyone draws a relationship to them, so a context note, occupation or

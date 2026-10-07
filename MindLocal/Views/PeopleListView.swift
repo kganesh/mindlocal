@@ -801,18 +801,40 @@ struct AddRelationshipSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Person.name) private var allPeople: [Person]
 
-    @State private var type: RelationshipType = .spouse
+    @State private var circle: PersonCircle?
+    @State private var type: RelationshipType?
     @State private var otherId: PersistentIdentifier?
 
     private var candidates: [Person] { allPeople.filter { $0 !== person } }
+
+    /// The relationship types that belong to the chosen circle, in declaration
+    /// order, with `other` always last.
+    ///
+    /// The circle is asked first because it is the one thing always answerable:
+    /// the enum has twelve ways to be family and one way to be a colleague, so
+    /// a flat list of sixteen is mostly kinship with everything else crammed in
+    /// at the end. Narrowing by circle also makes `other` an honest answer
+    /// rather than a shrug — "business, but none of these" still places them.
+    private var typeOptions: [RelationshipType] {
+        guard let circle else { return [] }
+        return RelationshipType.allCases.filter { circle.relationshipTypes.contains($0) } + [.other]
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Relationship", selection: $type) {
-                        ForEach(RelationshipType.allCases) { Text($0.label).tag($0) }
+                    Picker("Circle", selection: $circle) {
+                        Text("Choose…").tag(PersonCircle?.none)
+                        ForEach(PersonCircle.allCases) { c in
+                            Label(c.label, systemImage: c.symbol).tag(Optional(c))
+                        }
                     }
+                    Picker("Relationship", selection: $type) {
+                        Text("Choose…").tag(RelationshipType?.none)
+                        ForEach(typeOptions) { Text($0.label).tag(Optional($0)) }
+                    }
+                    .disabled(circle == nil)
                     Picker("Of", selection: $otherId) {
                         Text("Choose…").tag(PersistentIdentifier?.none)
                         ForEach(candidates) { p in
@@ -822,23 +844,31 @@ struct AddRelationshipSheet: View {
                 } header: {
                     Text("\(person.name) is…")
                 } footer: {
-                    Text("e.g. \(person.name) is Spouse of Me, or Parent of Emma.")
+                    Text("The circle comes first and places \(person.name) on the People tab, so \"none of these\" still says where they belong.")
                 }
             }
+            // The options change with the circle, so a type chosen under the
+            // old one would survive into a list it is not in.
+            .onChange(of: circle) { type = nil }
             .navigationTitle("Add Relationship")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { save() }.disabled(otherId == nil)
+                    Button("Add") { save() }.disabled(circle == nil || type == nil || otherId == nil)
                 }
             }
         }
     }
 
     private func save() {
-        guard let otherId, let other = allPeople.first(where: { $0.persistentModelID == otherId }) else { return }
+        guard let circle, let type, let otherId,
+              let other = allPeople.first(where: { $0.persistentModelID == otherId }) else { return }
         modelContext.insert(PersonRelationship(subject: person, type: type, object: other))
+        // The circle was stated, so it is stored rather than re-derived. `other`
+        // carries no circle of its own: being someone's physician places them in
+        // Health, while being that physician's patient says nothing about you.
+        person.manualCircles.insert(circle)
         MemoryGraphStore.rebuildAndPersist(in: modelContext)
         dismiss()
     }
