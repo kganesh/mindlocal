@@ -435,7 +435,13 @@ struct AdviceView: View {
                 .frame(width: 18)
                 .accessibilityLabel(tone.label)
         } else {
-            Text("•")
+            // A symbol rather than a text bullet, at the same font as the tone
+            // icons above. A "•" inherits the body font of the answer, so it
+            // landed in the same column at a different size and weight and read
+            // as an icon that had failed to load, rather than as the deliberate
+            // absence of a feeling.
+            Image(systemName: "circle.fill")
+                .font(.footnote)
                 .foregroundStyle(AlbumTheme.secondary)
                 .frame(width: 18)
                 .accessibilityHidden(true)
