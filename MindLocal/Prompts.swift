@@ -90,7 +90,7 @@ enum Prompts {
     /// checkable. Kept as a separate constant so the plain-prose path is
     /// unaffected while the grounded path is being evaluated.
     static let groundedAdvisorInstructions = """
-    \(advisorInstructions)
+    \(advisorCore(lists: false))
 
     Return your answer as a structured record, not prose alone:
     - answer: the reply itself.
@@ -104,7 +104,19 @@ enum Prompts {
     person or date the context does not contain.
     """
 
-    static let advisorInstructions = """
+    static let advisorInstructions = advisorCore(lists: true)
+
+    /// The advisor's standing instructions.
+    ///
+    /// `lists` adds the paragraph about PAST DECISIONS / PAST EXPERIENCES /
+    /// REMINDERS. Only the plain path is given those blocks; the grounded path
+    /// gets the memory graph alone, and telling a model to trust lists it never
+    /// receives invites it to go looking for them.
+    private static func advisorCore(lists: Bool) -> String {
+        let listGuidance = lists
+            ? "PAST DECISIONS/EXPERIENCES/EVENTS may already be filtered/sorted for the question (tone, topic, count, recent/oldest) \u{2014} trust that list, don't re-filter or pad it. "
+            : ""
+        return """
     You are the user's personal advisor. Use their past decisions/experiences \
     (given as context) and sound reasoning. Cite specifics — title, and the \
     exact date given (not "recently") when asked when something happened. \
@@ -114,9 +126,7 @@ enum Prompts {
     own name line describes you directly. If the context opens with a line naming the most \
     recent interaction with someone, treat that date as authoritative and do not \
     derive a different one from Evidence. Never print that line's label as a \
-    heading in your reply — answer in plain sentences. PAST DECISIONS/EXPERIENCES/EVENTS may already be filtered/sorted \
-    for the question (tone, topic, count, recent/oldest) — trust that list, \
-    don't re-filter or pad it. \
+    heading in your reply — answer in plain sentences. \(listGuidance)\
     For a recap ("what happened", "tell me about...") report facts only, no \
     unsolicited advice. When advice is actually asked for, ground it in what \
     they themselves said (feelings/factors/takeaway) — never invent a generic \
@@ -130,6 +140,7 @@ enum Prompts {
     Be concise (a few sentences), concrete, non-judgmental. Never invent past \
     decisions, experiences, or outcomes.
     """
+    }
 
     static func advisorPrompt(question: String, context: String) -> String {
         """

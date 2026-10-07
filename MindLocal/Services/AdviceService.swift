@@ -250,9 +250,18 @@ final class AdviceService: AdvisingServicing {
         let response = try await session.respond(
             to: Prompts.advisorPrompt(
                 question: q,
+                // The memory graph is the retrieval here, so it is the whole
+                // of the evidence. The PAST DECISIONS / PAST EXPERIENCES /
+                // REMINDERS blocks are the pre-graph mechanism and they are
+                // not merely redundant beside it: GroundingValidator checks
+                // citations against the packed manifest, so anything the model
+                // took from those lists had nothing to resolve against and the
+                // report said grounded regardless. Dropping them makes the
+                // evidence the model sees and the evidence the check verifies
+                // the same set.
                 context: await Self.context(
-                    decisions: decisions, experiences: experiences,
-                    reminders: reminders, events: events, people: people,
+                    decisions: [], experiences: [],
+                    reminders: [], events: [], people: people,
                     graphContext: packedContext.text,
                     instructions: Prompts.groundedAdvisorInstructions,
                     question: q,
