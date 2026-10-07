@@ -1,9 +1,9 @@
 # Privacy policy
 
-**The Little Things** is a private journal. It has no accounts, no servers of
+**InnerSage** is a private journal. It has no accounts, no servers of
 ours, and no analytics. What you write is stored on your iPhone.
 
-Last updated: 27 September 2026
+Last updated: 7 October 2026
 
 ## What is stored, and where
 
@@ -23,9 +23,12 @@ answer a question about your own history, the app sends the relevant text to a
 language model. Where the device supports it, that model runs on Apple's
 Private Cloud Compute; otherwise it runs on the device itself. Private Cloud
 Compute is built so that Apple cannot read what is sent and retains nothing
-once the request is finished. We never see it either. If you would rather
-nothing left the device at all, turn off Apple Intelligence in iOS Settings:
-the app then falls back to the on-device model.
+once the request is finished. We never see it either.
+
+The app requires Apple Intelligence and does not run without it, so there is no
+configuration in which the app works and sends nothing. Which of the two models
+answers a given request is decided per request and is not a setting you
+choose.
 
 **Your location, for weather.** If you add a location to an entry or an event,
 the app asks Apple's WeatherKit for the forecast there. Apple receives the
@@ -78,4 +81,4 @@ above will change.
 
 ## Contact
 
-Questions about this policy: <CONTACT EMAIL>
+Questions about this policy: ganesh.kolekar@gmail.com

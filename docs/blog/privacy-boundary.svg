@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 870" width="1400" height="870" role="img" aria-label="A boundary diagram. A large box labelled Your iPhone holds everything the app stores and everything it runs. Two labelled arrows cross out of it: entry and question text to Apple Private Cloud Compute, and a location to Apple WeatherKit. A band along the bottom lists what never leaves the phone.">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+  <path d="M 0 0 L 10 5 L 0 10 z" fill="#4C6B3F"/>
+</marker>
+<style>
+  .t { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+  .h1 { font-size: 30px; font-weight: 600; fill: #1E2A19; }
+  .sub { font-size: 17px; fill: #4C6B3F; }
+  .box-title { font-size: 20px; font-weight: 600; fill: #1E2A19; }
+  .box-sub { font-size: 13px; fill: #4C6B3F; }
+  .cap { font-size: 12px; font-weight: 600; fill: #4C6B3F; letter-spacing: 1.4px; }
+  .item { font-size: 13px; fill: #1E2A19; }
+  .arrow-label { font-size: 13px; font-weight: 600; fill: #1E2A19; }
+  .arrow-note { font-size: 12px; fill: #4C6B3F; }
+  .svc-title { font-size: 17px; font-weight: 600; fill: #1E2A19; }
+  .svc-line { font-size: 13px; fill: #1E2A19; }
+</style>
+</defs>
+
+<rect width="1400" height="870" fill="#F3F4F1"/>
+
+<text class="t h1" x="60" y="56">What stays on your phone, and the two things that leave</text>
+<text class="t sub" x="60" y="88">InnerSage keeps a journal you can ask questions of. This is every path your writing can take.</text>
+
+<!-- ============ phone ============ -->
+<rect x="60" y="130" width="660" height="520" rx="22" fill="#FFFFFF" stroke="#9AA891" stroke-width="2"/>
+<text class="t box-title" x="88" y="170">Your iPhone</text>
+<text class="t box-sub" x="88" y="192">No account. No sign-up. No server of mine anywhere in this picture.</text>
+
+<text class="t cap" x="88" y="232">WHAT IS STORED</text>
+<g>
+  <rect x="88" y="244" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="104" y="271">Entries you write or dictate</text>
+  <rect x="88" y="300" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="104" y="327">People, names and relationships</text>
+  <rect x="88" y="356" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="104" y="383">Events, reminders, decisions</text>
+  <rect x="88" y="412" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="104" y="432">Your own device backup,</text>
+  <text class="t item" x="104" y="449">under your Apple Account</text>
+</g>
+
+<text class="t cap" x="402" y="232">WHAT RUNS HERE</text>
+<g>
+  <rect x="402" y="244" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="418" y="271">Dictation, transcribed as you speak</text>
+  <rect x="402" y="300" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="418" y="327">Sentence embeddings, no download</text>
+  <rect x="402" y="356" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="418" y="383">The memory graph, built and searched</text>
+  <rect x="402" y="412" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="418" y="439">The grounding check on every answer</text>
+  <rect x="402" y="468" width="290" height="44" rx="9" fill="#E7EAE3" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="418" y="495">The on-device model, 4K of context</text>
+</g>
+
+<rect x="88" y="552" width="604" height="62" rx="10" fill="#FFFFFF" stroke="#4C6B3F" stroke-width="1.5"/>
+<text class="t item" x="106" y="578">Face ID, with the device passcode always working as a second route.</text>
+<text class="t item" x="106" y="599">An opaque cover goes on before iOS photographs the app switcher.</text>
+
+<!-- ============ apple services ============ -->
+<text class="t cap" x="900" y="208">APPLE. I NEVER SEE ANY OF THIS.</text>
+
+<rect x="900" y="226" width="440" height="152" rx="16" fill="#FFFFFF" stroke="#4C6B3F" stroke-width="2"/>
+<text class="t svc-title" x="922" y="258">Private Cloud Compute</text>
+<text class="t svc-line" x="922" y="286">Built so Apple cannot read what is sent,</text>
+<text class="t svc-line" x="922" y="306">and keeps nothing once the request ends.</text>
+<text class="t svc-line" x="922" y="334">32K of context, which is the difference</text>
+<text class="t svc-line" x="922" y="354">between a few entries and a year of them.</text>
+
+<rect x="900" y="458" width="440" height="110" rx="16" fill="#FFFFFF" stroke="#4C6B3F" stroke-width="2"/>
+<text class="t svc-title" x="922" y="490">WeatherKit</text>
+<text class="t svc-line" x="922" y="518">A forecast for a place you attached to an</text>
+<text class="t svc-line" x="922" y="538">entry. Your journal text is not sent with it.</text>
+
+<!-- ============ crossings ============ -->
+<line x1="722" y1="302" x2="896" y2="302" stroke="#4C6B3F" stroke-width="2.5" marker-end="url(#ah)"/>
+<text class="t arrow-label" x="809" y="290" text-anchor="middle">entry and question text</text>
+<text class="t arrow-note" x="809" y="324" text-anchor="middle">to PCC where supported,</text>
+<text class="t arrow-note" x="809" y="340" text-anchor="middle">on-device otherwise</text>
+
+<line x1="722" y1="513" x2="896" y2="513" stroke="#4C6B3F" stroke-width="2.5" marker-end="url(#ah)"/>
+<text class="t arrow-label" x="809" y="501" text-anchor="middle">a location</text>
+<text class="t arrow-note" x="809" y="535" text-anchor="middle">only if you add one</text>
+
+<!-- ============ never leaves ============ -->
+<rect x="60" y="700" width="1280" height="126" rx="16" fill="#E7EAE3" stroke="#9AA891" stroke-width="1.5"/>
+<text class="t cap" x="88" y="736">NEVER LEAVES YOUR PHONE, ON ANY PATH</text>
+<g>
+  <rect x="88" y="752" width="238" height="48" rx="9" fill="#FFFFFF" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="104" y="772">Health data: sleep,</text>
+  <text class="t item" x="104" y="789">steps and workouts</text>
+  <rect x="340" y="752" width="238" height="48" rx="9" fill="#FFFFFF" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="356" y="772">Audio. Dictation is never</text>
+  <text class="t item" x="356" y="789">written to a file</text>
+  <rect x="592" y="752" width="238" height="48" rx="9" fill="#FFFFFF" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="608" y="772">Your calendar, read into</text>
+  <text class="t item" x="608" y="789">the local store only</text>
+  <rect x="844" y="752" width="238" height="48" rx="9" fill="#FFFFFF" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="860" y="772">Analytics, crash reports,</text>
+  <text class="t item" x="860" y="789">advertising. None exist</text>
+  <rect x="1096" y="752" width="216" height="48" rx="9" fill="#FFFFFF" stroke="#9AA891" stroke-width="1"/>
+  <text class="t item" x="1112" y="772">Any identifier that</text>
+  <text class="t item" x="1112" y="789">follows you</text>
+</g>
+</svg>
