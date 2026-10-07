@@ -348,60 +348,78 @@ struct AdviceView: View {
                 query: query, people: people,
                 relationships: relationships, now: .now
             )
-            let window = memoryIntent.timeRange
-            let experiences = TimeWindowFilter.within(
-                experiences, window: window, date: \.timelineDate)
-            let decisions = TimeWindowFilter.within(
-                decisions, window: window, date: \.timelineDate)
-            let events = TimeWindowFilter.within(
-                events, window: window, date: \.date)
-            let reminders = TimeWindowFilter.within(
-                reminders, window: window, date: \.createdAt)
+            // These lists become PAST DECISIONS / PAST EXPERIENCES / REMINDERS,
+            // which the grounded path no longer sends: the memory graph is the
+            // evidence there. Building them anyway costs a cosine pass over
+            // every stored embedding, four times, on every question, and the
+            // result is discarded a moment later in AdviceService. The service
+            // still passes empty arrays of its own, so the contract holds for
+            // any caller; this is only about not doing the work.
+            let decisionSummaries: [DecisionSummary]
+            let experienceSummaries: [ExperienceSummary]
+            let reminderSummaries: [ReminderSummary]
+            let eventSummaries: [EventSummary]
+            if AdviceGroundingSettings.isEnabled {
+                decisionSummaries = []
+                experienceSummaries = []
+                reminderSummaries = []
+                eventSummaries = []
+            } else {
+                let window = memoryIntent.timeRange
+                let experiences = TimeWindowFilter.within(
+                    experiences, window: window, date: \.timelineDate)
+                let decisions = TimeWindowFilter.within(
+                    decisions, window: window, date: \.timelineDate)
+                let events = TimeWindowFilter.within(
+                    events, window: window, date: \.date)
+                let reminders = TimeWindowFilter.within(
+                    reminders, window: window, date: \.createdAt)
 
-            // Deterministic, guaranteed-correct matches for
-            // whatever structure was found (e.g. "3 unpleasant
-            // experiences recently") — empty when the question
-            // has no such structure.
-            let structuredExperiences = intent.hasStructure
-                ? StructuredQueryRetriever.matchedExperiences(intent: intent, among: experiences)
-                : []
-            let structuredDecisions = intent.hasStructure
-                ? StructuredQueryRetriever.matchedDecisions(intent: intent, among: decisions)
-                : []
-            let structuredEvents = intent.hasStructure
-                ? StructuredQueryRetriever.matchedEvents(intent: intent, among: events)
-                : []
+                // Deterministic, guaranteed-correct matches for
+                // whatever structure was found (e.g. "3 unpleasant
+                // experiences recently") — empty when the question
+                // has no such structure.
+                let structuredExperiences = intent.hasStructure
+                    ? StructuredQueryRetriever.matchedExperiences(intent: intent, among: experiences)
+                    : []
+                let structuredDecisions = intent.hasStructure
+                    ? StructuredQueryRetriever.matchedDecisions(intent: intent, among: decisions)
+                    : []
+                let structuredEvents = intent.hasStructure
+                    ? StructuredQueryRetriever.matchedEvents(intent: intent, among: events)
+                    : []
 
-            // Retrieve the entries most relevant to the question
-            // (semantic), not just the most recent.
-            let relevantExperiences = SemanticRetriever.topK(
-                experiences, query: query, k: 10,
-                text: EmbeddingService.experienceText, embedding: { $0.embedding }
-            )
-            let relevantDecisions = SemanticRetriever.topK(
-                decisions, query: query, k: 8,
-                text: EmbeddingService.decisionText, embedding: { $0.embedding }
-            )
-            let relevantReminders = SemanticRetriever.topK(
-                reminders, query: query, k: 6,
-                text: EmbeddingService.reminderText, embedding: { $0.embedding }
-            )
-            let relevantEvents = SemanticRetriever.topK(
-                events, query: query, k: 6,
-                text: EmbeddingService.eventText, embedding: { $0.embedding }
-            )
+                // Retrieve the entries most relevant to the question
+                // (semantic), not just the most recent.
+                let relevantExperiences = SemanticRetriever.topK(
+                    experiences, query: query, k: 10,
+                    text: EmbeddingService.experienceText, embedding: { $0.embedding }
+                )
+                let relevantDecisions = SemanticRetriever.topK(
+                    decisions, query: query, k: 8,
+                    text: EmbeddingService.decisionText, embedding: { $0.embedding }
+                )
+                let relevantReminders = SemanticRetriever.topK(
+                    reminders, query: query, k: 6,
+                    text: EmbeddingService.reminderText, embedding: { $0.embedding }
+                )
+                let relevantEvents = SemanticRetriever.topK(
+                    events, query: query, k: 6,
+                    text: EmbeddingService.eventText, embedding: { $0.embedding }
+                )
 
-            // Structured matches lead (they're the definitive
-            // answer to the question's specific filter), then
-            // semantic hits fill in general context, deduped.
-            let mergedExperiences = mergeUnique(structuredExperiences, relevantExperiences, id: \.id)
-            let mergedDecisions = mergeUnique(structuredDecisions, relevantDecisions, id: \.id)
-            let mergedEvents = mergeUnique(structuredEvents, relevantEvents, id: \.id)
+                // Structured matches lead (they're the definitive
+                // answer to the question's specific filter), then
+                // semantic hits fill in general context, deduped.
+                let mergedExperiences = mergeUnique(structuredExperiences, relevantExperiences, id: \.id)
+                let mergedDecisions = mergeUnique(structuredDecisions, relevantDecisions, id: \.id)
+                let mergedEvents = mergeUnique(structuredEvents, relevantEvents, id: \.id)
 
-            let decisionSummaries = mergedDecisions.map(DecisionSummary.init)
-            let experienceSummaries = mergedExperiences.map(ExperienceSummary.init)
-            let reminderSummaries = relevantReminders.map(ReminderSummary.init)
-            let eventSummaries = mergedEvents.map(EventSummary.init)
+                decisionSummaries = mergedDecisions.map(DecisionSummary.init)
+                experienceSummaries = mergedExperiences.map(ExperienceSummary.init)
+                reminderSummaries = relevantReminders.map(ReminderSummary.init)
+                eventSummaries = mergedEvents.map(EventSummary.init)
+            }
             let graph = graphSnapshots.first?.graph ?? .empty
             let graphResult = MemoryGraphRetriever.retrieve(
                 intent: memoryIntent,
