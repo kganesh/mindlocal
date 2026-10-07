@@ -240,7 +240,10 @@ enum MemoryGraphBuilder {
             id: reminderID,
             kind: .reminder,
             title: reminder.text,
-            date: reminder.createdAt,
+            // The entry's day, not the day it was typed. A reminder has no date
+            // of its own, and `createdAt` is when the entry was written, which
+            // is the same day for every entry in a backfilled journal.
+            date: reminder.experience?.timelineDate ?? reminder.createdAt,
             sourceID: reminder.id.uuidString,
             properties: [
                 "isDone": String(reminder.isDone),
@@ -273,7 +276,9 @@ enum MemoryGraphBuilder {
             kind: .conflict,
             title: conflict.summary.isEmpty ? "Disagreement" : conflict.summary,
             summary: conflict.feelings,
-            date: conflict.createdAt,
+            // As with reminders: the disagreement happened on the entry's day,
+            // not on the day the entry was typed.
+            date: conflict.experience?.timelineDate ?? conflict.createdAt,
             sourceID: conflict.id.uuidString,
             properties: [
                 "resolution": conflict.resolution.rawValue,
