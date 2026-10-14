@@ -70,6 +70,79 @@ Several pieces exist only to prevent that:
 - **A grounding check.** `GroundingValidator` and `MemoryGraphContextPacker`
   check the answer against the evidence that was actually supplied.
 
+### How a question picks its evidence
+
+Taking "any tension with Akhil this past week?" as the example. Three of the
+four ways out of the first decision never reach the model at all.
+
+```mermaid
+flowchart TB
+    Q["Question<br>any tension with Akhil<br>this past week?"]
+    Q --> GATE{"Answerable<br>without the model?"}
+
+    GATE -->|a name never seen| REFUSE["UnknownPersonGuard<br>refuses"]
+    GATE -->|who is X| WHOIS["X's People profile,<br>nothing else"]
+    GATE -->|when did I last see X| MAX["A real max by date over<br>every linked interaction"]
+    GATE -->|otherwise| RES["MemoryQueryResolver"]
+
+    RES --> IP["People<br>Akhil"]
+    RES --> IT["Window<br>the past week"]
+    RES --> IW["Wants<br>conflicts"]
+
+    subgraph PG["People"]
+        ME["Person: Me"] -->|spouse| AK["Person: Akhil"]
+    end
+    IP --> AK
+
+    subgraph MG["Memory graph"]
+        A2["Person: Akhil<br>100, named in the question"]
+        A2 -->|hasConflict| CF["Conflict<br>tension about the schedule<br>3 days ago"]
+        A2 -->|mentions| EN["Entry<br>Akhil worried about<br>the parent meeting<br>2 days ago"]
+        A2 -->|hasEvent| EV["Event<br>coffee after work<br>last Tuesday"]
+        A2 -->|hasReminder| RM["Reminder<br>ask about the school form<br>written 10 days ago"]
+        A2 -->|hasConflict| OLD["Conflict<br>argument about the move<br>last month"]
+        EV -->|happenedAt| LOC["Location<br>the place on 5th"]
+        EV -->|inDomain| DOM["Domain<br>family"]
+    end
+    AK --> A2
+    IT --> CF
+    IW --> CF
+
+    CF -->|"edge 48, structure 35, window 18"| PACK
+    EN -->|"edge 40, window 18"| PACK
+    EV -->|"edge 44, window 18"| PACK
+    RM -.->|dated outside the window| DROP["Removed, not ranked down"]
+    OLD -.->|dated outside the window| DROP
+
+    PACK["MemoryGraphContextPacker<br>best 24, a sentence each,<br>and a manifest"]
+    PACK --> MODEL["On-device model"]
+    MODEL --> ANS["Answer, citing the<br>entries behind it"]
+    ANS --> VAL["GroundingValidator<br>every citation checked<br>against the manifest"]
+```
+
+Those edge labels carry only the signals that separate the three survivors. A
+text match and a recency bonus apply to most of Akhil's records here, so they
+change nothing about the order. The full set of signals:
+
+| Signal | Worth |
+|---|---|
+| Named in the question | 100, on the person node |
+| One edge away from that person | 28 for a reminder, 24 for a conflict, 22 for an event, 20 for an entry, 14 for another person. Each lands twice, because every person-record link is written in both directions |
+| Matches what the question asked for: a tone, a domain, an entry kind, or a reading of conflicts, reminders, decisions or events | 35, and only for records the named person is connected to. Ungated, a question about anyone's argument would pull in every argument in the graph |
+| Dated inside the asked-about window | 18 inside it, 10, 6 or 3 just outside, 0 beyond a week |
+| Dated within the last month | 4 |
+| A word of four letters or more from the question appears in it | 12 |
+
+The top half of that ranking seeds a one-hop expansion, each neighbour picking
+up half the edge weight again, and the best 24 are packed. Two rules matter
+more than the arithmetic. Dated evidence outside an asked-for window is removed
+rather than ranked down, which is why last month's argument is absent from an
+answer about this week rather than merely last. And the readings of what a
+question wants are combined with and, not or, so "what should I ask Akhil
+before dinner tonight" reads as reminders and events at once, no record can be
+both, and the structure bonus falls away for everything. The window and the
+edges still rank it.
+
 A debug pane under each answer shows the exact context the model received, and
 it is the fastest way to see why an answer looks wrong. It is DEBUG-only, along
 with the wipe-data button and the engine log, and their absence from release
