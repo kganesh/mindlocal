@@ -4,10 +4,7 @@ A private journal for your own life, on your own phone. Write or speak about you
 day, and a model turns it into something you can ask questions of later: who was
 there, what you decided, how it turned out, what you keep repeating.
 
-The app is InnerSage. The bundle id stays `com.gayatrikolekar.MindLocal`,
-because a build was uploaded under the old name and the App Store record is
-bound to it permanently. Nobody ever sees it. The Xcode target, scheme, module
-and source folder keep that name too, for the same reason.
+The app is InnerSage. 
 
 There are no accounts and no servers of ours. The journal is stored only on your
 phone, and transcription and speech synthesis run entirely on the device.
