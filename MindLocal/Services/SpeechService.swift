@@ -22,6 +22,24 @@ protocol SpeechServicing: AnyObject {
     /// returns while the tail of the speech is still being transcribed, so a
     /// synchronous read afterwards gets the text as it stood a second ago.
     func finishRecording() async
+    /// The complete transcript for one dictation, published once when results
+    /// stop arriving, and nil until then.
+    ///
+    /// Views apply this without checking anything. `isTranscribing` cannot
+    /// gate the last update: SwiftUI runs `onChange` after the mutation, so the
+    /// final result and the flag going false can land in one pass and the
+    /// handler then reads a flag that is already false. What it discarded is
+    /// the tail of the sentence and its punctuation, which only the finalized
+    /// result carries.
+    var finalTranscript: String? { get }
+    /// Does the slow, session-independent setup ahead of the tap.
+    ///
+    /// Everything this covers used to run inside `startRecording`, between the
+    /// user tapping the mic and the audio engine starting, so whatever they
+    /// said in the meantime was never captured at all. Safe to call repeatedly
+    /// and safe to skip: `startRecording` still does the work if it was not
+    /// done, it is just slow again.
+    func prepare() async
 }
 
 extension SpeechServicing {
@@ -29,6 +47,8 @@ extension SpeechServicing {
     /// than the synchronous path.
     func finishRecording() async { stopRecording() }
     var isTranscribing: Bool { isRecording }
+    var finalTranscript: String? { nil }
+    func prepare() async {}
 }
 
 enum SpeechError: Error {
@@ -47,6 +67,7 @@ final class SpeechService: SpeechServicing {
     private(set) var transcript: String = ""
     private(set) var isRecording: Bool = false
     private(set) var isTranscribing: Bool = false
+    private(set) var finalTranscript: String?
 
     private let audioEngine = AVAudioEngine()
     private var analyzer: SpeechAnalyzer?
@@ -54,6 +75,11 @@ final class SpeechService: SpeechServicing {
     private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
     private var resultsTask: Task<Void, Never>?
     private var analyzerFormat: AVAudioFormat?
+
+    /// Resolved once per process. The configuration it depends on is constant,
+    /// so renegotiating it per recording bought nothing and cost a round trip
+    /// before the microphone was live.
+    private static var cachedFormat: AVAudioFormat?
 
     /// Accumulated finalized text (never rewritten by later results).
     private var finalizedText: String = ""
@@ -98,24 +124,43 @@ final class SpeechService: SpeechServicing {
         return Self.authorized
     }
 
-    func startRecording() async throws {
-        transcript = ""
-        finalizedText = ""
-
+    func prepare() async {
         let locale = Locale(identifier: "en-US")
-        let transcriber = SpeechTranscriber(
+        let probe = Self.makeTranscriber(locale: locale)
+        try? await ensureModel(for: probe, locale: locale)
+        if Self.cachedFormat == nil {
+            Self.cachedFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [probe])
+        }
+    }
+
+    private static func makeTranscriber(locale: Locale) -> SpeechTranscriber {
+        SpeechTranscriber(
             locale: locale,
             transcriptionOptions: [],
             reportingOptions: [.volatileResults],
             attributeOptions: []
         )
+    }
+
+    func startRecording() async throws {
+        transcript = ""
+        finalizedText = ""
+        finalTranscript = nil
+
+        let locale = Locale(identifier: "en-US")
+        let transcriber = Self.makeTranscriber(locale: locale)
         self.transcriber = transcriber
 
+        // Both of these are no-ops once `prepare()` has run. Left in so a mic
+        // tapped before the screen finished appearing still works.
         try await ensureModel(for: transcriber, locale: locale)
+        if Self.cachedFormat == nil {
+            Self.cachedFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
+        }
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         self.analyzer = analyzer
-        analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
+        analyzerFormat = Self.cachedFormat
 
         // Consume transcription results (runs on the main actor via the enclosing
         // isolation, so @Observable updates are safe).
@@ -219,6 +264,7 @@ final class SpeechService: SpeechServicing {
         analyzer = nil
         transcriber = nil
         resultsTask = nil
+        finalTranscript = transcript
         isTranscribing = false
         try? AVAudioSession.sharedInstance()
             .setActive(false, options: .notifyOthersOnDeactivation)
@@ -280,6 +326,8 @@ final class SpeechService: SpeechServicing {
             if !self.isRecording {
                 try? AVAudioSession.sharedInstance()
                     .setActive(false, options: .notifyOthersOnDeactivation)
+                self.finalTranscript = self.transcript
+                Self.log.notice("Published final \(self.transcript.count, privacy: .public) chars")
                 self.isTranscribing = false
             }
         }

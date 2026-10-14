@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Drives the Advise flow (spec §9): ask a question, get an answer grounded in
 /// the user's saved decisions.
@@ -59,13 +60,19 @@ final class AdviceViewModel {
     private var isDictating = false
 
     /// Call immediately before `startRecording`.
+    // TEMPORARY: tracing where the tail of a dictation is lost. Remove once
+    // the Ask field stops dropping the last words and the question mark.
+    private static let dlog = Logger(subsystem: "com.gayatrikolekar.MindLocal", category: "dictation")
+
     func beginDictation() {
         dictationBaseline = question.trimmingCharacters(in: .whitespacesAndNewlines)
         isDictating = true
+        Self.dlog.notice("VM begin, baseline \(self.dictationBaseline.count, privacy: .public) chars")
     }
 
     /// Call once the transcript has been read for the last time.
     func endDictation() {
+        Self.dlog.notice("VM endDictation (isDictating was \(self.isDictating, privacy: .public))")
         isDictating = false
         dictationBaseline = ""
     }
@@ -84,7 +91,12 @@ final class AdviceViewModel {
 
     /// Call from the transcript observer instead of assigning the field.
     func applyTranscript(_ transcript: String) {
-        guard isDictating else { return }
+        let ends = transcript.trimmingCharacters(in: .whitespaces).last.map(String.init) ?? "-"
+        Self.dlog.notice("VM apply \(transcript.count, privacy: .public) chars, ends '\(ends, privacy: .public)', isDictating \(self.isDictating, privacy: .public)")
+        guard isDictating else {
+            Self.dlog.error("VM apply REJECTED, dictation already ended")
+            return
+        }
         let spoken = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         if dictationBaseline.isEmpty {
             // Never wipe on an empty transcript: one arrives at the start of

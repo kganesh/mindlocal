@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import os
 
 /// Ask-AI tab: answers questions grounded in the user's saved decisions (spec §9).
 struct AdviceView: View {
@@ -163,6 +164,14 @@ struct AdviceView: View {
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
+                    // The finalized result, applied without a guard: see
+                    // SpeechServicing.finalTranscript for why a flag cannot gate it.
+                    .onChange(of: viewModel.speech.finalTranscript) { _, newValue in
+                        if let newValue { viewModel.applyTranscript(newValue) }
+                    }
+                    // The model check and the audio-format negotiation, done while
+                    // the screen appears rather than after the mic is tapped.
+                    .task { await viewModel.speech.prepare() }
                     .onChange(of: isQuestionFocused) { _, focused in
                         // Typing ends the dictation. The mic button clears
                         // focus before it starts, so focus arriving while the
@@ -172,7 +181,9 @@ struct AdviceView: View {
                         // screen at the moment of tapping in is what is kept;
                         // the trailing second of audio is dropped rather than
                         // landing on top of a correction being typed.
+                        AdviceView.dlog.notice("View focus \(focused, privacy: .public), isRecording \(viewModel.speech.isRecording, privacy: .public)")
                         if focused, viewModel.speech.isRecording {
+                            AdviceView.dlog.error("View focus arrived mid-dictation, calling stopDictating")
                             viewModel.stopDictating()
                         }
                     }
@@ -209,6 +220,9 @@ struct AdviceView: View {
             .onDisappear { speaker.stop() }
         }
     }
+
+    // TEMPORARY: see AdviceViewModel.dlog.
+    static let dlog = Logger(subsystem: "com.gayatrikolekar.MindLocal", category: "dictation")
 
     /// The whole retrieval-and-answer pipeline, lifted out of the button label
     /// so the button can live inside the question field.
@@ -624,6 +638,7 @@ struct AdviceView: View {
 
     private func toggleMic() {
         isQuestionFocused = false
+        AdviceView.dlog.notice("View toggleMic, isRecording \(viewModel.speech.isRecording, privacy: .public)")
         if viewModel.speech.isRecording {
             // Stop and let go. Copying the transcript here reads it a second
             // before the tail of the speech lands, and the transcript observer

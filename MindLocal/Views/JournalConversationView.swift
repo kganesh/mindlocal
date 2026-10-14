@@ -110,6 +110,14 @@ struct JournalConversationView: View {
                     .onChange(of: viewModel.speech.transcript) { _, newValue in
                         if viewModel.speech.isTranscribing { viewModel.applyTranscript(newValue) }
                     }
+                    // The finalized result, applied without a guard: see
+                    // SpeechServicing.finalTranscript for why a flag cannot gate it.
+                    .onChange(of: viewModel.speech.finalTranscript) { _, newValue in
+                        if let newValue { viewModel.applyTranscript(newValue) }
+                    }
+                    // The model check and the audio-format negotiation, done while
+                    // the screen appears rather than after the mic is tapped.
+                    .task { await viewModel.speech.prepare() }
                     .onChange(of: answerFocused) { _, focused in
                         // Typing shouldn't fight dictation — stop the mic when
                         // the user edits. This used to stop the mic and leave
