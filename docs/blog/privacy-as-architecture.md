@@ -1,14 +1,16 @@
 # What it takes to ask your journal a question
 
-*Part four, and the first one with an app attached.*
+*Part five, and the first one with an app attached.*
 
 ---
 
-The last three posts here were about a memory graph: [how it is
-built](https://medium.com/@ganesh.kolekar/from-people-graph-to-memory-graph-designing-for-selective-recall-788ed4ed2e6b),
-[how a question finds its evidence in it](<PART 2 URL>), and [what an answer
-can be checked against](<PART 3 URL>). That work is now an app called
-InnerSage, [in beta on TestFlight](https://testflight.apple.com/join/jjU4K1sy).
+My last four posts were about a memory graph: [turning mentions into
+entities](https://www.linkedin.com/pulse/from-mentions-entities-designing-graphs-survive-real-data-kolekar-tqdtc/),
+[choosing what to recall](https://www.linkedin.com/pulse/from-people-graph-memory-designing-selective-recall-ganesh-kolekar-3dfhc/),
+[how a question finds its evidence](https://www.linkedin.com/pulse/scoring-memory-how-question-finds-its-evidence-ganesh-kolekar-7id9c/),
+and [what an answer can be checked against](https://www.linkedin.com/pulse/what-graph-can-verify-ganesh-kolekar-wubjc/).
+That work is now an app called InnerSage, [in beta on
+TestFlight](https://testflight.apple.com/join/jjU4K1sy).
 
 Storing what you write is easy. The hard part is answering a question about it
 without inventing anything, on a phone, from a model small enough to live
