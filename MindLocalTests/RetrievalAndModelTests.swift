@@ -460,7 +460,7 @@ final class RetrievalAndModelTests: XCTestCase {
     /// with the app's real character budget to prove the fix holds
     /// end-to-end, not just inside the packer in isolation.
     @MainActor
-    func test_advisorContext_relevantOlderEvidence_survivesRealBudget_despiteUnrelatedEvent() {
+    func test_advisorContext_relevantOlderEvidence_survivesRealBudget_despiteUnrelatedEvent() async {
         let now = Date()
         let me = Person(name: "Ganesh", lastName: "Kolekar", isMe: true)
         let alex = Person(name: "Alex", occupation: "Software engineer")
@@ -502,7 +502,7 @@ final class RetrievalAndModelTests: XCTestCase {
         let packed = MemoryGraphContextPacker.pack(result)
         let people = [PersonProfileSummary(id: alex.id, text: "Alex:\n  Occupation: Software engineer.\n  Alex is your coworker.")]
 
-        let context = AdviceService.context(
+        let context = await AdviceService.context(
             decisions: [], experiences: [], people: people, graphContext: packed
         )
 
@@ -776,7 +776,7 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertTrue(result.edges.contains { $0.from == spouseNodeID && $0.to == entryNodeID })
     }
 
-    func test_memoryGraphContextPacker_andAdvisorContext_includeGraphEvidence() {
+    func test_memoryGraphContextPacker_andAdvisorContext_includeGraphEvidence() async {
         let entryNode = MemoryNode(
             id: MemoryNodeID(rawValue: "entry:test"),
             kind: .entry,
@@ -797,7 +797,7 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertTrue(graphContext.lowercased().contains("you wrote a"),
             "The entry must be described in a sentence, not as bracketed metadata")
 
-        let advisorContext = AdviceService.context(
+        let advisorContext = await AdviceService.context(
             decisions: [],
             experiences: [],
             graphContext: graphContext
@@ -872,7 +872,7 @@ final class RetrievalAndModelTests: XCTestCase {
     /// reasoned correctly. Verify a backfilled entry (occurredAt distinct from
     /// createdAt) surfaces its real event date, at day precision, in context.
     @MainActor
-    func test_advisorContext_usesEventDateNotRecordCreationDate_atDayPrecision() {
+    func test_advisorContext_usesEventDateNotRecordCreationDate_atDayPrecision() async {
         let loggedLate = Date(timeIntervalSince1970: 1_785_000_000)   // when it was typed in
         let actualEvent = Date(timeIntervalSince1970: 1_752_000_000)  // the real, earlier event date
         let experience = Experience(
@@ -891,7 +891,7 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertEqual(decisionSummary.createdAt, actualEvent,
             "Advisor context must use the decision's actual event date, not when it was logged")
 
-        let context = AdviceService.context(decisions: [decisionSummary], experiences: [experienceSummary])
+        let context = await AdviceService.context(decisions: [decisionSummary], experiences: [experienceSummary])
         let expectedDayString: String = {
             let f = DateFormatter()
             f.dateFormat = "yyyy-MM-dd"
@@ -911,7 +911,7 @@ final class RetrievalAndModelTests: XCTestCase {
     /// fallback — verify a heavy journal keeps the small, high-priority blocks
     /// and drops enough of the bulky ones to stay within a safe character budget,
     /// rather than assembling an unbounded string.
-    func test_advisorContext_withHeavyHistory_staysWithinCharacterBudget() {
+    func test_advisorContext_withHeavyHistory_staysWithinCharacterBudget() async {
         let longText = String(repeating: "Detailed context about what happened and why it mattered. ", count: 6)
         let decisions = (0..<18).map { i in
             DecisionSummary(
@@ -930,7 +930,7 @@ final class RetrievalAndModelTests: XCTestCase {
         }
         let people = [PersonProfileSummary(id: UUID(), text: "Akhil: no recorded relationship to anyone else in People.")]
 
-        let context = AdviceService.context(
+        let context = await AdviceService.context(
             decisions: decisions, experiences: experiences, people: people
         )
 
@@ -949,9 +949,9 @@ final class RetrievalAndModelTests: XCTestCase {
     /// data) must be TRUNCATED to fit, never skipped whole while leaving room
     /// unused, and the total must never exceed the budget no matter how large
     /// any one block is.
-    func test_advisorContext_oversizedSingleBlock_isTruncatedNotSkipped_andNeverExceedsBudget() {
+    func test_advisorContext_oversizedSingleBlock_isTruncatedNotSkipped_andNeverExceedsBudget() async {
         let hugeGraphContext = String(repeating: "1. [entry, 2026-07-15] Something happened. ", count: 500)
-        let context = AdviceService.context(
+        let context = await AdviceService.context(
             decisions: [], experiences: [], graphContext: hugeGraphContext
         )
 
@@ -967,11 +967,11 @@ final class RetrievalAndModelTests: XCTestCase {
     /// input. Truncation must snap to the last complete line instead of an
     /// arbitrary character position, even though that means using a little
     /// less than the full budget.
-    func test_advisorContext_oversizedBlock_truncatesAtLineBoundary_notMidWord() {
+    func test_advisorContext_oversizedBlock_truncatesAtLineBoundary_notMidWord() async {
         let line = "1. [entry, 2026-07-01] A complete evidence line of fixed length here.\n"
         let graphContext = "Evidence:\n" + String(repeating: line, count: 40)   // well over budget
 
-        let context = AdviceService.context(decisions: [], experiences: [], graphContext: graphContext)
+        let context = await AdviceService.context(decisions: [], experiences: [], graphContext: graphContext)
 
         XCTAssertLessThanOrEqual(context.count, 1_300)
         guard let ellipsisRange = context.range(of: "…") else {
