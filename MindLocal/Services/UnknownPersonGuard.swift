@@ -5,9 +5,9 @@ import NaturalLanguage
 /// model is given a chance to answer them.
 ///
 /// Reported case: "Did Nora's birthday happen last week?" — Nora is in neither
-/// People nor any entry. The context contained only Akhil's birthday, and the
+/// People nor any entry. The context contained only Samual's birthday, and the
 /// model answered "Nora's birthday is scheduled for August 2, 2026", taking
-/// Akhil's date and attaching a name that appears nowhere. Substitution like
+/// Samual's date and attaching a name that appears nowhere. Substitution like
 /// that is the worst shape a wrong answer takes: fluent, specific, and
 /// impossible to tell from a right one without checking the source.
 ///

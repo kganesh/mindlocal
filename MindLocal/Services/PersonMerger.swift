@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// Folds a duplicate `Person` into another (the survivor). Duplicates happen when
-/// the same person is written two ways — a voice-entry typo ("Akhil" vs a
+/// the same person is written two ways — a voice-entry typo ("Samual" vs a
 /// misheard spelling) resolves to two nodes. Merging moves the duplicate's entries
 /// and relationship edges onto the survivor, keeps the duplicate's names as aliases
 /// so future mentions auto-resolve, then deletes the duplicate.

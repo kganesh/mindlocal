@@ -4,11 +4,11 @@ import Foundation
 ///
 /// This used to emit a terse machine notation — bracketed metadata
 /// (`[entry, 2026-07-18] Title Summary (entryKind: experience, tone: pleasant)`)
-/// plus a separate block of arrows (`Akhil's birthday --happenedAt--> 4545
+/// plus a separate block of arrows (`Samual's birthday --happenedAt--> 4545
 /// Celia Ct`). Two problems with that. The model had to decode a syntax before
 /// it could reason, and every fragment was an invitation to recombine pieces
 /// that were never connected — which is exactly how a question about Nora came
-/// back answered with Akhil's date.
+/// back answered with Samual's date.
 ///
 /// So each node is now written as a finished sentence with its own facts folded
 /// in. Doing that removes the need for the arrow block entirely: those edges

@@ -60,9 +60,9 @@ final class BirthdayEventDeriverTests: XCTestCase {
         )
         let context = ModelContext(container)
 
-        let person = Person(name: "Akhil", birthdate: date(2015, 8, 2))
+        let person = Person(name: "Samual", birthdate: date(2015, 8, 2))
         context.insert(person)
-        let existing = Event(title: "Akhil’s birthday", date: date(2026, 8, 2), person: person)
+        let existing = Event(title: "Samual’s birthday", date: date(2026, 8, 2), person: person)
         context.insert(existing)
         try context.save()
 
@@ -79,7 +79,7 @@ final class BirthdayEventDeriverTests: XCTestCase {
         )
         let context = ModelContext(container)
 
-        let person = Person(name: "Akhil", birthdate: date(2015, 8, 2))
+        let person = Person(name: "Samual", birthdate: date(2015, 8, 2))
         context.insert(person)
         try context.save()
 

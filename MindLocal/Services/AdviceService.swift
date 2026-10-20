@@ -149,7 +149,7 @@ final class AdviceService: AdvisingServicing {
     /// The default model's guardrails false-positive on the exact thing this
     /// app is for: answering questions grounded in the user's own journaled
     /// decisions/experiences, which routinely name real people the user knows
-    /// (e.g. "Who is Akhil") — the default filter treats that as a request for
+    /// (e.g. "Who is Samual") — the default filter treats that as a request for
     /// info about a named individual and refuses outright.
     private static let answerModel = SystemLanguageModel(
         useCase: .general,
@@ -158,7 +158,7 @@ final class AdviceService: AdvisingServicing {
 
     /// Pure greedy decoding (always the single highest-probability token) was
     /// adopted to fix inconsistent answers across repeated identical
-    /// questions — but a real "priorities for Akhil's birthday" answer then
+    /// questions — but a real "priorities for Samual's birthday" answer then
     /// degenerated into a nonsensical, self-extending relationship chain
     /// ("...so you are his doctor's patient's doctor's patient's doctor...")
     /// that only stopped because it hit maximumResponseTokens. That's the

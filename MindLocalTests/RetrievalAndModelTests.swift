@@ -254,8 +254,8 @@ final class RetrievalAndModelTests: XCTestCase {
             "Must never mix third-person relationship lines into the reader's own profile")
     }
 
-    /// Regression: "What should be the priorities for Akhil's birthday?"
-    /// produced a hallucinated date ("July 28th, 2027") by conflating Akhil's
+    /// Regression: "What should be the priorities for Samual's birthday?"
+    /// produced a hallucinated date ("July 28th, 2027") by conflating Samual's
     /// actual birthday event with a different, similarly-worded birthday event
     /// for someone else nearby in the same Evidence list. Since Person.birthdate
     /// already exists, the profile should state the real upcoming birthday as a
@@ -265,9 +265,9 @@ final class RetrievalAndModelTests: XCTestCase {
         let calendar = Calendar(identifier: .gregorian)
         let birthdate = calendar.date(from: DateComponents(year: 2015, month: 8, day: 2))!
         let now = calendar.date(from: DateComponents(year: 2026, month: 7, day: 31))!
-        let akhil = Person(name: "Akhil", lastName: "Kolekar", birthdate: birthdate)
+        let samual = Person(name: "Samual", lastName: "Kolekar", birthdate: birthdate)
 
-        let profile = PersonContextBuilder.profile(for: akhil, relationships: [], now: now)
+        let profile = PersonContextBuilder.profile(for: samual, relationships: [], now: now)
 
         XCTAssertTrue(profile.contains("Upcoming birthday"),
             "A person with a recorded birthdate should have their upcoming birthday stated as a computed fact")
@@ -282,11 +282,11 @@ final class RetrievalAndModelTests: XCTestCase {
     }
 
     func test_personContextBuilder_profile_includesOccupationLikesAndDislikes() {
-        let akhil = Person(
-            name: "Akhil", occupation: "Student",
+        let samual = Person(
+            name: "Samual", occupation: "Student",
             likes: ["chocolate ice cream cake", "hiking"], dislikes: ["cilantro"]
         )
-        let profile = PersonContextBuilder.profile(for: akhil, relationships: [])
+        let profile = PersonContextBuilder.profile(for: samual, relationships: [])
 
         XCTAssertTrue(profile.contains("Occupation: Student."))
         XCTAssertTrue(profile.contains("Likes: chocolate ice cream cake, hiking."))
@@ -689,17 +689,17 @@ final class RetrievalAndModelTests: XCTestCase {
         XCTAssertNil(result.mostRecentInteraction)
     }
 
-    /// Regression: "what are priorities when MEETING Akhil" pulled in an
+    /// Regression: "what are priorities when MEETING Samual" pulled in an
     /// unrelated event (the user's own wisdom tooth extraction, no person
-    /// associated at all) as evidence about Akhil — because the word "meeting"
+    /// associated at all) as evidence about Samual — because the word "meeting"
     /// sets wantsEvents, and matchesStructuredIntent boosted EVERY event node
-    /// in the whole graph, not just ones actually connected to Akhil. Verify an
+    /// in the whole graph, not just ones actually connected to Samual. Verify an
     /// unconnected event doesn't outrank/appear alongside evidence genuinely
     /// linked to the mentioned person once a person is named.
     @MainActor
     func test_memoryGraphRetriever_structuredIntentBoost_scopedToMentionedPerson() {
         let me = Person(name: "Me", isMe: true)
-        let son = Person(name: "Akhil")
+        let son = Person(name: "Samual")
         let relationship = PersonRelationship(subject: son, type: .child, object: me)
         let sonNodeID = MemoryGraphBuilder.personNodeID(son)
         let linkedEventID = MemoryNodeID(rawValue: "event:birthday")
@@ -707,9 +707,9 @@ final class RetrievalAndModelTests: XCTestCase {
         let graph = MemoryGraph(
             builtAt: .now,
             nodes: [
-                MemoryNode(id: sonNodeID, kind: .person, title: "Akhil"),
+                MemoryNode(id: sonNodeID, kind: .person, title: "Samual"),
                 MemoryNode(
-                    id: linkedEventID, kind: .event, title: "Akhil's birthday",
+                    id: linkedEventID, kind: .event, title: "Samual's birthday",
                     date: Date(timeIntervalSince1970: 1_754_100_000),
                     properties: ["domain": "other"]
                 ),
@@ -721,20 +721,20 @@ final class RetrievalAndModelTests: XCTestCase {
             ],
             edges: [
                 MemoryEdge(from: sonNodeID, to: linkedEventID, kind: .hasEvent, label: "")
-                // No edge at all between Akhil and the wisdom tooth extraction.
+                // No edge at all between Samual and the wisdom tooth extraction.
             ],
             sourceFingerprint: "test"
         )
 
         let result = MemoryGraphRetriever.retrieve(
-            query: "What are priorities when meeting Akhil?",
+            query: "What are priorities when meeting Samual?",
             graph: graph, people: [me, son], relationships: [relationship], limit: 8
         )
 
         XCTAssertTrue(result.evidenceNodes.contains { $0.id == linkedEventID },
-            "Akhil's actual birthday event must still appear as evidence")
+            "Samual's actual birthday event must still appear as evidence")
         XCTAssertFalse(result.evidenceNodes.contains { $0.id == unlinkedEventID },
-            "An event with no connection to Akhil must not appear as evidence just because the question said \"meeting\"")
+            "An event with no connection to Samual must not appear as evidence just because the question said \"meeting\"")
     }
 
     @MainActor
@@ -839,7 +839,7 @@ final class RetrievalAndModelTests: XCTestCase {
     /// Regression: .relatedTo edges are built one-for-one from PersonRelationship
     /// — the same facts PersonContextBuilder already states unambiguously in the
     /// PEOPLE block ("You are Parent of Aditya Kolekar."). Once resolved to real
-    /// names, "Akhil Kolekar --relatedTo--> Ganesh Kolekar (Child)" is genuinely
+    /// names, "Samual Kolekar --relatedTo--> Ganesh Kolekar (Child)" is genuinely
     /// ambiguous about which side is the child, and produced exactly this kind
     /// of misread ("Ganesh Kolekar is your parent") on-device. Verify these
     /// edges never appear in "Useful links" at all.
@@ -847,7 +847,7 @@ final class RetrievalAndModelTests: XCTestCase {
         let meID = MemoryNodeID(rawValue: "person:me")
         let childID = MemoryNodeID(rawValue: "person:child")
         let meNode = MemoryNode(id: meID, kind: .person, title: "Ganesh Kolekar")
-        let childNode = MemoryNode(id: childID, kind: .person, title: "Akhil Kolekar")
+        let childNode = MemoryNode(id: childID, kind: .person, title: "Samual Kolekar")
         let result = MemoryGraphRetrievalResult(
             intent: .empty(query: "Who is Ganesh?"),
             seedNodes: [meNode, childNode],
@@ -928,7 +928,7 @@ final class RetrievalAndModelTests: XCTestCase {
                 domain: "family", tags: [], outcomes: [longText]
             )
         }
-        let people = [PersonProfileSummary(id: UUID(), text: "Akhil: no recorded relationship to anyone else in People.")]
+        let people = [PersonProfileSummary(id: UUID(), text: "Samual: no recorded relationship to anyone else in People.")]
 
         let context = await AdviceService.context(
             decisions: decisions, experiences: experiences, people: people
@@ -936,7 +936,7 @@ final class RetrievalAndModelTests: XCTestCase {
 
         XCTAssertLessThanOrEqual(context.count, 1_300,
             "Assembled context must stay within the safe on-device character budget regardless of journal size")
-        XCTAssertTrue(context.contains("Akhil"),
+        XCTAssertTrue(context.contains("Samual"),
             "The small, high-priority People block must survive even when the bulky Decisions/Experiences blocks are trimmed")
     }
 
@@ -983,24 +983,24 @@ final class RetrievalAndModelTests: XCTestCase {
             "Truncation must land right after a complete line, never mid-word")
     }
 
-    /// Regression: "priorities to celebrate Akhil's birthday" produced a
+    /// Regression: "priorities to celebrate Samual's birthday" produced a
     /// response that repeated the exact same four-sentence PEOPLE-derived
     /// block roughly ten times in a row until it hit maximumResponseTokens —
     /// a self-copy loop, not a wrong fact. Once a sentence repeats one
     /// already seen, keep only what came before the first repeat.
     func test_stripRepetition_truncatesAtFirstRepeatedSentence() {
-        let looping = "Akhil is your child. Akhil is Sibling of Aditya Kolekar. "
-            + "Akhil is your child. Akhil is Sibling of Aditya Kolekar. "
-            + "Akhil is your child. Akhil is Sibling of Aditya Kolekar."
+        let looping = "Samual is your child. Samual is Sibling of Aditya Kolekar. "
+            + "Samual is your child. Samual is Sibling of Aditya Kolekar. "
+            + "Samual is your child. Samual is Sibling of Aditya Kolekar."
 
         let result = AdviceService.stripRepetition(looping)
 
-        XCTAssertEqual(result, "Akhil is your child. Akhil is Sibling of Aditya Kolekar.",
+        XCTAssertEqual(result, "Samual is your child. Samual is Sibling of Aditya Kolekar.",
             "Must stop at the first sentence that repeats one already seen in this response")
     }
 
     func test_stripRepetition_leavesNonRepeatingAnswerUnchanged() {
-        let answer = "Plan a small gathering with Akhil's favorite chocolate ice cream cake. "
+        let answer = "Plan a small gathering with Samual's favorite chocolate ice cream cake. "
             + "Invite Aditya since they're siblings. Keep it low-key on a weeknight."
 
         XCTAssertEqual(AdviceService.stripRepetition(answer), answer)
@@ -1049,22 +1049,22 @@ final class RetrievalAndModelTests: XCTestCase {
         let service = SequencedAdviceService()
         let viewModel = AdviceViewModel(advisor: service, speech: MockSpeechService())
 
-        viewModel.question = "who is Akhil"
+        viewModel.question = "who is Samual"
         let request = viewModel.beginAsk()!
 
         await viewModel.askWhoIs(
             requestID: request.id,
             question: request.question,
-            people: [PersonProfileSummary(id: UUID(), text: "Akhil: no recorded relationship to anyone else in People.")]
+            people: [PersonProfileSummary(id: UUID(), text: "Samual: no recorded relationship to anyone else in People.")]
         )
 
-        XCTAssertEqual(viewModel.phase, .answer("who-is answer for who is Akhil"))
+        XCTAssertEqual(viewModel.phase, .answer("who-is answer for who is Samual"))
     }
 
     /// Regression: "who is Connor" (a name never saved as a Person) fell
     /// through to the generic advise() pipeline, which had no evidence
     /// mentioning "Connor" at all — the model still answered, fabricating
-    /// "Connor is Akhil's friend" and citing an entry that never named him.
+    /// "Connor is Samual's friend" and citing an entry that never named him.
     /// The real (non-mock) AdviceService must short-circuit to a deterministic
     /// non-answer for an unresolved name, with no model call, so there's no
     /// text generation step left that could invent a relationship.
@@ -1690,21 +1690,21 @@ final class RetrievalAndModelTests: XCTestCase {
     // MARK: - Context packing quality
 
     /// Edges whose endpoints aren't among the packed nodes used to render as
-    /// "a person --hasEvent--> Akhil's birthday" — unresolvable and
+    /// "a person --hasEvent--> Samual's birthday" — unresolvable and
     /// ungrammatical. They are dropped now.
     @MainActor
     func test_packer_omitsEdgesWithUnnameableEndpoints() {
         let now = Date()
         let me = Person(name: "Ganesh", isMe: true)
-        let akhil = Person(name: "Akhil")
-        let birthday = Event(title: "Akhil's birthday", date: now, person: akhil)
+        let samual = Person(name: "Samual")
+        let birthday = Event(title: "Samual's birthday", date: now, person: samual)
         let graph = MemoryGraphBuilder.build(
             experiences: [], events: [birthday], decisions: [],
-            people: [me, akhil], relationships: [], conflicts: [], reminders: []
+            people: [me, samual], relationships: [], conflicts: [], reminders: []
         )
         let result = MemoryGraphRetriever.retrieve(
             query: "what events happened", graph: graph,
-            people: [me, akhil], relationships: [], now: now, limit: 24
+            people: [me, samual], relationships: [], now: now, limit: 24
         )
         let packed = MemoryGraphContextPacker.pack(result)
         XCTAssertFalse(packed.contains("a person"), "Unnameable endpoints must not be described as 'a person'")
@@ -1740,13 +1740,13 @@ final class RetrievalAndModelTests: XCTestCase {
     // MARK: - Unknown person named in a non-identity question
 
     /// Reported: "Did Nora's birthday happen last week?" — Nora exists nowhere.
-    /// The context held only Akhil's birthday, and the model answered "Nora's
-    /// birthday is scheduled for August 2, 2026", moving Akhil's date onto a
+    /// The context held only Samual's birthday, and the model answered "Nora's
+    /// birthday is scheduled for August 2, 2026", moving Samual's date onto a
     /// name that appears nowhere.
     @MainActor
     func test_unknownPersonGuard_extractsPossessiveNames() {
         XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "Did Nora's birthday happen last week"), ["Nora"])
-        XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "what about Akhil\u{2019}s party?"), ["Akhil"])
+        XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "what about Samual\u{2019}s party?"), ["Samual"])
         XCTAssertEqual(UnknownPersonGuard.possessiveNames(in: "Anne-Marie's visit"), ["Anne-Marie"])
     }
 
@@ -1770,16 +1770,16 @@ final class RetrievalAndModelTests: XCTestCase {
     @MainActor
     func test_unknownPersonGuard_refusesCompletelyUnknownName() throws {
         let me = Person(name: "Ganesh", isMe: true)
-        let akhil = Person(name: "Akhil")
-        let birthday = Event(title: "Akhil's birthday", date: Date(), person: akhil)
+        let samual = Person(name: "Samual")
+        let birthday = Event(title: "Samual's birthday", date: Date(), person: samual)
         let graph = MemoryGraphBuilder.build(
             experiences: [], events: [birthday], decisions: [],
-            people: [me, akhil], relationships: [], conflicts: [], reminders: []
+            people: [me, samual], relationships: [], conflicts: [], reminders: []
         )
         let refusal = try XCTUnwrap(UnknownPersonGuard.refusal(
-            for: "Did Nora's birthday happen last week", people: [me, akhil], graph: graph))
+            for: "Did Nora's birthday happen last week", people: [me, samual], graph: graph))
         XCTAssertTrue(refusal.contains("Nora"))
-        XCTAssertFalse(refusal.contains("Akhil"), "Must never mention a different person's data")
+        XCTAssertFalse(refusal.contains("Samual"), "Must never mention a different person's data")
         XCTAssertFalse(refusal.contains("August"), "Must never carry over another person's date")
     }
 
@@ -1788,13 +1788,13 @@ final class RetrievalAndModelTests: XCTestCase {
     @MainActor
     func test_unknownPersonGuard_allowsKnownPerson() {
         let me = Person(name: "Ganesh", isMe: true)
-        let akhil = Person(name: "Akhil")
+        let samual = Person(name: "Samual")
         let graph = MemoryGraphBuilder.build(
             experiences: [], events: [], decisions: [],
-            people: [me, akhil], relationships: [], conflicts: [], reminders: []
+            people: [me, samual], relationships: [], conflicts: [], reminders: []
         )
         XCTAssertNil(UnknownPersonGuard.refusal(
-            for: "Did Akhil's birthday happen last week", people: [me, akhil], graph: graph),
+            for: "Did Samual's birthday happen last week", people: [me, samual], graph: graph),
             "A known person must not be refused")
     }
 

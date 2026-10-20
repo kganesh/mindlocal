@@ -73,7 +73,7 @@ struct ExperienceDraft: Equatable {
     @Guide(description: "A named person's occupation, only where the note explicitly states it (e.g. 'David, a nurse'). A role reference like 'my manager' is a relationship, not a job title.")
     var personOccupations: [PersonOccupationDraft]
 
-    @Guide(description: "A named person's stated ongoing like or dislike (e.g. 'Akhil loves chocolate cake'). Not a one-off reaction ('was excited about the ice cream today').")
+    @Guide(description: "A named person's stated ongoing like or dislike (e.g. 'Samual loves chocolate cake'). Not a one-off reaction ('was excited about the ice cream today').")
     var personPreferences: [PersonPreferenceDraft]
 }
 

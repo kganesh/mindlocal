@@ -2,13 +2,13 @@ import Foundation
 import FoundationModels
 
 /// Guided-generation target for a specific named person's stated like or
-/// dislike (e.g. "Akhil loves chocolate ice cream cake" -> Akhil / chocolate
+/// dislike (e.g. "Samual loves chocolate ice cream cake" -> Samual / chocolate
 /// ice cream cake / like). Grounded in the note; never invented. Deliberately
 /// distinct from a one-off reaction to a single moment — see the extraction
 /// instructions for the "stated preference vs. one-time reaction" distinction.
 @Generable
 struct PersonPreferenceDraft: Equatable {
-    @Guide(description: "The person's name or relationship, exactly as mentioned (e.g. 'Akhil', 'my manager Sarah').")
+    @Guide(description: "The person's name or relationship, exactly as mentioned (e.g. 'Samual', 'my manager Sarah').")
     var name: String
 
     @Guide(description: "The specific thing they like or dislike, exactly as stated (e.g. 'chocolate ice cream cake', 'cilantro').")

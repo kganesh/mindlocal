@@ -6,7 +6,7 @@ import FoundationModels
 /// dropped, mirroring `DecisionDraft`'s empty-`statement` rule.
 @Generable
 struct ConflictDraft: Equatable {
-    @Guide(description: "Who the disagreement, argument, or tension was with — a specific person by name or relationship (e.g. 'Akhil', 'my manager', 'Mom').")
+    @Guide(description: "Who the disagreement, argument, or tension was with — a specific person by name or relationship (e.g. 'Samual', 'my manager', 'Mom').")
     var with: String
 
     @Guide(description: "What the disagreement was about, in a short phrase or sentence, in the writer's own words.")

@@ -72,12 +72,12 @@ Several pieces exist only to prevent that:
 
 ### How a question picks its evidence
 
-Taking "any tension with Akhil this past week?" as the example. Three of the
+Taking "any tension with Samual this past week?" as the example. Three of the
 four ways out of the first decision never reach the model at all.
 
 ```mermaid
 flowchart TB
-    Q["Question<br>any tension with Akhil<br>this past week?"]
+    Q["Question<br>any tension with Samual<br>this past week?"]
     Q --> GATE{"Answerable<br>without the model?"}
 
     GATE -->|a name never seen| REFUSE["UnknownPersonGuard<br>refuses"]
@@ -85,19 +85,19 @@ flowchart TB
     GATE -->|when did I last see X| MAX["A real max by date over<br>every linked interaction"]
     GATE -->|otherwise| RES["MemoryQueryResolver"]
 
-    RES --> IP["People<br>Akhil"]
+    RES --> IP["People<br>Samual"]
     RES --> IT["Window<br>the past week"]
     RES --> IW["Wants<br>conflicts"]
 
     subgraph PG["People"]
-        ME["Person: Me"] -->|spouse| AK["Person: Akhil"]
+        ME["Person: Me"] -->|spouse| AK["Person: Samual"]
     end
     IP --> AK
 
     subgraph MG["Memory graph"]
-        A2["Person: Akhil<br>100, named in the question"]
+        A2["Person: Samual<br>100, named in the question"]
         A2 -->|hasConflict| CF["Conflict<br>tension about the schedule<br>3 days ago"]
-        A2 -->|mentions| EN["Entry<br>Akhil worried about<br>the parent meeting<br>2 days ago"]
+        A2 -->|mentions| EN["Entry<br>Samual worried about<br>the parent meeting<br>2 days ago"]
         A2 -->|hasEvent| EV["Event<br>coffee after work<br>last Tuesday"]
         A2 -->|hasReminder| RM["Reminder<br>ask about the school form<br>written 10 days ago"]
         A2 -->|hasConflict| OLD["Conflict<br>argument about the move<br>last month"]
@@ -121,7 +121,7 @@ flowchart TB
 ```
 
 Those edge labels carry only the signals that separate the three survivors. A
-text match and a recency bonus apply to most of Akhil's records here, so they
+text match and a recency bonus apply to most of Samual's records here, so they
 change nothing about the order. The full set of signals:
 
 | Signal | Worth |
@@ -138,7 +138,7 @@ up half the edge weight again, and the best 24 are packed. Two rules matter
 more than the arithmetic. Dated evidence outside an asked-for window is removed
 rather than ranked down, which is why last month's argument is absent from an
 answer about this week rather than merely last. And the readings of what a
-question wants are combined with and, not or, so "what should I ask Akhil
+question wants are combined with and, not or, so "what should I ask Samual
 before dinner tonight" reads as reminders and events at once, no record can be
 both, and the structure bonus falls away for everything. The window and the
 edges still rank it.
@@ -151,7 +151,7 @@ builds is checked against the built binary rather than assumed from the source.
 ## People
 
 People are extracted from entries, so the same person written two ways becomes
-two records. A misheard name is the usual cause: "Akil" for "Akhil" creates a
+two records. A misheard name is the usual cause: "Samuel" for "Samual" creates a
 second person, and correcting the spelling leaves two identical ones.
 
 The editor watches for that. When another person matches on first and last name

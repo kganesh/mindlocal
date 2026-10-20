@@ -194,35 +194,35 @@ final class PersonResolverTests: XCTestCase {
 
     func test_linkPeople_prependsNewLike() {
         let ctx = makeContext()
-        let akhil = Person(name: "Akhil", likes: ["vanilla ice cream"])
-        ctx.insert(akhil)
-        let experience = Experience(title: "Day", summary: "Akhil loves chocolate ice cream cake.", people: ["Akhil"])
+        let samual = Person(name: "Samual", likes: ["vanilla ice cream"])
+        ctx.insert(samual)
+        let experience = Experience(title: "Day", summary: "Samual loves chocolate ice cream cake.", people: ["Samual"])
         ctx.insert(experience)
 
         PersonResolver.linkPeople(
             to: experience,
-            personPreferences: [PersonPreferenceDraft(name: "Akhil", item: "chocolate ice cream cake", sentiment: "like")],
+            personPreferences: [PersonPreferenceDraft(name: "Samual", item: "chocolate ice cream cake", sentiment: "like")],
             in: ctx
         )
 
-        XCTAssertEqual(akhil.likes, ["chocolate ice cream cake", "vanilla ice cream"],
+        XCTAssertEqual(samual.likes, ["chocolate ice cream cake", "vanilla ice cream"],
             "A newly mentioned like must be prepended, not appended, so the most recent stays on top")
     }
 
     func test_linkPeople_dedupesLikeCaseInsensitively() {
         let ctx = makeContext()
-        let akhil = Person(name: "Akhil", likes: ["Chocolate Ice Cream Cake"])
-        ctx.insert(akhil)
-        let experience = Experience(title: "Day", summary: "Akhil loves chocolate ice cream cake.", people: ["Akhil"])
+        let samual = Person(name: "Samual", likes: ["Chocolate Ice Cream Cake"])
+        ctx.insert(samual)
+        let experience = Experience(title: "Day", summary: "Samual loves chocolate ice cream cake.", people: ["Samual"])
         ctx.insert(experience)
 
         PersonResolver.linkPeople(
             to: experience,
-            personPreferences: [PersonPreferenceDraft(name: "Akhil", item: "chocolate ice cream cake", sentiment: "like")],
+            personPreferences: [PersonPreferenceDraft(name: "Samual", item: "chocolate ice cream cake", sentiment: "like")],
             in: ctx
         )
 
-        XCTAssertEqual(akhil.likes.count, 1, "Re-mentioning the same like (any casing) must not create a duplicate entry")
+        XCTAssertEqual(samual.likes.count, 1, "Re-mentioning the same like (any casing) must not create a duplicate entry")
     }
 
     func test_linkPeople_addsDislikeToDislikesNotLikes() {
@@ -244,21 +244,21 @@ final class PersonResolverTests: XCTestCase {
 
     func test_linkPeople_ignoresIncompletePreferenceDrafts() {
         let ctx = makeContext()
-        let experience = Experience(title: "Day", summary: "Akhil had a good day.", people: ["Akhil"])
+        let experience = Experience(title: "Day", summary: "Samual had a good day.", people: ["Samual"])
         ctx.insert(experience)
 
         PersonResolver.linkPeople(
             to: experience,
             personPreferences: [
-                PersonPreferenceDraft(name: "Akhil", item: "", sentiment: "like"),
+                PersonPreferenceDraft(name: "Samual", item: "", sentiment: "like"),
                 PersonPreferenceDraft(name: "", item: "ice cream", sentiment: "like"),
-                PersonPreferenceDraft(name: "Akhil", item: "ice cream", sentiment: "neutral")
+                PersonPreferenceDraft(name: "Samual", item: "ice cream", sentiment: "neutral")
             ],
             in: ctx
         )
 
         let people = (try? ctx.fetch(FetchDescriptor<Person>())) ?? []
-        XCTAssertEqual(people.first { $0.name == "Akhil" }?.likes, [])
+        XCTAssertEqual(people.first { $0.name == "Samual" }?.likes, [])
     }
 
     // MARK: - resolve

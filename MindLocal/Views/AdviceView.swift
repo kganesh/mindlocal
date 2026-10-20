@@ -337,7 +337,7 @@ struct AdviceView: View {
             // heard of while asking about something else
             // entirely ("did Nora's birthday happen last
             // week"). Handing that to the model let it answer
-            // from the nearest similar fact — it took Akhil's
+            // from the nearest similar fact — it took Samual's
             // birthday and put Nora's name on it. Refuse
             // deterministically instead.
             if let refusal = UnknownPersonGuard.refusal(

@@ -384,8 +384,8 @@ private struct PersonProfileEditor: View {
     }
 
     /// Another person with the same first *and* last name. This is what fixing a
-    /// misspelling produces: a mis-heard "Akil" is extracted as a new person, and
-    /// renaming it to "Akhil" leaves two identical nodes rather than one. Nothing
+    /// misspelling produces: a mis-heard "Samuel" is extracted as a new person, and
+    /// renaming it to "Samual" leaves two identical nodes rather than one. Nothing
     /// merges them on its own — merging deletes a record, so it stays a decision
     /// the user makes — but at the moment the names line up it is offered here.
     ///

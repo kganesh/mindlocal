@@ -30,7 +30,7 @@ struct QueryIntentDraft: Equatable {
     // routing compares this with `==`, and a free-text description alone let
     // the model return something like "Who is" or "identity" that silently
     // never matched, always falling through to the generic pipeline.
-    @Guide(description: "What kind of question this is — used to route to a dedicated prompt instead of the generic one. 'who_is' if it's ONLY asking who someone is or how they're related to the user (e.g. 'who is Akhil', 'how am I related to Priya', 'tell me about Sam') — not if it also asks for advice, a recap, or anything beyond identity. 'generic' for everything else, including when unsure.", .anyOf(["who_is", "generic"]))
+    @Guide(description: "What kind of question this is — used to route to a dedicated prompt instead of the generic one. 'who_is' if it's ONLY asking who someone is or how they're related to the user (e.g. 'who is Samual', 'how am I related to Priya', 'tell me about Sam') — not if it also asks for advice, a recap, or anything beyond identity. 'generic' for everything else, including when unsure.", .anyOf(["who_is", "generic"]))
     var questionType: String
 }
 

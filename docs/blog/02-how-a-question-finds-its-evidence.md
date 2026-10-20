@@ -83,15 +83,15 @@ Retrieval picks the nodes. How they are written down turns out to matter just as
 The compact, machine-shaped version looks like this:
 
 ```
-[event, 2026-08-02] Akhil's birthday (domain: other, location: 4545 Celia Ct)
-Akhil's birthday --happenedAt--> 4545 Celia Ct (4545 Celia Ct)
+[event, 2026-08-02] Samual's birthday (domain: other, location: 4545 Celia Ct)
+Samual's birthday --happenedAt--> 4545 Celia Ct (4545 Celia Ct)
 ```
 
 We write full sentences instead:
 
 ```
-On Sunday 2 August 2026 (13 days ago), there was an event called "Akhil's
-birthday". It involved Akhil. It took place at 4545 Celia Ct, Fremont, CA.
+On Sunday 2 August 2026 (13 days ago), there was an event called "Samual's
+birthday". It involved Samual. It took place at 4545 Celia Ct, Fremont, CA.
 ```
 
 Three things change with that.
